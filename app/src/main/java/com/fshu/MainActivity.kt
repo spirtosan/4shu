@@ -22,6 +22,7 @@ import com.fshu.data.model.User
 import com.fshu.data.remote.WebSocketClient
 import com.fshu.databinding.ActivityMainBinding
 import com.fshu.service.FshuService
+import com.fshu.ui.AppLockManager
 import com.fshu.ui.BackgroundBottomSheet
 import com.fshu.ui.BackgroundHelper
 import com.fshu.ui.ConnectionTestSheet
@@ -310,6 +311,22 @@ class MainActivity : AppCompatActivity() {
             bgUri        = Prefs.getMainBgUri(this),
             defaultColor = ContextCompat.getColor(this, R.color.bg_primary)
         )
+    }
+
+    override fun onStart() {
+        super.onStart()
+        if (AppLockManager.shouldLock(this)) {
+            AppLockManager.showPrompt(
+                activity = this,
+                onSuccess = { /* unlocked, continue normally */ },
+                onFailed = { finishAffinity() }
+            )
+        }
+    }
+
+    override fun onStop() {
+        super.onStop()
+        AppLockManager.onAppBackground()
     }
 
     override fun onResume() {

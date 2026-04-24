@@ -122,6 +122,15 @@ class SettingsActivity : AppCompatActivity() {
             }
         }
 
+        // App lock toggle
+        binding.switchAppLock.isChecked = Prefs.getAppLockEnabled(this)
+        binding.rowAppLock.setOnClickListener {
+            val enabled = !Prefs.getAppLockEnabled(this)
+            Prefs.setAppLockEnabled(this, enabled)
+            binding.switchAppLock.isChecked = enabled
+            Toast.makeText(this, if (enabled) "App lock enabled" else "App lock disabled", Toast.LENGTH_SHORT).show()
+        }
+
         // History sync
         binding.rowSyncHistory.setOnClickListener { showGlobalHistoryDialog() }
 

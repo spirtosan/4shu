@@ -154,6 +154,14 @@ object Prefs {
         ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE)
             .edit().putString("fcm_token", value).apply()
 
+    fun getAppLockEnabled(ctx: Context): Boolean =
+        ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE)
+            .getBoolean("app_lock_enabled", false)
+
+    fun setAppLockEnabled(ctx: Context, enabled: Boolean) =
+        ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE)
+            .edit().putBoolean("app_lock_enabled", enabled).apply()
+
     fun getSessionToken(ctx: Context): String =
         getSecurePrefs(ctx).getString("session_token", "") ?: ""
 
