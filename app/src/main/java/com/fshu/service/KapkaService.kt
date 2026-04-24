@@ -86,6 +86,9 @@ class FshuService : Service() {
         @Volatile private var prevAlarmVolume: Int = -1
 
         fun cancelCallNotif(context: Context) {
+            Handler(Looper.getMainLooper()).post {
+                android.widget.Toast.makeText(context, "cancelCallNotif called", android.widget.Toast.LENGTH_SHORT).show()
+            }
             val id = activeCallNotifId
             if (id != -1) {
                 context.getSystemService(NotificationManager::class.java).cancel(id)
@@ -912,6 +915,9 @@ class FshuService : Service() {
         } else {
             @Suppress("DEPRECATION")
             getSystemService(android.os.Vibrator::class.java)
+        }
+        Handler(Looper.getMainLooper()).post {
+            android.widget.Toast.makeText(this, "Vibrating SDK=${Build.VERSION.SDK_INT} vib=${vibrator != null}", android.widget.Toast.LENGTH_LONG).show()
         }
         val pattern = longArrayOf(0, 1000, 1000, 1000, 1000, 1000, 1000)
         vibrator.vibrate(VibrationEffect.createWaveform(pattern, 0))
