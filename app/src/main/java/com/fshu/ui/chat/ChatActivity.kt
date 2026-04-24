@@ -80,7 +80,11 @@ class ChatActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         peer = intent.getStringExtra(EXTRA_PEER) ?: run { finish(); return }
-        title = peer
+
+        val toolbar = findViewById<androidx.appcompat.widget.Toolbar>(R.id.toolbar)
+        setSupportActionBar(toolbar)
+        supportActionBar?.setDisplayHomeAsUpEnabled(true)
+        title = getNickname(peer) ?: peer
 
         supportFragmentManager.setFragmentResultListener(BackgroundBottomSheet.RESULT_KEY, this) { _, _ ->
             applyBackground()
@@ -330,6 +334,7 @@ class ChatActivity : AppCompatActivity() {
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         when (item.itemId) {
+            android.R.id.home -> { finish(); return true }
             R.id.action_call -> {
                 startActivity(Intent(this, CallActivity::class.java).apply {
                     putExtra(CallActivity.EXTRA_PEER, peer)
