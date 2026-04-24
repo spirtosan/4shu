@@ -1,0 +1,9 @@
+{
+  "name": "fshu-server",
+  "version": "1.0.0",
+  "main": "server.js",
+  "dependencies": {
+    "bcrypt": "^5.1.1",
+    "ws": "^8.16.0"
+  }
+}

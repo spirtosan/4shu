@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Adaptive icon foreground — 108×108dp canvas.
+    Safe zone: inner 72×72dp circle centred at (54,54).
+    Content: blue circle (#1976D2) with bold white "M".
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Blue circle filling the safe zone -->
+    <path
+        android:fillColor="#1976D2"
+        android:pathData="M54,8 C78.3,8 100,29.7 100,54 C100,78.3 78.3,100 54,100 C29.7,100 8,78.3 8,54 C8,29.7 29.7,8 54,8 Z" />
+
+    <!-- Bold white M — coordinates within the circle -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M30,78 L30,32 L39.5,32 L54,57 L68.5,32 L78,32 L78,78 L68.5,78 L68.5,50 L54,72 L39.5,50 L39.5,78 Z" />
+
+</vector>

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="primary">#1976D2</color>
+    <color name="primary_dark">#1565C0</color>
+    <color name="white">#FFFFFFFF</color>
+    <color name="black">#FF000000</color>
+
+    <!-- User list -->
+    <color name="online_green">#4CAF50</color>
+    <color name="offline_gray">#9E9E9E</color>
+    <!-- Avatar background colors (Material Design 700 shades) -->
+    <color name="avatar_red">#D32F2F</color>
+    <color name="avatar_pink">#C2185B</color>
+    <color name="avatar_purple">#7B1FA2</color>
+    <color name="avatar_indigo">#303F9F</color>
+    <color name="avatar_blue">#1976D2</color>
+    <color name="avatar_teal">#00796B</color>
+    <color name="avatar_green">#388E3C</color>
+    <color name="avatar_orange">#E64A19</color>
+    <color name="avatar_brown">#5D4037</color>
+    <color name="avatar_blueGrey">#455A64</color>
+</resources>

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <item
+        android:id="@+id/action_user_call"
+        android:title="Voice call" />
+
+    <item
+        android:id="@+id/action_user_video_call"
+        android:title="Video call" />
+
+    <item
+        android:id="@+id/action_user_test_connection"
+        android:title="Test connection" />
+
+    <item
+        android:id="@+id/action_user_emergency_call"
+        android:title="🚨 Emergency call" />
+
+    <item
+        android:id="@+id/action_user_emergency_location"
+        android:title="🆘 Emergency call + location" />
+
+
+</menu>
