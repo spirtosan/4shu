@@ -39,6 +39,7 @@ $files = @(
     "app\src\main\java\com\fshu\ui\BackgroundBottomSheet.kt",
     "app\src\main\java\com\fshu\ui\BackgroundHelper.kt",
     "app\src\main\java\com\fshu\ui\ConnectionTestSheet.kt",
+    "app\src\main\java\com\fshu\ui\AppLockManager.kt",
     # Util
     "app\src\main\java\com\fshu\util\CryptoHelper.kt",
     "app\src\main\java\com\fshu\util\LocationHelper.kt",
@@ -62,6 +63,8 @@ $files = @(
     "app\src\main\res\menu\menu_admin_panel.xml",
     # Resources
     "app\src\main\res\values\strings.xml",
+    "app\src\main\res\values\colors.xml",
+    "app\src\main\res\values\themes.xml",
     "app\src\main\res\xml\file_paths.xml",
     # Layouts
     "app\src\main\res\layout\activity_settings.xml",
@@ -71,6 +74,12 @@ $files = @(
     "app\src\main\res\layout\activity_chat.xml",
     "app\src\main\res\layout\item_message_sent.xml",
     "app\src\main\res\layout\item_message_received.xml",
+    "app\src\main\res\layout\item_list_sent.xml",
+    "app\src\main\res\layout\item_list_received.xml",
+    "app\src\main\res\layout\item_location_sent.xml",
+    "app\src\main\res\layout\item_location_received.xml",
+    "app\src\main\res\layout\item_location_request_sent.xml",
+    "app\src\main\res\layout\item_location_request_received.xml",
     "app\src\main\res\layout\item_user.xml"
 )
 
