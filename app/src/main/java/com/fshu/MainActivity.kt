@@ -394,6 +394,7 @@ class MainActivity : AppCompatActivity() {
             }
             "message", "file", "list", "location", "location-request", "location-response" -> {
                 if (users.isNotEmpty()) launchEnrich(users.toList())
+                else loadCachedUsers()
             }
         }
     }
