@@ -393,8 +393,13 @@ class MainActivity : AppCompatActivity() {
                 adapter.notifyDataSetChanged()
             }
             "message", "file", "list", "location", "location-request", "location-response" -> {
-                if (users.isNotEmpty()) launchEnrich(users.toList())
-                else loadCachedUsers()
+                if (users.isNotEmpty()) {
+                    enrichJob?.cancel()
+                    enrichJob = lifecycleScope.launch {
+                        kotlinx.coroutines.delay(300)
+                        enrichWithLastMessages(users.toList())
+                    }
+                } else loadCachedUsers()
             }
         }
     }
