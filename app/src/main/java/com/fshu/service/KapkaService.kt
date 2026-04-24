@@ -442,6 +442,7 @@ class FshuService : Service() {
             ))
         }
         notifyMessage(from, content)
+        MessageBus.tryEmit(json)
     }
 
     private suspend fun persistIncomingFile(json: JsonObject) {
@@ -478,6 +479,7 @@ class FshuService : Service() {
             ))
         }
         notifyMessage(from, content)
+        MessageBus.tryEmit(json)
     }
 
     /**
@@ -634,6 +636,7 @@ class FshuService : Service() {
             )
             if (!isSent) notifyMessage(owner, "\uD83D\uDCDD Todo list")
         }
+        MessageBus.tryEmit(json)
     }
 
     /** Handles list-ack from server: updates list version and marks message as SENT. */
@@ -739,6 +742,7 @@ class FshuService : Service() {
                 ))
             }
         }
+        MessageBus.tryEmit(json)
     }
 
     private suspend fun persistLocationResponse(json: JsonObject) {
@@ -794,6 +798,7 @@ class FshuService : Service() {
             WebSocketClient.send(mapOf("type" to "delivered", "messageId" to remoteId, "from" to me, "to" to from))
         }
         notifyMessage(from, "\uD83D\uDCCD Location received")
+        MessageBus.tryEmit(json)
     }
 
     private fun playLocationRequestSound() {
