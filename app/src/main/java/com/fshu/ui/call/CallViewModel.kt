@@ -237,9 +237,10 @@ class CallViewModel(app: Application) : AndroidViewModel(app) {
                 context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
             }
             incomingVibrator = vib
-            val pattern = longArrayOf(0, 800, 600, 800, 600)
+            val pattern = longArrayOf(0, 1000, 500, 1000, 500)
+            val amplitudes = intArrayOf(0, VibrationEffect.DEFAULT_AMPLITUDE, 0, VibrationEffect.DEFAULT_AMPLITUDE, 0)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                vib.vibrate(VibrationEffect.createWaveform(pattern, 0))
+                vib.vibrate(VibrationEffect.createWaveform(pattern, amplitudes, 0))
             } else {
                 @Suppress("DEPRECATION")
                 vib.vibrate(pattern, 0)
