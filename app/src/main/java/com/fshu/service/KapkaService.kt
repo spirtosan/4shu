@@ -60,8 +60,8 @@ class FshuService : Service() {
     companion object {
         const val CHANNEL_ID = "fshu_fg"
         private const val CHANNEL_MESSAGES = "fshu_messages"
-        // v2: recreated to add ringtone + vibration pattern (channel settings are immutable after first creation)
-        private const val CHANNEL_CALLS = "fshu_calls_v2"
+        // v3: enableVibration(true) + vibration pattern (channel settings are immutable after first creation)
+        private const val CHANNEL_CALLS = "fshu_calls_v3"
         private const val CHANNEL_CALLS_LEGACY = "fshu_calls"
 
         const val ACTION_RESTART = "com.fshu.ACTION_RESTART_SERVICE"
@@ -86,9 +86,6 @@ class FshuService : Service() {
         @Volatile private var prevAlarmVolume: Int = -1
 
         fun cancelCallNotif(context: Context) {
-            Handler(Looper.getMainLooper()).post {
-                android.widget.Toast.makeText(context, "cancelCallNotif called", android.widget.Toast.LENGTH_SHORT).show()
-            }
             val id = activeCallNotifId
             if (id != -1) {
                 context.getSystemService(NotificationManager::class.java).cancel(id)
@@ -916,9 +913,6 @@ class FshuService : Service() {
             @Suppress("DEPRECATION")
             getSystemService(android.os.Vibrator::class.java)
         }
-        Handler(Looper.getMainLooper()).post {
-            android.widget.Toast.makeText(this, "Vibrating SDK=${Build.VERSION.SDK_INT} vib=${vibrator != null}", android.widget.Toast.LENGTH_LONG).show()
-        }
         val pattern = longArrayOf(0, 1000, 1000, 1000, 1000, 1000, 1000)
         vibrator.vibrate(VibrationEffect.createWaveform(pattern, 0))
         activeVibrator = vibrator
@@ -1108,10 +1102,12 @@ class FshuService : Service() {
                 enableVibration(true)
             }
         )
+        nm.deleteNotificationChannel("fshu_calls_v2")
         nm.createNotificationChannel(
             NotificationChannel(CHANNEL_CALLS, "Calls", NotificationManager.IMPORTANCE_MAX).apply {
                 setSound(null, null)
-                enableVibration(false)
+                enableVibration(true)
+                setVibrationPattern(longArrayOf(0, 1000, 1000, 1000, 1000, 1000, 1000))
                 lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
             }
         )
