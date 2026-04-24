@@ -869,6 +869,7 @@ class FshuService : Service() {
             .setFullScreenIntent(pi, true)
             .setContentIntent(pi)
             .setOngoing(true)
+            .setVibrate(longArrayOf(0, 1000, 1000, 1000, 1000, 1000, 1000))
             .build()
         getSystemService(NotificationManager::class.java).notify(id, notif)
 
