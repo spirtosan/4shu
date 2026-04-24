@@ -21,6 +21,7 @@ import android.os.Looper
 import android.os.PowerManager
 import android.os.VibrationEffect
 import android.os.Vibrator
+import android.os.VibratorManager
 import android.provider.MediaStore
 import android.util.Base64
 import android.util.Log
@@ -905,7 +906,13 @@ class FshuService : Service() {
         ringtone.play()
         activeRingtone = ringtone
 
-        val vibrator = getSystemService(Vibrator::class.java)
+        val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val vm = getSystemService(VibratorManager::class.java)
+            vm.defaultVibrator
+        } else {
+            @Suppress("DEPRECATION")
+            getSystemService(android.os.Vibrator::class.java)
+        }
         val pattern = longArrayOf(0, 1000, 1000, 1000, 1000, 1000, 1000)
         vibrator.vibrate(VibrationEffect.createWaveform(pattern, 0))
         activeVibrator = vibrator
@@ -1105,8 +1112,13 @@ class FshuService : Service() {
     }
 
     private fun vibrateOnce() {
-        getSystemService(Vibrator::class.java)
-            .vibrate(VibrationEffect.createOneShot(200, VibrationEffect.DEFAULT_AMPLITUDE))
+        val vib = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            getSystemService(VibratorManager::class.java).defaultVibrator
+        } else {
+            @Suppress("DEPRECATION")
+            getSystemService(android.os.Vibrator::class.java)
+        }
+        vib.vibrate(VibrationEffect.createOneShot(200, VibrationEffect.DEFAULT_AMPLITUDE))
     }
 
     private fun buildForegroundNotification() = NotificationCompat.Builder(this, CHANNEL_ID)
