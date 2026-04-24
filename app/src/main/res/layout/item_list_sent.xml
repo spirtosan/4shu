@@ -13,7 +13,7 @@
         android:layout_height="wrap_content"
         android:layout_marginStart="56dp"
         android:minWidth="160dp"
-        android:background="@color/bg_bubble_sent"
+        android:background="@drawable/bg_bubble_sent"
         android:orientation="vertical"
         android:paddingHorizontal="12dp"
         android:paddingTop="8dp"
