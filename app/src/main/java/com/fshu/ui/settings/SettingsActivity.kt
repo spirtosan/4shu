@@ -21,7 +21,7 @@ import androidx.core.content.ContextCompat
 import com.google.gson.JsonParser
 import com.fshu.data.remote.WebSocketClient
 import com.fshu.databinding.ActivitySettingsBinding
-import com.fshu.service.KapkaService
+import com.fshu.service.FshuService
 import com.fshu.ui.admin.ChangePasswordDialog
 import com.fshu.ui.passphrase.PassphraseSetupActivity
 import com.fshu.util.CryptoHelper
@@ -64,16 +64,16 @@ class SettingsActivity : AppCompatActivity() {
                     Prefs.setServerUrl(this, url)
                     binding.tvServerUrl.text = url
                     Toast.makeText(this, "Server URL updated — reconnecting", Toast.LENGTH_SHORT).show()
-                    startService(Intent(this, KapkaService::class.java).apply {
-                        action = KapkaService.ACTION_RECONNECT
+                    startService(Intent(this, FshuService::class.java).apply {
+                        action = FshuService.ACTION_RECONNECT
                     })
                 }
                 .setNeutralButton("Reset") { _, _ ->
                     Prefs.setServerUrl(this, defaultUrl)
                     binding.tvServerUrl.text = defaultUrl
                     Toast.makeText(this, "Reset to default — reconnecting", Toast.LENGTH_SHORT).show()
-                    startService(Intent(this, KapkaService::class.java).apply {
-                        action = KapkaService.ACTION_RECONNECT
+                    startService(Intent(this, FshuService::class.java).apply {
+                        action = FshuService.ACTION_RECONNECT
                     })
                 }
                 .setNegativeButton("Cancel", null)

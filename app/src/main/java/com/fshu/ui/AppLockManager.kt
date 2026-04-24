@@ -1,6 +1,7 @@
 package com.fshu.ui
 
 import android.content.Context
+import android.os.Build
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
@@ -42,19 +43,31 @@ object AppLockManager {
                 onSuccess()
             }
             override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
-                onFailed()
+                if (errorCode == BiometricPrompt.ERROR_NEGATIVE_BUTTON ||
+                    errorCode == BiometricPrompt.ERROR_USER_CANCELED) {
+                    onFailed()
+                }
             }
             override fun onAuthenticationFailed() {}
         }
         val prompt = BiometricPrompt(activity, executor, callback)
-        val info = BiometricPrompt.PromptInfo.Builder()
-            .setTitle("4shu")
-            .setSubtitle("Unlock to continue")
-            .setAllowedAuthenticators(
-                BiometricManager.Authenticators.BIOMETRIC_STRONG or
-                BiometricManager.Authenticators.DEVICE_CREDENTIAL
-            )
-            .build()
-        prompt.authenticate(info)
+
+        val promptInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            BiometricPrompt.PromptInfo.Builder()
+                .setTitle("4shu")
+                .setSubtitle("Unlock to continue")
+                .setAllowedAuthenticators(
+                    BiometricManager.Authenticators.BIOMETRIC_STRONG or
+                    BiometricManager.Authenticators.DEVICE_CREDENTIAL
+                )
+                .build()
+        } else {
+            BiometricPrompt.PromptInfo.Builder()
+                .setTitle("4shu")
+                .setSubtitle("Unlock to continue")
+                .setNegativeButtonText("Cancel")
+                .build()
+        }
+        prompt.authenticate(promptInfo)
     }
 }
