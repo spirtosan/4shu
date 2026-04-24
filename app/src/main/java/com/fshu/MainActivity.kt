@@ -67,7 +67,7 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        supportActionBar?.title = "Fshu"
+        setSupportActionBar(binding.toolbar)
 
         adapter = UserAdapter(
             users,
@@ -308,7 +308,7 @@ class MainActivity : AppCompatActivity() {
             bgImageView  = binding.ivBg,
             bgIndex      = Prefs.getMainBgIndex(this),
             bgUri        = Prefs.getMainBgUri(this),
-            defaultColor = 0xFFFFFFFF.toInt()
+            defaultColor = ContextCompat.getColor(this, R.color.bg_primary)
         )
     }
 
@@ -333,7 +333,9 @@ class MainActivity : AppCompatActivity() {
             JsonParser.parseString(json).asJsonArray.mapNotNull { element ->
                 val obj = element.asJsonObject
                 val username = obj.get("username")?.asString ?: return@mapNotNull null
-                User(username, online = false)  // assume offline until server confirms
+                val nickname = obj.get("nickname")?.takeIf { !it.isJsonNull }?.asString
+                val lastSeen = obj.get("lastSeen")?.takeIf { !it.isJsonNull }?.asLong
+                User(username, online = false, nickname = nickname, lastSeen = lastSeen)
             }.filter { it.username != me }
         } catch (e: Exception) { emptyList() }
         if (list.isNotEmpty()) {
@@ -375,6 +377,7 @@ class MainActivity : AppCompatActivity() {
                     obj.addProperty("username", u.username)
                     obj.addProperty("online", u.online)
                     if (u.nickname != null) obj.addProperty("nickname", u.nickname)
+                    obj.addProperty("lastSeen", u.lastSeen)
                     cacheArr.add(obj)
                 }
                 Prefs.setCachedUsers(this, cacheArr.toString())
@@ -388,6 +391,9 @@ class MainActivity : AppCompatActivity() {
                 users.clear()
                 users.addAll(updated)
                 adapter.notifyDataSetChanged()
+            }
+            "message", "file" -> {
+                if (users.isNotEmpty()) launchEnrich(users.toList())
             }
         }
     }
