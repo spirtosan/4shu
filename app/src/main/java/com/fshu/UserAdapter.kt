@@ -1,17 +1,22 @@
 package com.fshu
 
-import android.content.res.ColorStateList
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.graphics.Color
-import android.graphics.drawable.GradientDrawable
+import android.graphics.Paint
+import android.graphics.Typeface
 import android.text.SpannableString
 import android.text.style.ForegroundColorSpan
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import android.widget.PopupMenu
 import androidx.recyclerview.widget.RecyclerView
+import coil.load
+import coil.transform.CircleCropTransformation
 import com.fshu.R
 import com.fshu.data.model.User
 import com.fshu.databinding.ItemUserBinding
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.math.absoluteValue
@@ -36,14 +41,19 @@ class UserAdapter(
         val user = users[position]
         val ctx = holder.itemView.context
 
-        // Avatar: circle with first letter and a stable color derived from username
-        val letter = user.displayName.firstOrNull()?.uppercaseChar()?.toString() ?: "?"
-        holder.binding.tvAvatar.text = letter
-        val bg = GradientDrawable().apply {
-            shape = GradientDrawable.OVAL
-            color = ColorStateList.valueOf(avatarColor(user.username, ctx))
+        val avatarFile = File(ctx.filesDir, "avatars/${user.username}.jpg")
+        val sizePx = (48 * ctx.resources.displayMetrics.density).toInt()
+        if (avatarFile.exists()) {
+            holder.binding.ivAvatar.load(avatarFile) {
+                transformations(CircleCropTransformation())
+                crossfade(true)
+            }
+        } else {
+            val letter = user.displayName.firstOrNull()?.uppercaseChar()?.toString() ?: "?"
+            holder.binding.ivAvatar.setImageBitmap(
+                createLetterBitmap(letter, avatarColor(user.username, ctx), sizePx)
+            )
         }
-        holder.binding.tvAvatar.background = bg
 
         // Online indicator dot
         holder.binding.viewOnlineDot.setBackgroundResource(
@@ -101,6 +111,22 @@ class UserAdapter(
     fun moveItem(from: Int, to: Int) {
         java.util.Collections.swap(users as MutableList<User>, from, to)
         notifyItemMoved(from, to)
+    }
+
+    private fun createLetterBitmap(letter: String, color: Int, sizePx: Int): Bitmap {
+        val bmp = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bmp)
+        val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = color }
+        canvas.drawCircle(sizePx / 2f, sizePx / 2f, sizePx / 2f, bgPaint)
+        val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            this.color = Color.WHITE
+            textSize = sizePx * 0.42f
+            textAlign = Paint.Align.CENTER
+            typeface = Typeface.DEFAULT_BOLD
+        }
+        val yPos = sizePx / 2f - (textPaint.descent() + textPaint.ascent()) / 2f
+        canvas.drawText(letter, sizePx / 2f, yPos, textPaint)
+        return bmp
     }
 
     private fun avatarColor(username: String, ctx: android.content.Context): Int {

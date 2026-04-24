@@ -3,7 +3,10 @@ package com.fshu
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.os.Bundle
+import android.util.Base64
 import android.view.Menu
 import android.view.MenuItem
 import android.widget.Toast
@@ -16,6 +19,8 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.gson.JsonArray
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
+import java.io.ByteArrayOutputStream
+import java.io.File
 import com.fshu.data.local.AppDatabase
 import com.fshu.data.model.Message
 import com.fshu.data.model.User
@@ -61,6 +66,35 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, "Location permission required for this feature", Toast.LENGTH_SHORT).show()
         }
         pendingEmergencyLocationUser = null
+    }
+
+    private val pickAvatarLauncher = registerForActivityResult(
+        ActivityResultContracts.GetContent()
+    ) { uri ->
+        uri ?: return@registerForActivityResult
+        lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                val stream = contentResolver.openInputStream(uri) ?: return@launch
+                val original = BitmapFactory.decodeStream(stream)
+                stream.close()
+                val side = minOf(original.width, original.height)
+                val x = (original.width - side) / 2
+                val y = (original.height - side) / 2
+                val cropped = Bitmap.createBitmap(original, x, y, side, side)
+                val scaled = Bitmap.createScaledBitmap(cropped, 256, 256, true)
+                val baos = ByteArrayOutputStream()
+                scaled.compress(Bitmap.CompressFormat.JPEG, 82, baos)
+                val b64 = Base64.encodeToString(baos.toByteArray(), Base64.NO_WRAP)
+                WebSocketClient.send(mapOf("type" to "avatar-upload", "data" to b64))
+                val me = Prefs.getUsername(this@MainActivity)
+                val dir = File(filesDir, "avatars").also { it.mkdirs() }
+                File(dir, "$me.jpg").writeBytes(baos.toByteArray())
+            } catch (e: Exception) {
+                withContext(kotlinx.coroutines.Dispatchers.Main) {
+                    Toast.makeText(this@MainActivity, "Failed to upload avatar", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -265,6 +299,10 @@ class MainActivity : AppCompatActivity() {
                     .show()
                 true
             }
+            R.id.action_set_avatar -> {
+                pickAvatarLauncher.launch("image/*")
+                true
+            }
             else -> super.onOptionsItemSelected(item)
         }
     }
@@ -408,6 +446,11 @@ class MainActivity : AppCompatActivity() {
                 users.clear()
                 users.addAll(updated)
                 adapter.notifyDataSetChanged()
+            }
+            "avatar-update" -> {
+                val uname = json.get("username")?.asString ?: return
+                val idx = users.indexOfFirst { it.username == uname }
+                if (idx >= 0) runOnUiThread { adapter.notifyItemChanged(idx) }
             }
             "message", "file", "list", "location", "location-request", "location-response" -> {
                 val from = json.get("from")?.asString ?: return

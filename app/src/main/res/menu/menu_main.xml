@@ -27,4 +27,9 @@
         android:title="Set my nickname"
         app:showAsAction="never" />
 
+    <item
+        android:id="@+id/action_set_avatar"
+        android:title="Set my avatar"
+        app:showAsAction="never" />
+
 </menu>

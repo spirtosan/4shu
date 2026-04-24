@@ -392,6 +392,23 @@ class FshuService : Service() {
             "emergency-location"      -> persistEmergencyLocation(json)
             "location-request"        -> persistLocationRequest(json)
             "location-response"       -> persistLocationResponse(json)
+            "avatar-data"             -> {
+                val uname = json.get("username")?.asString ?: return
+                val data  = json.get("data")?.asString ?: return
+                try {
+                    val dir = File(applicationContext.filesDir, "avatars").also { it.mkdirs() }
+                    File(dir, "$uname.jpg").writeBytes(
+                        android.util.Base64.decode(data, android.util.Base64.DEFAULT)
+                    )
+                    val evt = com.google.gson.JsonObject().apply {
+                        addProperty("type", "avatar-update")
+                        addProperty("username", uname)
+                    }
+                    MessageBus.emit(evt)
+                } catch (e: Exception) {
+                    Log.e("KapkaService", "avatar-data save failed", e)
+                }
+            }
             "auth-ok"                 -> { Prefs.setIsAdmin(this, json.get("admin")?.asBoolean ?: false); MessageBus.emit(json) }
             "passphrase-hint"         -> MessageBus.emit(json)
             "admin-users",

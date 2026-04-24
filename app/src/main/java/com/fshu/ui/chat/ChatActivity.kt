@@ -7,6 +7,11 @@ import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.Typeface
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
@@ -27,6 +32,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import coil.load
+import coil.transform.CircleCropTransformation
 import com.google.gson.JsonParser
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
@@ -86,6 +93,7 @@ class ChatActivity : AppCompatActivity() {
         setSupportActionBar(toolbar)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
         title = getNickname(peer) ?: peer
+        loadPeerAvatar()
 
         supportFragmentManager.setFragmentResultListener(BackgroundBottomSheet.RESULT_KEY, this) { _, _ ->
             applyBackground()
@@ -274,21 +282,63 @@ class ChatActivity : AppCompatActivity() {
 
         lifecycleScope.launch {
             MessageBus.events.collect { json ->
-                if (json.get("type")?.asString == "history-loaded") {
-                    val peer = json.get("peer")?.asString ?: ""
-                    if (peer == this@ChatActivity.peer) {
-                        val count = json.get("count")?.asInt ?: 0
-                        val msg = if (count > 0) "Loaded $count message(s)" else "No new messages"
-                        runOnUiThread {
-                            Toast.makeText(this@ChatActivity, msg, Toast.LENGTH_SHORT).show()
-                            if (count > 0) {
-                                binding.rvMessages.scrollToPosition(0)
+                when (json.get("type")?.asString) {
+                    "history-loaded" -> {
+                        val peer = json.get("peer")?.asString ?: ""
+                        if (peer == this@ChatActivity.peer) {
+                            val count = json.get("count")?.asInt ?: 0
+                            val msg = if (count > 0) "Loaded $count message(s)" else "No new messages"
+                            runOnUiThread {
+                                Toast.makeText(this@ChatActivity, msg, Toast.LENGTH_SHORT).show()
+                                if (count > 0) binding.rvMessages.scrollToPosition(0)
                             }
                         }
                     }
-                    return@collect
+                    "avatar-update" -> {
+                        val uname = json.get("username")?.asString
+                        if (uname == peer) runOnUiThread { loadPeerAvatar() }
+                    }
                 }
             }
+        }
+    }
+
+    private fun loadPeerAvatar() {
+        val avatarFile = File(filesDir, "avatars/$peer.jpg")
+        val sizePx = (36 * resources.displayMetrics.density).toInt()
+        if (avatarFile.exists()) {
+            binding.toolbarAvatar.load(avatarFile) {
+                transformations(CircleCropTransformation())
+            }
+        } else {
+            val letter = peer.firstOrNull()?.uppercaseChar()?.toString() ?: "?"
+            val color = when (peer.hashCode().let { if (it < 0) -it else it } % 10) {
+                0 -> getColor(R.color.avatar_1)
+                1 -> getColor(R.color.avatar_2)
+                2 -> getColor(R.color.avatar_3)
+                3 -> getColor(R.color.avatar_4)
+                4 -> getColor(R.color.avatar_5)
+                5 -> getColor(R.color.avatar_6)
+                6 -> getColor(R.color.avatar_7)
+                7 -> getColor(R.color.avatar_8)
+                8 -> getColor(R.color.avatar_9)
+                else -> getColor(R.color.avatar_10)
+            }
+            val bmp = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
+            val canvas = Canvas(bmp)
+            Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = color }.also {
+                canvas.drawCircle(sizePx / 2f, sizePx / 2f, sizePx / 2f, it)
+            }
+            Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                this.color = Color.WHITE
+                textSize = sizePx * 0.42f
+                textAlign = Paint.Align.CENTER
+                typeface = Typeface.DEFAULT_BOLD
+            }.also {
+                val yPos = sizePx / 2f - (it.descent() + it.ascent()) / 2f
+                canvas.drawText(letter, sizePx / 2f, yPos, it)
+            }
+            binding.toolbarAvatar.setImageBitmap(bmp)
         }
     }
 

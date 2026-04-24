@@ -24,7 +24,21 @@
             android:layout_height="?attr/actionBarSize"
             android:background="@color/bg_secondary"
             app:titleTextColor="@color/text_primary"
-            app:subtitleTextColor="@color/text_secondary" />
+            app:subtitleTextColor="@color/text_secondary"
+            app:contentInsetStartWithNavigation="0dp">
+
+            <ImageView
+                android:id="@+id/toolbarAvatar"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:layout_gravity="center_vertical"
+                android:layout_marginStart="4dp"
+                android:scaleType="centerCrop"
+                android:clipToOutline="true"
+                android:outlineProvider="background"
+                android:background="@drawable/bg_avatar" />
+
+        </androidx.appcompat.widget.Toolbar>
 
         <!-- Selection mode action bar -->
         <LinearLayout
