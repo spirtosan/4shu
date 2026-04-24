@@ -393,13 +393,29 @@ class MainActivity : AppCompatActivity() {
                 adapter.notifyDataSetChanged()
             }
             "message", "file", "list", "location", "location-request", "location-response" -> {
-                if (users.isNotEmpty()) {
-                    enrichJob?.cancel()
-                    enrichJob = lifecycleScope.launch {
-                        kotlinx.coroutines.delay(300)
-                        enrichWithLastMessages(users.toList())
+                val from = json.get("from")?.asString ?: return
+                val to = json.get("to")?.asString ?: return
+                val me = Prefs.getUsername(this)
+                val peer = if (from == me) to else from
+                val type = json.get("type")?.asString
+                val senderName = if (from == me) "You" else {
+                    users.find { it.username == from }?.displayName ?: from
+                }
+                val preview = when (type) {
+                    "list"             -> "$senderName: 📝 Todo list"
+                    "file"             -> "$senderName: 📎 ${json.get("filename")?.asString ?: "File"}"
+                    "location"         -> "$senderName: 📍 Location"
+                    "location-request" -> "$senderName: 📍 Location requested"
+                    else               -> "$senderName: ${json.get("content")?.asString}"
+                }
+                val ts = json.get("timestamp")?.asLong ?: System.currentTimeMillis()
+                runOnUiThread {
+                    val idx = users.indexOfFirst { it.username == peer }
+                    if (idx >= 0) {
+                        users[idx] = users[idx].copy(lastMessage = preview, lastMessageTime = ts)
+                        adapter.notifyItemChanged(idx)
                     }
-                } else loadCachedUsers()
+                }
             }
         }
     }
