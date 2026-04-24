@@ -398,6 +398,7 @@ class MainActivity : AppCompatActivity() {
                 val me = Prefs.getUsername(this)
                 val peer = if (from == me) to else from
                 val type = json.get("type")?.asString
+                val ts = json.get("timestamp")?.asLong ?: System.currentTimeMillis()
                 val senderName = if (from == me) "You" else {
                     users.find { it.username == from }?.displayName ?: from
                 }
@@ -406,9 +407,15 @@ class MainActivity : AppCompatActivity() {
                     "file"             -> "$senderName: 📎 ${json.get("filename")?.asString ?: "File"}"
                     "location"         -> "$senderName: 📍 Location"
                     "location-request" -> "$senderName: 📍 Location requested"
-                    else               -> "$senderName: ${json.get("content")?.asString}"
+                    else -> {
+                        val rawContent = json.get("content")?.asString ?: ""
+                        val messageId = json.get("messageId")?.asLong ?: 0L
+                        val decrypted = if (CryptoHelper.isReady(this) && messageId != 0L) {
+                            CryptoHelper.decrypt(CryptoHelper.getKey(this, peer), messageId, ts, rawContent) ?: rawContent
+                        } else rawContent
+                        "$senderName: $decrypted"
+                    }
                 }
-                val ts = json.get("timestamp")?.asLong ?: System.currentTimeMillis()
                 runOnUiThread {
                     val idx = users.indexOfFirst { it.username == peer }
                     if (idx >= 0) {
