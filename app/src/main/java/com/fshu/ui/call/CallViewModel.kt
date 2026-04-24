@@ -11,6 +11,7 @@ import android.media.AudioTrack
 import android.os.Build
 import android.os.VibrationEffect
 import android.os.Vibrator
+import android.os.VibratorManager
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.MutableLiveData
@@ -48,6 +49,7 @@ class CallViewModel(app: Application) : AndroidViewModel(app) {
     @Volatile private var noAnswerTimeoutJob: Job? = null
     private var audioTrack: AudioTrack? = null
     private var ringbackThread: Thread? = null
+    private var incomingVibrator: Vibrator? = null
 
     private var _isVideoCall = false
     val isVideoCall: Boolean get() = _isVideoCall
@@ -224,11 +226,40 @@ class CallViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    private fun startIncomingVibration() {
+        try {
+            val context = getApplication<Application>()
+            val vib = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                val vm = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
+                vm.defaultVibrator
+            } else {
+                @Suppress("DEPRECATION")
+                context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+            }
+            incomingVibrator = vib
+            val pattern = longArrayOf(0, 800, 600, 800, 600)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                vib.vibrate(VibrationEffect.createWaveform(pattern, 0))
+            } else {
+                @Suppress("DEPRECATION")
+                vib.vibrate(pattern, 0)
+            }
+        } catch (_: Exception) {}
+    }
+
+    private fun stopIncomingVibration() {
+        try {
+            incomingVibrator?.cancel()
+        } catch (_: Exception) {}
+        incomingVibrator = null
+    }
+
     /** Called when an incoming offer arrives — does NOT start WebRTC yet. */
     fun prepareIncoming(fromUser: String, sdpStr: String, isEmergency: Boolean = false) {
         _isEmergency = isEmergency
         peer = fromUser
         pendingOfferSdp = sdpStr
+        startIncomingVibration()
         state.value = State.INCOMING
         if (_isEmergency) return   // emergency calls ring until manually dismissed
         incomingTimeoutJob?.cancel()
@@ -240,6 +271,7 @@ class CallViewModel(app: Application) : AndroidViewModel(app) {
                     "type" to "call-end", "from" to me, "to" to peer, "reason" to "no_answer"
                 ))
                 endReason.postValue("no_answer")
+                stopIncomingVibration()
                 state.postValue(State.ENDED)
             }
         }
@@ -252,6 +284,7 @@ class CallViewModel(app: Application) : AndroidViewModel(app) {
 
     /** User tapped Accept — now start WebRTC and send the answer. */
     fun acceptCall() {
+        stopIncomingVibration()
         cancelIncomingTimeout()
         if (!WebSocketClient.isConnected) {
             endReason.postValue("disconnected")
@@ -270,6 +303,7 @@ class CallViewModel(app: Application) : AndroidViewModel(app) {
 
     /** User tapped Reject. */
     fun rejectCall() {
+        stopIncomingVibration()
         cancelIncomingTimeout()
         WebSocketClient.send(mapOf("type" to "call-reject", "from" to me, "to" to peer, "reason" to "rejected"))
         endReason.value = "rejected"

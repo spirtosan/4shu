@@ -105,16 +105,16 @@ class UserAdapter(
 
     private fun avatarColor(username: String, ctx: android.content.Context): Int {
         val colorRes = when (username.hashCode().absoluteValue % 10) {
-            0 -> R.color.avatar_red
-            1 -> R.color.avatar_pink
-            2 -> R.color.avatar_purple
-            3 -> R.color.avatar_indigo
-            4 -> R.color.avatar_blue
-            5 -> R.color.avatar_teal
-            6 -> R.color.avatar_green
-            7 -> R.color.avatar_orange
-            8 -> R.color.avatar_brown
-            else -> R.color.avatar_blueGrey
+            0 -> R.color.avatar_1
+            1 -> R.color.avatar_2
+            2 -> R.color.avatar_3
+            3 -> R.color.avatar_4
+            4 -> R.color.avatar_5
+            5 -> R.color.avatar_6
+            6 -> R.color.avatar_7
+            7 -> R.color.avatar_8
+            8 -> R.color.avatar_9
+            else -> R.color.avatar_10
         }
         return ctx.getColor(colorRes)
     }

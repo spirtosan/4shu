@@ -98,7 +98,7 @@
             android:orientation="horizontal"
             android:gravity="center_vertical"
             android:visibility="gone"
-            android:background="#E3F2FD"
+            android:background="@color/bg_tertiary"
             android:paddingStart="8dp"
             android:paddingEnd="4dp"
             android:paddingVertical="6dp">
@@ -129,7 +129,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:textSize="12sp"
-                    android:textColor="#555555"
+                    android:textColor="@color/text_secondary"
                     android:maxLines="1"
                     android:ellipsize="end" />
             </LinearLayout>
@@ -150,7 +150,7 @@
             android:paddingHorizontal="4dp"
             android:paddingVertical="6dp"
             android:gravity="center_vertical"
-            android:background="@android:color/white"
+            android:background="@color/bg_secondary"
             android:elevation="4dp">
 
             <ImageButton

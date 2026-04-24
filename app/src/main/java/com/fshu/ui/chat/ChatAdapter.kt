@@ -331,6 +331,9 @@ class ChatAdapter : ListAdapter<Message, RecyclerView.ViewHolder>(DIFF) {
             iv.visibility = View.GONE
             tv.visibility = View.VISIBLE
             tv.text = msg.content
+            android.text.util.Linkify.addLinks(tv, android.text.util.Linkify.WEB_URLS)
+            tv.movementMethod = android.text.method.LinkMovementMethod.getInstance()
+            tv.setLinkTextColor(android.graphics.Color.parseColor("#E8711A"))
         }
     }
 

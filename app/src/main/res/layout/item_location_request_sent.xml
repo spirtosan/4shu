@@ -12,7 +12,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginStart="56dp"
-        android:background="@drawable/bg_message_sent"
+        android:background="@color/bg_bubble_sent"
         android:orientation="vertical"
         android:paddingHorizontal="12dp"
         android:paddingTop="8dp"
@@ -23,7 +23,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:textSize="14sp"
-            android:textColor="#555555"
+            android:textColor="@color/text_secondary"
             android:fontFamily="sans-serif-italic" />
 
         <LinearLayout
@@ -57,7 +57,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginStart="3dp"
                 android:textSize="12sp"
-                android:textColor="#9E9E9E"
+                android:textColor="@color/text_tertiary"
                 android:visibility="gone" />
 
         </LinearLayout>

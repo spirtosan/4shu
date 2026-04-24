@@ -25,7 +25,7 @@
             android:layout_height="wrap_content"
             android:text="Enter the shared encryption passphrase used by your family."
             android:textSize="14sp"
-            android:textColor="#555555"
+            android:textColor="@color/text_secondary"
             android:layout_marginBottom="24dp" />
 
         <com.google.android.material.textfield.TextInputLayout
@@ -56,7 +56,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:textSize="14sp"
-            android:textColor="#555555"
+            android:textColor="@color/text_secondary"
             android:fontFamily="sans-serif-italic"
             android:layout_marginBottom="24dp"
             android:visibility="gone" />
@@ -88,7 +88,7 @@
             android:layout_height="wrap_content"
             android:text="Saved on server — visible to server admin. Don&#8217;t use the passphrase itself as a hint."
             android:textSize="12sp"
-            android:textColor="#888888"
+            android:textColor="@color/text_tertiary"
             android:fontFamily="sans-serif-italic"
             android:layout_marginBottom="8dp" />
 

@@ -3,7 +3,7 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#FFFFFF">
+    android:background="@color/bg_primary">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -24,7 +24,7 @@
             android:layout_height="wrap_content"
             android:text="Choose a secret passphrase for message encryption. All family members must enter the SAME passphrase on their devices. Share it with everyone before they install the app."
             android:textSize="14sp"
-            android:textColor="#555555"
+            android:textColor="@color/text_secondary"
             android:layout_marginBottom="24dp"/>
 
         <com.google.android.material.textfield.TextInputLayout
@@ -70,7 +70,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:textSize="14sp"
-            android:textColor="#555555"
+            android:textColor="@color/text_secondary"
             android:fontFamily="sans-serif-italic"
             android:layout_marginBottom="20dp"
             android:visibility="gone" />
@@ -95,7 +95,7 @@
             android:layout_height="wrap_content"
             android:text="Don&#8217;t use the passphrase itself as the hint."
             android:textSize="12sp"
-            android:textColor="#888888"
+            android:textColor="@color/text_tertiary"
             android:layout_marginBottom="8dp"/>
 
         <CheckBox
@@ -126,7 +126,7 @@
             android:layout_height="wrap_content"
             android:text="When enabled, your location will be shared automatically when a family member requests it. Can be changed in Settings."
             android:textSize="12sp"
-            android:textColor="#777777"
+            android:textColor="@color/text_tertiary"
             android:layout_marginBottom="20dp"/>
 
         <Button

@@ -12,7 +12,7 @@
         android:layout_height="wrap_content"
         android:layout_marginEnd="56dp"
         android:minWidth="160dp"
-        android:background="@drawable/bg_message_received"
+        android:background="@color/bg_bubble_recv"
         android:orientation="vertical"
         android:paddingHorizontal="12dp"
         android:paddingTop="8dp"
@@ -24,7 +24,7 @@
             android:text="☑ Todo list"
             android:textSize="12sp"
             android:textStyle="bold"
-            android:textColor="#555555"
+            android:textColor="@color/text_secondary"
             android:layout_marginBottom="4dp" />
 
         <LinearLayout
@@ -40,7 +40,7 @@
             android:layout_gravity="end"
             android:layout_marginTop="3dp"
             android:textSize="11sp"
-            android:textColor="#888888" />
+            android:textColor="@color/text_tertiary" />
 
     </LinearLayout>
 

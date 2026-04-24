@@ -76,7 +76,7 @@
         <activity
             android:name=".ui.admin.AdminPanelActivity"
             android:exported="false"
-            android:theme="@style/Theme.MaterialComponents.DayNight.NoActionBar"
+            android:theme="@style/Theme.Fshu"
             android:windowSoftInputMode="adjustResize"/>
 
         <activity
