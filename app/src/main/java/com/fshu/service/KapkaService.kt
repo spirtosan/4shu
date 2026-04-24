@@ -915,7 +915,18 @@ class FshuService : Service() {
             getSystemService(android.os.Vibrator::class.java)
         }
         val pattern = longArrayOf(0, 1000, 1000, 1000, 1000, 1000, 1000)
-        vibrator.vibrate(VibrationEffect.createWaveform(pattern, 0))
+        val amplitudes = intArrayOf(0, 255, 0, 255, 0, 255, 0)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val effect = VibrationEffect.createWaveform(pattern, amplitudes, 0)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                val attrs = android.os.VibrationAttributes.Builder()
+                    .setUsage(android.os.VibrationAttributes.USAGE_RINGTONE)
+                    .build()
+                vibrator.vibrate(effect, attrs)
+            } else {
+                vibrator.vibrate(effect)
+            }
+        }
         activeVibrator = vibrator
 
         if (isEmergency) startVolumeRamp()
