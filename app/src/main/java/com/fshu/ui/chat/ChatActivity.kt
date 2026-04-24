@@ -28,6 +28,7 @@ import androidx.activity.viewModels
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import com.google.gson.JsonParser
+import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -304,7 +305,7 @@ class ChatActivity : AppCompatActivity() {
             bgImageView  = binding.ivBg,
             bgIndex      = Prefs.getChatBgIndex(this, peer),
             bgUri        = Prefs.getChatBgUri(this, peer),
-            defaultColor = 0xFFEDEDED.toInt()
+            defaultColor = ContextCompat.getColor(this, R.color.bg_primary)
         )
     }
 
