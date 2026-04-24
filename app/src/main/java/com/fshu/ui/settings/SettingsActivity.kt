@@ -21,6 +21,7 @@ import androidx.core.content.ContextCompat
 import com.google.gson.JsonParser
 import com.fshu.data.remote.WebSocketClient
 import com.fshu.databinding.ActivitySettingsBinding
+import com.fshu.service.KapkaService
 import com.fshu.ui.admin.ChangePasswordDialog
 import com.fshu.ui.passphrase.PassphraseSetupActivity
 import com.fshu.util.CryptoHelper
@@ -38,6 +39,45 @@ class SettingsActivity : AppCompatActivity() {
         supportActionBar?.apply {
             title = "Settings"
             setDisplayHomeAsUpEnabled(true)
+        }
+
+        // Server URL
+        val defaultUrl = "wss://shumkov.eu/fshu/"
+        binding.tvServerUrl.text = Prefs.getServerUrl(this)
+        binding.rowServerUrl.setOnClickListener {
+            val et = EditText(this).apply {
+                inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
+                setText(Prefs.getServerUrl(this@SettingsActivity))
+                setSelection(text.length)
+            }
+            val pad = (16 * resources.displayMetrics.density).toInt()
+            val wrap = FrameLayout(this).apply { setPadding(pad, 0, pad, 0); addView(et) }
+            AlertDialog.Builder(this)
+                .setTitle("Server URL")
+                .setView(wrap)
+                .setPositiveButton("Save") { _, _ ->
+                    val url = et.text.toString().trim()
+                    if (!url.startsWith("wss://") && !url.startsWith("ws://")) {
+                        Toast.makeText(this, "URL must start with wss:// or ws://", Toast.LENGTH_LONG).show()
+                        return@setPositiveButton
+                    }
+                    Prefs.setServerUrl(this, url)
+                    binding.tvServerUrl.text = url
+                    Toast.makeText(this, "Server URL updated — reconnecting", Toast.LENGTH_SHORT).show()
+                    startService(Intent(this, KapkaService::class.java).apply {
+                        action = KapkaService.ACTION_RECONNECT
+                    })
+                }
+                .setNeutralButton("Reset") { _, _ ->
+                    Prefs.setServerUrl(this, defaultUrl)
+                    binding.tvServerUrl.text = defaultUrl
+                    Toast.makeText(this, "Reset to default — reconnecting", Toast.LENGTH_SHORT).show()
+                    startService(Intent(this, KapkaService::class.java).apply {
+                        action = KapkaService.ACTION_RECONNECT
+                    })
+                }
+                .setNegativeButton("Cancel", null)
+                .show()
         }
 
         // Location sharing toggle
