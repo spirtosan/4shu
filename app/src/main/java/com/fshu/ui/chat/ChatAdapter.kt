@@ -49,6 +49,11 @@ class ChatAdapter : ListAdapter<Message, RecyclerView.ViewHolder>(DIFF) {
     /** Invoked when the user taps a checkbox in a list bubble: (listId, itemId UUID, newDoneState). */
     var onListItemToggle: ((String, String, Boolean) -> Unit)? = null
 
+    /** username → display name map, set by the host Activity. Used to resolve checkedBy labels. */
+    var nicknameMap: Map<String, String> = emptyMap()
+
+    private fun getNickname(username: String): String? = nicknameMap[username]
+
     fun isInSelectionMode() = selectedIds.isNotEmpty()
 
     fun getSelectedIds(): List<Long> = selectedIds.toList()
@@ -371,7 +376,10 @@ class ChatAdapter : ListAdapter<Message, RecyclerView.ViewHolder>(DIFF) {
             val text = item.get("text")?.asString ?: ""
             val done = item.get("done")?.asBoolean ?: false
             val checkedBy = item.get("checkedBy")?.takeIf { !it.isJsonNull }?.asString
-            val label = if (done && checkedBy != null) "$text  ✓ $checkedBy" else text
+            val checkedByDisplay = if (checkedBy != null) {
+                getNickname(checkedBy) ?: checkedBy
+            } else null
+            val label = if (done && checkedByDisplay != null) "$text  ✓ $checkedByDisplay" else text
             val cb = CheckBox(container.context).apply {
                 this.text = label
                 setOnCheckedChangeListener(null)

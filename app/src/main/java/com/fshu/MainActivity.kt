@@ -392,7 +392,7 @@ class MainActivity : AppCompatActivity() {
                 users.addAll(updated)
                 adapter.notifyDataSetChanged()
             }
-            "message", "file" -> {
+            "message", "file", "list", "location", "location-request", "location-response" -> {
                 if (users.isNotEmpty()) launchEnrich(users.toList())
             }
         }

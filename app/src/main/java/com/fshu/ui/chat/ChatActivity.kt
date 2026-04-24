@@ -92,6 +92,7 @@ class ChatActivity : AppCompatActivity() {
         adapter.onListItemToggle = { listId, itemId, done ->
             vm.checkItem(listId, itemId, done, peer)
         }
+        refreshNicknameMap()
 
 
         // Selection mode callbacks
@@ -306,6 +307,7 @@ class ChatActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         applyBackground()
+        refreshNicknameMap()
         // Refresh title in case nickname was updated while in background
         title = getNickname(peer) ?: peer
         // Only send read receipts when the screen is interactive (not on the lock screen).
@@ -536,6 +538,22 @@ class ChatActivity : AppCompatActivity() {
                 }
             }
             .show()
+    }
+
+    private fun refreshNicknameMap() {
+        try {
+            val arr = com.google.gson.JsonParser
+                .parseString(com.fshu.util.Prefs.getCachedUsers(this))
+                .asJsonArray
+            val map = mutableMapOf<String, String>()
+            for (el in arr) {
+                val obj = el.asJsonObject
+                val un = obj.get("username")?.asString ?: continue
+                val nick = obj.get("nickname")?.takeIf { !it.isJsonNull }?.asString
+                map[un] = if (!nick.isNullOrBlank()) nick else un
+            }
+            adapter.nicknameMap = map
+        } catch (_: Exception) {}
     }
 
     private fun getNickname(username: String): String? {
