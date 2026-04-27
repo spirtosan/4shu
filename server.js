@@ -28,12 +28,12 @@ const crypto = require('crypto');
 const bcrypt = require('bcrypt');
 
 const PORT = process.env.PORT || 8080;
-const QUEUE_FILE   = '/opt/kapka/queue.json';
-const FILES_DIR    = '/opt/kapka/files';
-const USERS_FILE   = '/opt/kapka/users.json';
-const LISTS_FILE   = '/opt/kapka/lists.json';
-const HISTORY_DIR  = '/opt/kapka/history';
-const CONFIG_FILE  = '/opt/kapka/config.json';
+const QUEUE_FILE   = '/opt/fshu/data/queue.json';
+const FILES_DIR    = '/opt/fshu/files';
+const USERS_FILE   = '/opt/fshu/data/users.json';
+const LISTS_FILE   = '/opt/fshu/data/lists.json';
+const HISTORY_DIR  = '/opt/fshu/history';
+const CONFIG_FILE  = '/opt/fshu/data/config.json';
 const AVATARS_DIR  = '/opt/fshu/avatars';
 fs.mkdirSync(AVATARS_DIR, { recursive: true });
 
@@ -46,6 +46,8 @@ try { Object.assign(config, JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'))); }
 
 const FILE_MAX_AGE_MS    = config.fileRetentionDays    * 24 * 60 * 60 * 1000;
 const HISTORY_MAX_AGE_MS = config.historyRetentionDays * 24 * 60 * 60 * 1000;
+const TURN_USERNAME = config.turnUsername || 'fshu';
+const TURN_PASSWORD = config.turnPassword || '';
 
 // ---------------------------------------------------------------------------
 // Users persistence
@@ -435,7 +437,7 @@ wss.on('connection', (ws, req) => {
                     try { existingWsResume.terminate(); } catch (_) {}
                 }
                 clients.set(username, ws);
-                send(ws, { type: 'auth-ok', appSecret: sharedAppSecret, admin: users[resumeUser].admin === true, sessionToken: token, turnUsername: 'fshu', turnPassword: 'kWoQPR9m0YPHAds53Dojh6xcc6yXQsrVfRCaMav0bNA=' });
+                send(ws, { type: 'auth-ok', appSecret: sharedAppSecret, admin: users[resumeUser].admin === true, sessionToken: token, turnUsername: TURN_USERNAME, turnPassword: TURN_PASSWORD });
                 sendAllAvatars(ws);
                 console.log();
                 broadcastAllUsers();
@@ -480,7 +482,7 @@ wss.on('connection', (ws, req) => {
             clients.set(username, ws);
             const sessionToken = crypto.randomBytes(32).toString('hex');
             sessionTokens.set(sessionToken, { username: u, createdAt: Date.now() });
-            send(ws, { type: 'auth-ok', appSecret: sharedAppSecret, admin: userRecord.admin === true, sessionToken, turnUsername: 'fshu', turnPassword: 'kWoQPR9m0YPHAds53Dojh6xcc6yXQsrVfRCaMav0bNA=' });
+            send(ws, { type: 'auth-ok', appSecret: sharedAppSecret, admin: userRecord.admin === true, sessionToken, turnUsername: TURN_USERNAME, turnPassword: TURN_PASSWORD });
             sendAllAvatars(ws);
             console.log(`+ ${username} (${clients.size} online)`);
             broadcastAllUsers();
@@ -735,7 +737,7 @@ wss.on('connection', (ws, req) => {
             case 'admin-server-info': {
                 if (!users[username]?.admin) { send(ws, { type: 'admin-error', message: 'Unauthorized' }); break; }
                 let disk = 'N/A';
-                try { disk = execSync('df -h /opt/kapka 2>/dev/null').toString().split('\n')[1]?.trim() || 'N/A'; } catch {}
+                try { disk = execSync('df -h /opt/fshu 2>/dev/null').toString().split('\n')[1]?.trim() || 'N/A'; } catch {}
                 let filesCount = 0, filesSizeBytes = 0;
                 try {
                     const fl = fs.readdirSync(FILES_DIR);

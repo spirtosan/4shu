@@ -1,4 +1,4 @@
-package com.fshu.service
+﻿package com.fshu.service
 
 import android.app.*
 import android.content.ContentValues
@@ -466,13 +466,13 @@ class FshuService : Service() {
                 "type" to "delivered", "messageId" to remoteId, "from" to me, "to" to from
             ))
         }
-        notifyMessage(from, content)
         if (!com.fshu.ui.chat.ChatActivity.isActive ||
             com.fshu.ui.chat.ChatActivity.currentPeer != from) {
             startActivity(
                 com.fshu.ui.MessagePopupActivity.createIntent(this, from, from, content)
             )
         }
+        notifyMessage(from, content)
         MessageBus.tryEmit(json)
     }
 
@@ -671,6 +671,15 @@ class FshuService : Service() {
                     listVersion = version, listOwner = owner)
             )
             if (!isSent) {
+                Log.d("FshuService", "persistListState: notifying owner=$owner isSent=$isSent existing=$existing")
+                if (!com.fshu.ui.chat.ChatActivity.isActive ||
+                    com.fshu.ui.chat.ChatActivity.currentPeer != owner) {
+                    startActivity(
+                        com.fshu.ui.MessagePopupActivity.createIntent(
+                            this, owner, owner, "📝 Todo list"
+                        )
+                    )
+                }
                 notifyMessage(owner, "\uD83D\uDCDD Todo list")
                 if (msgId != null && msgId > 0) {
                     WebSocketClient.send(mapOf(
