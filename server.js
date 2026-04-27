@@ -1,4 +1,26 @@
 const { WebSocketServer } = require('ws');
+const admin = require('firebase-admin');
+const serviceAccount = require('/opt/fshu/firebase-adminsdk.json');
+
+admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount)
+});
+
+async function sendFcmWakeup(fcmToken) {
+    try {
+        await admin.messaging().send({
+            token: fcmToken,
+            data: { wake: '1' },
+            android: {
+                priority: 'high',
+                ttl: 60000
+            }
+        });
+        console.log('  FCM wake-up sent');
+    } catch (err) {
+        console.warn('  FCM send failed:', err.message);
+    }
+}
 const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
@@ -6,12 +28,14 @@ const crypto = require('crypto');
 const bcrypt = require('bcrypt');
 
 const PORT = process.env.PORT || 8080;
-const QUEUE_FILE   = '/opt/fshu/queue.json';
-const FILES_DIR    = '/opt/fshu/files';
-const USERS_FILE   = '/opt/fshu/users.json';
-const LISTS_FILE   = '/opt/fshu/lists.json';
-const HISTORY_DIR  = '/opt/fshu/history';
-const CONFIG_FILE  = '/opt/fshu/config.json';
+const QUEUE_FILE   = '/opt/kapka/queue.json';
+const FILES_DIR    = '/opt/kapka/files';
+const USERS_FILE   = '/opt/kapka/users.json';
+const LISTS_FILE   = '/opt/kapka/lists.json';
+const HISTORY_DIR  = '/opt/kapka/history';
+const CONFIG_FILE  = '/opt/kapka/config.json';
+const AVATARS_DIR  = '/opt/fshu/avatars';
+fs.mkdirSync(AVATARS_DIR, { recursive: true });
 
 // ---------------------------------------------------------------------------
 // Config
@@ -160,7 +184,8 @@ function sendListState(ws, list, listId) {
             version: list.version,
             owner: list.owner,
             to: list.to,
-            items: list.items
+            items: list.items,
+            messageId: list.messageId ?? null
         });
     }
 }
@@ -171,7 +196,7 @@ function broadcastListState(list, listId) {
     if (ownerWs) sendListState(ownerWs, list, listId);
     if (peerWs)  sendListState(peerWs,  list, listId);
     // Enqueue for offline participants
-    const stateEnv = { type: 'list-state', listId, version: list.version, owner: list.owner, to: list.to, items: list.items, timestamp: Date.now() };
+    const stateEnv = { type: 'list-state', listId, version: list.version, owner: list.owner, to: list.to, items: list.items, messageId: list.messageId ?? null, timestamp: Date.now() };
     if (!ownerWs) enqueue(list.owner, stateEnv);
     if (!peerWs)  enqueue(list.to,    stateEnv);
 }
@@ -249,6 +274,27 @@ function deleteOldFiles() {
 deleteOldFiles();
 setInterval(deleteOldFiles, 6 * 60 * 60 * 1000);
 
+// FCM keepalive: every 3 minutes, wake any user whose WebSocket has gone silent.
+// Handles Android Doze mode — the high-priority FCM bypasses Doze and causes
+// the app to reconnect, making the user appear online again.
+const FCM_KEEPALIVE_INTERVAL_MS = 3 * 60 * 1000;   // check every 3 min
+const FCM_KEEPALIVE_THRESHOLD_MS = 4 * 60 * 1000;  // wake if silent for 4+ min
+
+setInterval(async () => {
+    const now = Date.now();
+    for (const [username, userWs] of clients.entries()) {
+        const lastPing = userWs.lastPingAt || 0;
+        const silent = now - lastPing;
+        if (lastPing > 0 && silent > FCM_KEEPALIVE_THRESHOLD_MS) {
+            const token = users[username]?.fcmToken;
+            if (token) {
+                console.log(`  FCM keepalive → ${username} (silent ${Math.round(silent/1000)}s)`);
+                await sendFcmWakeup(token);
+            }
+        }
+    }
+}, FCM_KEEPALIVE_INTERVAL_MS);
+
 // ---------------------------------------------------------------------------
 // Queue helpers
 // ---------------------------------------------------------------------------
@@ -283,11 +329,32 @@ function flushQueue(username, ws) {
 
 const wss = new WebSocketServer({ port: PORT });
 
+// Server-side heartbeat — detects zombie sockets that appear OPEN but are
+// no longer reachable. Native WS ping frames (opcode 0x9) — if no pong
+// returns within the next interval, socket is terminated as zombie.
+const WS_HEARTBEAT_INTERVAL = 30_000;
+
+setInterval(() => {
+    wss.clients.forEach((ws) => {
+        if (ws.isAlive === false) {
+            console.log('  heartbeat: terminating zombie socket');
+            ws.terminate();
+            return;
+        }
+        ws.isAlive = false;
+        ws.ping();
+    });
+}, WS_HEARTBEAT_INTERVAL);
+
 // username -> WebSocket
 const clients = new Map();
 
 // testId -> { ws, startTime, timer }
 const pendingPeerTests = new Map();
+
+// sessionToken -> { username, createdAt }
+const sessionTokens = new Map();
+const SESSION_TOKEN_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 // callerUsername -> calleeUsername (tracks active calls for busy detection and cleanup)
 const activeCalls = new Map();
@@ -305,14 +372,30 @@ function broadcastAllUsers() {
         .map(u => ({
                 username: u,
                 online: clients.has(u),
-                lastSeen: clients.has(u) ? null : (users[u].lastSeen || null)
+                lastSeen: clients.has(u) ? null : (users[u].lastSeen || null),
+                nickname: users[u].nickname || null
             }));
     for (const ws of clients.values()) {
         send(ws, { type: 'users', users: allUsers });
     }
 }
 
+function sendAllAvatars(ws) {
+    try {
+        for (const file of fs.readdirSync(AVATARS_DIR)) {
+            const username = path.basename(file, path.extname(file));
+            const filePath = path.join(AVATARS_DIR, file);
+            try {
+                const data = fs.readFileSync(filePath).toString('base64');
+                send(ws, { type: 'avatar-data', username, data });
+            } catch { /* skip unreadable */ }
+        }
+    } catch { /* dir unreadable */ }
+}
+
 wss.on('connection', (ws, req) => {
+    ws.isAlive = true;
+    ws.on('pong', () => { ws.isAlive = true; });
     let username = null;
     let authenticated = false;
     const ip = req.socket.remoteAddress || 'unknown';
@@ -329,6 +412,36 @@ wss.on('connection', (ws, req) => {
         // Pre-auth: only 'auth' is accepted; anything else closes the socket.
         // ---------------------------------------------------------------
         if (!authenticated) {
+            if (msg.type === 'resume') {
+                const token = msg.sessionToken || '';
+                const entry = sessionTokens.get(token);
+                if (!entry || Date.now() - entry.createdAt > SESSION_TOKEN_TTL_MS) {
+                    sessionTokens.delete(token);
+                    send(ws, { type: 'resume-error', reason: 'invalid' });
+                    return;
+                }
+                const resumeUser = entry.username;
+                if (!users[resumeUser]) {
+                    sessionTokens.delete(token);
+                    send(ws, { type: 'resume-error', reason: 'invalid' });
+                    return;
+                }
+                // Resume success — re-use same token
+                authenticated = true;
+                username = resumeUser;
+                const existingWsResume = clients.get(username);
+                if (existingWsResume && existingWsResume !== ws) {
+                    console.log(`  closing stale socket for ${username}`);
+                    try { existingWsResume.terminate(); } catch (_) {}
+                }
+                clients.set(username, ws);
+                send(ws, { type: 'auth-ok', appSecret: sharedAppSecret, admin: users[resumeUser].admin === true, sessionToken: token });
+                sendAllAvatars(ws);
+                console.log();
+                broadcastAllUsers();
+                flushQueue(username, ws);
+                return;
+            }
             if (msg.type !== 'auth') {
                 ws.close();
                 return;
@@ -359,8 +472,16 @@ wss.on('connection', (ws, req) => {
             clearFailures(ip);
             authenticated = true;
             username = u;
+            const existingWs = clients.get(username);
+            if (existingWs && existingWs !== ws) {
+                console.log(`  closing stale socket for ${username}`);
+                try { existingWs.terminate(); } catch (_) {}
+            }
             clients.set(username, ws);
-            send(ws, { type: 'auth-ok', appSecret: sharedAppSecret, admin: userRecord.admin === true });
+            const sessionToken = crypto.randomBytes(32).toString('hex');
+            sessionTokens.set(sessionToken, { username: u, createdAt: Date.now() });
+            send(ws, { type: 'auth-ok', appSecret: sharedAppSecret, admin: userRecord.admin === true, sessionToken });
+            sendAllAvatars(ws);
             console.log(`+ ${username} (${clients.size} online)`);
             broadcastAllUsers();
             flushQueue(username, ws);
@@ -396,6 +517,9 @@ wss.on('connection', (ws, req) => {
                         timestamp: msg.timestamp ?? Date.now(),
                     });
                     console.log(`  queued message for offline user ${msg.to}`);
+                    // Wake up offline user via FCM
+                    const msgFcmToken = users[msg.to] && users[msg.to].fcmToken;
+                    if (msgFcmToken) sendFcmWakeup(msgFcmToken);
                 }
                 break;
             }
@@ -466,11 +590,44 @@ wss.on('connection', (ws, req) => {
                     activeCalls.delete(msg.to);
                     enqueue(msg.to, { type: 'missed-call', from: msg.from, to: msg.to, timestamp: Date.now() });
                     console.log(`  queued missed-call for offline user ${msg.to}`);
+                    // Wake up offline user via FCM
+                    const callFcmToken = users[msg.to] && users[msg.to].fcmToken;
+                    if (callFcmToken) sendFcmWakeup(callFcmToken);
+                }
+                break;
+            }
+
+            case 'set-nickname': {
+                const nickname = (msg.nickname || '').trim().slice(0, 20);
+                if (users[username]) {
+                    if (nickname) {
+                        users[username].nickname = nickname;
+                    } else {
+                        delete users[username].nickname;
+                    }
+                    saveUsers();
+                    broadcastAllUsers();
+                    console.log('  nickname set for ' + username + ': "' + nickname + '"');
+                }
+                break;
+            }
+
+            case 'fcm-token': {
+                if (users[username]) {
+                    if (msg.token) {
+                        users[username].fcmToken = msg.token;
+                        console.log('  FCM token stored for ' + username);
+                    } else {
+                        delete users[username].fcmToken;
+                        console.log('  FCM token cleared for ' + username);
+                    }
+                    saveUsers();
                 }
                 break;
             }
 
             case 'ping': {
+                ws.lastPingAt = Date.now();
                 const onlineUsers = [...clients.keys()];
                 const outdatedLists = [];
                 if (msg.listVersions && typeof msg.listVersions === 'object') {
@@ -493,6 +650,7 @@ wss.on('connection', (ws, req) => {
                     to: msg.to,
                     version: 1,
                     createdAt: Date.now(),
+                    messageId: msg.messageId ?? null,
                     items: items.map(it => ({
                         id: it.id, text: it.text, done: false,
                         checkedBy: null, checkedAt: null, deletedAt: null
@@ -577,7 +735,7 @@ wss.on('connection', (ws, req) => {
             case 'admin-server-info': {
                 if (!users[username]?.admin) { send(ws, { type: 'admin-error', message: 'Unauthorized' }); break; }
                 let disk = 'N/A';
-                try { disk = execSync('df -h /opt/fshu 2>/dev/null').toString().split('\n')[1]?.trim() || 'N/A'; } catch {}
+                try { disk = execSync('df -h /opt/kapka 2>/dev/null').toString().split('\n')[1]?.trim() || 'N/A'; } catch {}
                 let filesCount = 0, filesSizeBytes = 0;
                 try {
                     const fl = fs.readdirSync(FILES_DIR);
@@ -621,14 +779,7 @@ wss.on('connection', (ws, req) => {
                 activeCalls.delete(msg.from);
                 activeCalls.delete(msg.to);
                 const recipientWs = clients.get(msg.to);
-                if (recipientWs) {
-                    send(recipientWs, msg);
-                } else {
-                    // Recipient offline — enqueue so they receive it on reconnect.
-                    // Without this, a brief WebSocket drop means the caller never
-                    // learns the call was rejected and stays stuck on "Calling".
-                    enqueue(msg.to, { type: msg.type, from: msg.from, to: msg.to, reason: msg.reason || 'ended' });
-                }
+                if (recipientWs) send(recipientWs, msg);
                 break;
             }
 
@@ -799,6 +950,23 @@ wss.on('connection', (ws, req) => {
                 break;
             }
 
+            case 'avatar-upload': {
+                const data = msg.data;
+                if (typeof data !== 'string' || data.length > 400000) break;
+                try {
+                    const filePath = path.join(AVATARS_DIR, `${username}.jpg`);
+                    fs.writeFileSync(filePath, Buffer.from(data, 'base64'));
+                    const packet = JSON.stringify({ type: 'avatar-data', username, data });
+                    for (const [, clientWs] of clients) {
+                        if (clientWs.readyState === clientWs.OPEN) clientWs.send(packet);
+                    }
+                    console.log();
+                } catch (e) {
+                    console.error('avatar-upload error', e);
+                }
+                break;
+            }
+
             default:
                 console.warn(`Unknown type: ${msg.type}`);
         }
@@ -806,11 +974,16 @@ wss.on('connection', (ws, req) => {
 
     ws.on('close', () => {
         if (username) {
+            // CRITICAL: only clean up if this socket is still the active one.
+            // If the user reconnected, clients.get(username) is already the new socket.
+            // Deleting unconditionally would remove the new socket, making the user
+            // appear offline even though they just reconnected.
+            const isActiveSocket = clients.get(username) === ws;
+
             const callPeer = activeCalls.get(username);
             if (callPeer) {
-                // Grace period: brief disconnects happen on Android when the screen wakes
-                // from lock. Wait 4s before notifying the peer — if the user reconnects
-                // within that window, the call continues without interruption.
+                // Grace period before sending call-end — brief disconnects during
+                // screen wakeup should not kill the call.
                 const graceMs = 4000;
                 setTimeout(() => {
                     const reconnected = clients.get(username);
@@ -821,19 +994,36 @@ wss.on('connection', (ws, req) => {
                         const peerWs = clients.get(callPeer);
                         if (peerWs) {
                             send(peerWs, { type: 'call-end', from: username, to: callPeer, reason: 'disconnected' });
-                            console.log(`  call-end sent to ${callPeer} (${username} disconnected after ${graceMs}ms grace)`);
+                            console.log(`  call-end sent to ${callPeer} (${username} disconnected after grace)`);
                         }
                     }
                 }, graceMs);
             }
-            clients.delete(username);
-            // Record last seen timestamp
-            if (users[username]) {
-                users[username].lastSeen = Date.now();
-                saveUsers();
+
+            if (isActiveSocket) {
+                clients.delete(username);
+                // Clean up session tokens for this user on disconnect
+                for (const [token, entry] of sessionTokens.entries()) {
+                    if (entry.username === username) {
+                        sessionTokens.delete(token);
+                    }
+                }
+                if (users[username]) {
+                    users[username].lastSeen = Date.now();
+                    saveUsers();
+                }
+                console.log(`- ${username} (${clients.size} online)`);
+                // Short grace period before broadcasting offline — quick reconnects
+                // (network change, screen wake) should not flash the user as offline.
+                setTimeout(() => {
+                    if (!clients.has(username)) {
+                        broadcastAllUsers();
+                    }
+                    // else: user reconnected within grace period — skip offline broadcast
+                }, 2000);
+            } else {
+                console.log(`  stale socket closed for ${username} — new socket active, skipping cleanup`);
             }
-            console.log(`- ${username} (${clients.size} online)`);
-            broadcastAllUsers();
         }
     });
 
@@ -842,4 +1032,4 @@ wss.on('connection', (ws, req) => {
     });
 });
 
-console.log(`Fshu signaling server listening on ws://localhost:${PORT}`);
+console.log(`4shu signaling server listening on ws://localhost:${PORT}`);

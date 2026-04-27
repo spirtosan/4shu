@@ -5,8 +5,15 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.Typeface
+import coil.load
+import coil.transform.CircleCropTransformation
 import android.os.Bundle
 import android.util.Base64
+import android.util.Log
 import android.view.Menu
 import android.view.MenuItem
 import android.widget.Toast
@@ -89,6 +96,7 @@ class MainActivity : AppCompatActivity() {
                 val me = Prefs.getUsername(this@MainActivity)
                 val dir = File(filesDir, "avatars").also { it.mkdirs() }
                 File(dir, "$me.jpg").writeBytes(baos.toByteArray())
+                withContext(kotlinx.coroutines.Dispatchers.Main) { loadMyAvatar() }
             } catch (e: Exception) {
                 withContext(kotlinx.coroutines.Dispatchers.Main) {
                     Toast.makeText(this@MainActivity, "Failed to upload avatar", Toast.LENGTH_SHORT).show()
@@ -103,6 +111,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         setSupportActionBar(binding.toolbar)
+        loadMyAvatar()
 
         adapter = UserAdapter(
             users,
@@ -307,6 +316,53 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun loadMyAvatar() {
+        try {
+            val me = Prefs.getUsername(this)
+            if (me.isEmpty()) return
+            val avatarFile = File(filesDir, "avatars/$me.jpg")
+            val sizePx = (36 * resources.displayMetrics.density).toInt()
+            val iv = binding.toolbarMyAvatar ?: return
+            if (avatarFile.exists()) {
+                iv.load(avatarFile) {
+                    transformations(CircleCropTransformation())
+                }
+            } else {
+                val letter = me.firstOrNull()?.uppercaseChar()?.toString() ?: "?"
+                val color = when (me.hashCode().let { if (it < 0) -it else it } % 10) {
+                    0 -> getColor(R.color.avatar_1)
+                    1 -> getColor(R.color.avatar_2)
+                    2 -> getColor(R.color.avatar_3)
+                    3 -> getColor(R.color.avatar_4)
+                    4 -> getColor(R.color.avatar_5)
+                    5 -> getColor(R.color.avatar_6)
+                    6 -> getColor(R.color.avatar_7)
+                    7 -> getColor(R.color.avatar_8)
+                    8 -> getColor(R.color.avatar_9)
+                    else -> getColor(R.color.avatar_10)
+                }
+                val bmp = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
+                val canvas = Canvas(bmp)
+                Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = color }.also {
+                    canvas.drawCircle(sizePx / 2f, sizePx / 2f, sizePx / 2f, it)
+                }
+                Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    this.color = Color.WHITE
+                    textSize = sizePx * 0.42f
+                    textAlign = Paint.Align.CENTER
+                    typeface = Typeface.DEFAULT_BOLD
+                }.also {
+                    val yPos = sizePx / 2f - (it.descent() + it.ascent()) / 2f
+                    canvas.drawText(letter, sizePx / 2f, yPos, it)
+                }
+                iv.setImageBitmap(bmp)
+            }
+            iv.setOnClickListener { pickAvatarLauncher.launch("image/*") }
+        } catch (e: Exception) {
+            Log.e("MainActivity", "loadMyAvatar failed", e)
+        }
+    }
+
     private fun showEmergencyLocationDialog(user: User) {
         AlertDialog.Builder(this)
             .setTitle("Emergency call + location")
@@ -448,9 +504,18 @@ class MainActivity : AppCompatActivity() {
                 adapter.notifyDataSetChanged()
             }
             "avatar-update" -> {
-                val uname = json.get("username")?.asString ?: return
-                val idx = users.indexOfFirst { it.username == uname }
-                if (idx >= 0) runOnUiThread { adapter.notifyItemChanged(idx) }
+                try {
+                    val uname = json.get("username")?.asString ?: return
+                    val me = Prefs.getUsername(this)
+                    if (uname == me) {
+                        runOnUiThread { loadMyAvatar() }
+                    } else {
+                        val idx = users.indexOfFirst { it.username == uname }
+                        if (idx >= 0) runOnUiThread { adapter.notifyItemChanged(idx) }
+                    }
+                } catch (e: Exception) {
+                    Log.e("MainActivity", "avatar-update handler failed", e)
+                }
             }
             "message", "file", "list", "location", "location-request", "location-response" -> {
                 val from = json.get("from")?.asString ?: return

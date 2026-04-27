@@ -638,12 +638,17 @@ class FshuService : Service() {
         val me = Prefs.getUsername(this)
         val otherUser = json.get("to")?.asString ?: return
         val content = itemsEl.toString()
+        val msgId = json.get("messageId")?.takeIf { !it.isJsonNull }?.asLong
         val existing = db.messageDao().getByListId(listId)
         if (existing != null) {
             // Ignore stale pushes — only apply if server version is strictly newer.
             if (version <= (existing.listVersion ?: 0)) return
             db.messageDao().updateListState(listId, content, version)
-            db.messageDao().upgradeStatus(existing.id, "SENT")
+            if (msgId != null && msgId > 0 && owner != me) {
+                WebSocketClient.send(mapOf(
+                    "type" to "delivered", "messageId" to msgId, "from" to me, "to" to owner
+                ))
+            }
         } else {
             val isSent = owner == me
             val (from, to) = if (isSent) Pair(me, otherUser) else Pair(owner, me)
@@ -652,7 +657,14 @@ class FshuService : Service() {
                     listId = listId, timestamp = ts, isSent = isSent,
                     listVersion = version, listOwner = owner)
             )
-            if (!isSent) notifyMessage(owner, "\uD83D\uDCDD Todo list")
+            if (!isSent) {
+                notifyMessage(owner, "\uD83D\uDCDD Todo list")
+                if (msgId != null && msgId > 0) {
+                    WebSocketClient.send(mapOf(
+                        "type" to "delivered", "messageId" to msgId, "from" to me, "to" to owner
+                    ))
+                }
+            }
         }
         MessageBus.tryEmit(json)
     }

@@ -20,7 +20,22 @@
         android:background="@color/bg_secondary"
         android:elevation="4dp"
         app:title="4shu"
-        app:titleTextColor="@color/text_primary" />
+        app:titleTextColor="@color/text_primary">
+
+        <ImageView
+            android:id="@+id/toolbarMyAvatar"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:layout_gravity="center_vertical|end"
+            android:layout_marginEnd="8dp"
+            android:scaleType="centerCrop"
+            android:clipToOutline="true"
+            android:outlineProvider="background"
+            android:background="@drawable/bg_avatar"
+            android:clickable="true"
+            android:focusable="true" />
+
+    </androidx.appcompat.widget.Toolbar>
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rv_users"
