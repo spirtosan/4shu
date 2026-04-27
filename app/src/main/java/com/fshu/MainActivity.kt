@@ -45,6 +45,7 @@ import com.fshu.ui.chat.ChatActivity
 import com.fshu.ui.login.LoginActivity
 import com.fshu.ui.passphrase.PassphraseSetupActivity
 import com.fshu.ui.settings.SettingsActivity
+import com.fshu.util.CrashHandler
 import com.fshu.util.CryptoHelper
 import com.fshu.util.LocationHelper
 import com.fshu.util.MessageBus
@@ -106,6 +107,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        CrashHandler.install(this)
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
@@ -310,6 +312,41 @@ class MainActivity : AppCompatActivity() {
             }
             R.id.action_set_avatar -> {
                 pickAvatarLauncher.launch("image/*")
+                true
+            }
+            R.id.action_crash_log -> {
+                val crashes = CrashHandler.getAllCrashes(this)
+                if (crashes.isEmpty()) {
+                    Toast.makeText(this, "No crash logs found", Toast.LENGTH_SHORT).show()
+                } else {
+                    val fullLog = crashes.joinToString("\n\n")
+                    val tv = android.widget.TextView(this).apply {
+                        text = fullLog
+                        setPadding(32, 16, 32, 16)
+                        setTextIsSelectable(true)
+                        textSize = 11f
+                    }
+                    val scroll = android.widget.ScrollView(this).apply {
+                        addView(tv)
+                    }
+                    androidx.appcompat.app.AlertDialog.Builder(this)
+                        .setTitle("Crash logs (${crashes.size})")
+                        .setView(scroll)
+                        .setPositiveButton("Copy all") { _, _ ->
+                            val clipboard = getSystemService(
+                                android.content.ClipboardManager::class.java)
+                            clipboard.setPrimaryClip(
+                                android.content.ClipData.newPlainText("crash log", fullLog))
+                            Toast.makeText(this, "Copied to clipboard",
+                                Toast.LENGTH_SHORT).show()
+                        }
+                        .setNeutralButton("Clear") { _, _ ->
+                            CrashHandler.clearCrashes(this)
+                            Toast.makeText(this, "Logs cleared", Toast.LENGTH_SHORT).show()
+                        }
+                        .setNegativeButton("Close", null)
+                        .show()
+                }
                 true
             }
             else -> super.onOptionsItemSelected(item)

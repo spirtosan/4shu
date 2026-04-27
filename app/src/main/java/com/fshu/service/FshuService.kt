@@ -59,7 +59,7 @@ class FshuService : Service() {
 
     companion object {
         const val CHANNEL_ID = "fshu_fg"
-        private const val CHANNEL_MESSAGES = "fshu_messages"
+        private const val CHANNEL_MESSAGES = "fshu_messages_v3"
         // v3: enableVibration(true) + vibration pattern (channel settings are immutable after first creation)
         private const val CHANNEL_CALLS = "fshu_calls_v3"
         private const val CHANNEL_CALLS_LEGACY = "fshu_calls"
@@ -406,10 +406,17 @@ class FshuService : Service() {
                     }
                     MessageBus.emit(evt)
                 } catch (e: Exception) {
-                    Log.e("KapkaService", "avatar-data save failed", e)
+                    Log.e("FshuService", "avatar-data save failed", e)
                 }
             }
-            "auth-ok"                 -> { Prefs.setIsAdmin(this, json.get("admin")?.asBoolean ?: false); MessageBus.emit(json) }
+            "auth-ok"                 -> {
+                Prefs.setIsAdmin(this, json.get("admin")?.asBoolean ?: false)
+                val turnUser = json.get("turnUsername")?.asString
+                val turnPass = json.get("turnPassword")?.asString
+                if (!turnUser.isNullOrEmpty()) Prefs.setTurnUsername(this, turnUser)
+                if (!turnPass.isNullOrEmpty()) Prefs.setTurnPassword(this, turnPass)
+                MessageBus.emit(json)
+            }
             "passphrase-hint"         -> MessageBus.emit(json)
             "admin-users",
             "admin-result",
@@ -460,6 +467,12 @@ class FshuService : Service() {
             ))
         }
         notifyMessage(from, content)
+        if (!com.fshu.ui.chat.ChatActivity.isActive ||
+            com.fshu.ui.chat.ChatActivity.currentPeer != from) {
+            startActivity(
+                com.fshu.ui.MessagePopupActivity.createIntent(this, from, from, content)
+            )
+        }
         MessageBus.tryEmit(json)
     }
 
@@ -847,24 +860,50 @@ class FshuService : Service() {
     }
 
     private fun notifyMessage(from: String, content: String) {
+        // Vibrate respecting silent/vibrate mode
+        try {
+            val am = getSystemService(android.media.AudioManager::class.java)
+            val ringerMode = am.ringerMode
+            if (ringerMode == android.media.AudioManager.RINGER_MODE_VIBRATE ||
+                ringerMode == android.media.AudioManager.RINGER_MODE_NORMAL) {
+                val vib = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    val vm = getSystemService(android.os.VibratorManager::class.java)
+                    vm.defaultVibrator
+                } else {
+                    @Suppress("DEPRECATION")
+                    getSystemService(android.os.Vibrator::class.java)
+                }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    vib.vibrate(android.os.VibrationEffect.createWaveform(
+                        longArrayOf(0, 250, 250, 250), -1))
+                } else {
+                    @Suppress("DEPRECATION")
+                    vib.vibrate(longArrayOf(0, 250, 250, 250), -1)
+                }
+            }
+        } catch (_: Exception) {}
+
         val intent = Intent(this, com.fshu.ui.chat.ChatActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
             putExtra(com.fshu.ui.chat.ChatActivity.EXTRA_PEER, from)
         }
         val pi = PendingIntent.getActivity(
-            this, notifCounter.get(), intent,
+            this, from.hashCode().and(Int.MAX_VALUE),
+            intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        val id = notifCounter.getAndIncrement()
         val notif = NotificationCompat.Builder(this, CHANNEL_MESSAGES)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(from)
             .setContentText(content)
-            .setSmallIcon(R.drawable.ic_notification)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setAutoCancel(true)
             .setContentIntent(pi)
-            .setCategory(NotificationCompat.CATEGORY_MESSAGE)
             .build()
-        getSystemService(NotificationManager::class.java).notify(id, notif)
+        getSystemService(NotificationManager::class.java)
+            .notify(from.hashCode().and(Int.MAX_VALUE), notif)
     }
 
     private fun notifyCall(from: String, sdp: String, isVideo: Boolean = false, isEmergency: Boolean = false) {
@@ -1134,13 +1173,22 @@ class FshuService : Service() {
         val nm = getSystemService(NotificationManager::class.java)
 
         nm.deleteNotificationChannel(CHANNEL_CALLS_LEGACY)
+        nm.deleteNotificationChannel("fshu_messages")
+        nm.deleteNotificationChannel("fshu_messages_v2")
 
         nm.createNotificationChannel(
             NotificationChannel(CHANNEL_ID, "Fshu", NotificationManager.IMPORTANCE_LOW)
         )
         nm.createNotificationChannel(
-            NotificationChannel(CHANNEL_MESSAGES, "Messages", NotificationManager.IMPORTANCE_HIGH).apply {
+            NotificationChannel(CHANNEL_MESSAGES, "Messages",
+                NotificationManager.IMPORTANCE_HIGH).apply {
+                description = "Incoming message notifications"
+                enableLights(true)
+                lightColor = android.graphics.Color.parseColor("#E8711A")
                 enableVibration(true)
+                vibrationPattern = longArrayOf(0, 250, 250, 250)
+                setShowBadge(true)
+                lockscreenVisibility = Notification.VISIBILITY_PUBLIC
             }
         )
         nm.deleteNotificationChannel("fshu_calls_v2")

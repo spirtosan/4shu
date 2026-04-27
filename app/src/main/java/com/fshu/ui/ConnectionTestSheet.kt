@@ -48,7 +48,6 @@ class ConnectionTestSheet : BottomSheetDialogFragment() {
             arguments = bundleOf(ARG_PEER to peer)
         }
 
-        private const val TURN_URL         = "turn:shumkov.eu:3478"
         private const val TURN_USER        = "fshu"
         private const val TURN_PASS        = "kWoQPR9m0YPHAds53Dojh6xcc6yXQsrVfRCaMav0bNA="
         private const val TURN_TIMEOUT_MS  = 6_000L
@@ -60,6 +59,12 @@ class ConnectionTestSheet : BottomSheetDialogFragment() {
     }
 
     private val peer get() = arguments?.getString(ARG_PEER) ?: ""
+
+    private fun serverHost(): String =
+        try { java.net.URI(Prefs.getServerUrl(requireContext())).host ?: "localhost" }
+        catch (e: Exception) { "localhost" }
+
+    private fun turnUrl(): String = "turn:${serverHost()}:3478"
 
     private lateinit var dotWs:      View
     private lateinit var tvWs:       TextView
@@ -124,9 +129,10 @@ class ConnectionTestSheet : BottomSheetDialogFragment() {
 
         // ── Test 2: DNS ──
         data class DnsResult(val ok: Boolean, val label: String)
+        val host = serverHost()
         val dns = withContext(Dispatchers.IO) {
             try {
-                val addr = InetAddress.getByName("shumkov.eu")
+                val addr = InetAddress.getByName(host)
                 DnsResult(true, "OK (${addr.hostAddress})")
             } catch (e: UnknownHostException) {
                 DnsResult(false, "Failed")
@@ -207,6 +213,11 @@ class ConnectionTestSheet : BottomSheetDialogFragment() {
     }
 
     private suspend fun turnReachabilityTest(appCtx: android.content.Context): Boolean {
+        val turnUrl = try {
+            val h = java.net.URI(Prefs.getServerUrl(appCtx)).host ?: "localhost"
+            "turn:$h:3478"
+        } catch (e: Exception) { "turn:localhost:3478" }
+
         PeerConnectionFactory.initialize(
             PeerConnectionFactory.InitializationOptions
                 .builder(appCtx)
@@ -216,7 +227,7 @@ class ConnectionTestSheet : BottomSheetDialogFragment() {
         val factory = PeerConnectionFactory.builder().createPeerConnectionFactory()
 
         val iceServer = PeerConnection.IceServer
-            .builder(TURN_URL)
+            .builder(turnUrl)
             .setUsername(TURN_USER)
             .setPassword(TURN_PASS)
             .createIceServer()

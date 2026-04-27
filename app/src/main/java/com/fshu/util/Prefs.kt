@@ -24,7 +24,7 @@ object Prefs {
         ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE).edit().putString(KEY_USERNAME, value).apply()
 
     fun getServerUrl(ctx: Context) =
-        ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE).getString(KEY_SERVER_URL, "wss://shumkov.eu/fshu/") ?: "wss://shumkov.eu/fshu/"
+        ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE).getString(KEY_SERVER_URL, "") ?: ""
 
     fun setServerUrl(ctx: Context, value: String) =
         ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE).edit().putString(KEY_SERVER_URL, value).apply()
@@ -167,6 +167,22 @@ object Prefs {
 
     fun setSessionToken(ctx: Context, value: String) =
         getSecurePrefs(ctx).edit().putString("session_token", value).apply()
+
+    fun getTurnUsername(ctx: Context): String =
+        ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE)
+            .getString("turn_username", "") ?: ""
+
+    fun setTurnUsername(ctx: Context, value: String) =
+        ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE)
+            .edit().putString("turn_username", value).apply()
+
+    fun getTurnPassword(ctx: Context): String =
+        ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE)
+            .getString("turn_password", "") ?: ""
+
+    fun setTurnPassword(ctx: Context, value: String) =
+        ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE)
+            .edit().putString("turn_password", value).apply()
 
     private fun getSecurePrefs(ctx: Context): SharedPreferences {
         return try {

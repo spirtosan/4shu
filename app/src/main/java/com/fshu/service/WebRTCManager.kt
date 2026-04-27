@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import com.fshu.util.Prefs
 import kotlinx.coroutines.*
 import org.webrtc.*
 import java.io.File
@@ -79,16 +80,34 @@ class WebRTCManager(
         videoCapturer?.switchCamera(null)
     }
 
-    private val iceServers = listOf(
-        PeerConnection.IceServer.builder("turn:shumkov.eu:3478")
-            .setUsername("fshu")
-            .setPassword("kWoQPR9m0YPHAds53Dojh6xcc6yXQsrVfRCaMav0bNA=")
-            .createIceServer(),
-        PeerConnection.IceServer.builder("turn:89.25.108.245:3478")
-            .setUsername("fshu")
-            .setPassword("kWoQPR9m0YPHAds53Dojh6xcc6yXQsrVfRCaMav0bNA=")
-            .createIceServer()
-    )
+    private val iceServers: List<PeerConnection.IceServer> = try {
+        val turnUrl = turnUrlFromServerUrl(context)
+        val turnUsername = Prefs.getTurnUsername(context)
+        val turnPassword = Prefs.getTurnPassword(context)
+        if (turnUsername.isNotEmpty()) {
+            listOf(
+                PeerConnection.IceServer.builder(turnUrl)
+                    .setUsername(turnUsername)
+                    .setPassword(turnPassword)
+                    .createIceServer()
+            )
+        } else {
+            emptyList() // no credentials yet — WebRTC will use direct P2P only
+        }
+    } catch (e: Exception) {
+        Log.e("WebRTCManager", "IceServer build failed, falling back", e)
+        emptyList()
+    }
+
+    private fun turnUrlFromServerUrl(ctx: Context): String {
+        val serverUrl = Prefs.getServerUrl(ctx)
+        return try {
+            val host = java.net.URI(serverUrl).host ?: return "turn:localhost:3478"
+            "turn:$host:3478"
+        } catch (e: Exception) {
+            "turn:localhost:3478"
+        }
+    }
 
     private fun buildRtcConfig(
         transports: PeerConnection.IceTransportsType = PeerConnection.IceTransportsType.ALL
@@ -152,7 +171,10 @@ class WebRTCManager(
             override fun onDataChannel(p: DataChannel?) {}
             override fun onRenegotiationNeeded() {}
             override fun onIceConnectionReceivingChange(p: Boolean) {}
-        })!!
+        }) ?: throw IllegalStateException(
+            "createPeerConnection returned null — " +
+            "iceServers: ${iceServers.map { it.urls }}"
+        )
     }
 
     private fun addLocalAudio(pc: PeerConnection) {

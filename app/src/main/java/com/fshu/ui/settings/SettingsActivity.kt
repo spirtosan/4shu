@@ -42,7 +42,7 @@ class SettingsActivity : AppCompatActivity() {
         }
 
         // Server URL
-        val defaultUrl = "wss://shumkov.eu/fshu/"
+        val defaultUrl = ""
         binding.tvServerUrl.text = Prefs.getServerUrl(this)
         binding.rowServerUrl.setOnClickListener {
             val et = EditText(this).apply {

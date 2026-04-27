@@ -32,4 +32,10 @@
         android:title="Set my avatar"
         app:showAsAction="never" />
 
+
+    <item
+        android:id="@+id/action_crash_log"
+        android:title="View crash log"
+        app:showAsAction="never" />
+
 </menu>

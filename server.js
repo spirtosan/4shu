@@ -435,7 +435,7 @@ wss.on('connection', (ws, req) => {
                     try { existingWsResume.terminate(); } catch (_) {}
                 }
                 clients.set(username, ws);
-                send(ws, { type: 'auth-ok', appSecret: sharedAppSecret, admin: users[resumeUser].admin === true, sessionToken: token });
+                send(ws, { type: 'auth-ok', appSecret: sharedAppSecret, admin: users[resumeUser].admin === true, sessionToken: token, turnUsername: 'fshu', turnPassword: 'kWoQPR9m0YPHAds53Dojh6xcc6yXQsrVfRCaMav0bNA=' });
                 sendAllAvatars(ws);
                 console.log();
                 broadcastAllUsers();
@@ -480,7 +480,7 @@ wss.on('connection', (ws, req) => {
             clients.set(username, ws);
             const sessionToken = crypto.randomBytes(32).toString('hex');
             sessionTokens.set(sessionToken, { username: u, createdAt: Date.now() });
-            send(ws, { type: 'auth-ok', appSecret: sharedAppSecret, admin: userRecord.admin === true, sessionToken });
+            send(ws, { type: 'auth-ok', appSecret: sharedAppSecret, admin: userRecord.admin === true, sessionToken, turnUsername: 'fshu', turnPassword: 'kWoQPR9m0YPHAds53Dojh6xcc6yXQsrVfRCaMav0bNA=' });
             sendAllAvatars(ws);
             console.log(`+ ${username} (${clients.size} online)`);
             broadcastAllUsers();

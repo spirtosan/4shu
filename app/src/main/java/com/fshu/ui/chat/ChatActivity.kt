@@ -57,6 +57,8 @@ import java.util.Locale
 class ChatActivity : AppCompatActivity() {
     companion object {
         const val EXTRA_PEER = "peer"
+        @Volatile var isActive = false
+        @Volatile var currentPeer = ""
     }
 
     private lateinit var binding: ActivityChatBinding
@@ -361,6 +363,8 @@ class ChatActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        isActive = true
+        currentPeer = peer
         applyBackground()
         refreshNicknameMap()
         // Refresh title in case nickname was updated while in background
@@ -375,6 +379,7 @@ class ChatActivity : AppCompatActivity() {
 
     override fun onPause() {
         super.onPause()
+        isActive = false
         unregisterReceiver(screenOnReceiver)
     }
 

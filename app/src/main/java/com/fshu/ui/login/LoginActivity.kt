@@ -65,6 +65,9 @@ class LoginActivity : AppCompatActivity() {
         }
 
         binding.etServerUrl.setText(Prefs.getServerUrl(this))
+        if (Prefs.getServerUrl(this).isEmpty()) {
+            binding.etServerUrl.hint = "wss://your-server-address/fshu/"
+        }
 
         binding.btnJoin.setOnClickListener {
             val username = binding.etUsername.text.toString().trim().lowercase()

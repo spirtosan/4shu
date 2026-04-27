@@ -90,6 +90,15 @@
             android:showOnLockScreen="true"
             android:configChanges="orientation|screenSize|keyboardHidden"/>
 
+        <activity
+            android:name=".ui.MessagePopupActivity"
+            android:showOnLockScreen="true"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            android:exported="false"
+            android:theme="@style/Theme.AppCompat.NoActionBar"
+            android:launchMode="singleTask" />
+
         <service
             android:name=".service.FshuService"
             android:foregroundServiceType="dataSync|location|connectedDevice|microphone"
