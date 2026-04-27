@@ -204,8 +204,6 @@ sed -i "s|/opt/fshu/files|$INSTALL_DIR/files|g" "$INSTALL_DIR/server.js"
 sed -i "s|/opt/fshu/avatars|$INSTALL_DIR/avatars|g" "$INSTALL_DIR/server.js"
 sed -i "s|/opt/fshu/firebase-adminsdk.json|$INSTALL_DIR/firebase-adminsdk.json|g" "$INSTALL_DIR/server.js"
 sed -i "s|df -h /opt/fshu|df -h $INSTALL_DIR|g" "$INSTALL_DIR/server.js"
-# Update Node.js port
-sed -i "s|\.listen(8080|.listen($NODE_PORT|g" "$INSTALL_DIR/server.js"
 success "server.js paths configured"
 
 # ── Configure coturn ──────────────────────────────────────────────────
@@ -270,6 +268,7 @@ ExecStart=/usr/bin/node $INSTALL_DIR/server.js
 Restart=always
 RestartSec=5
 Environment=NODE_ENV=production
+Environment=PORT=$NODE_PORT
 
 [Install]
 WantedBy=multi-user.target

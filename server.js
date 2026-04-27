@@ -1,12 +1,24 @@
 const { WebSocketServer } = require('ws');
-const admin = require('firebase-admin');
-const serviceAccount = require('/opt/fshu/firebase-adminsdk.json');
-
-admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount)
-});
+// Firebase — optional. If firebase-adminsdk.json is missing or invalid,
+// FCM push notifications are disabled but everything else works normally.
+let admin = null;
+try {
+    const serviceAccount = require('/opt/fshu/firebase-adminsdk.json');
+    if (serviceAccount.private_key && serviceAccount.project_id) {
+        admin = require('firebase-admin');
+        admin.initializeApp({
+            credential: admin.credential.cert(serviceAccount)
+        });
+        console.log('Firebase initialized — FCM push enabled');
+    } else {
+        console.log('Firebase credentials incomplete — FCM push disabled');
+    }
+} catch (e) {
+    console.log('firebase-adminsdk.json not found or invalid — FCM push disabled');
+}
 
 async function sendFcmWakeup(fcmToken) {
+    if (!admin || !fcmToken) return;
     try {
         await admin.messaging().send({
             token: fcmToken,
