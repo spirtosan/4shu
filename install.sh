@@ -82,9 +82,20 @@ fi
 read -p "First admin username: " ADMIN_USER
 [ -z "$ADMIN_USER" ] && error "Admin username is required"
 
-read -s -p "First admin password: " ADMIN_PASS
-echo ""
-[ -z "$ADMIN_PASS" ] && error "Admin password is required"
+while true; do
+    read -p "First admin password (visible): " ADMIN_PASS
+    echo ""
+    [ -z "$ADMIN_PASS" ] && { warn "Password cannot be empty"; continue; }
+    [ ${#ADMIN_PASS} -lt 6 ] && { warn "Password must be at least 6 characters"; continue; }
+    read -p "Confirm admin password: " ADMIN_PASS_CONFIRM
+    echo ""
+    if [ "$ADMIN_PASS" = "$ADMIN_PASS_CONFIRM" ]; then
+        success "Password confirmed"
+        break
+    else
+        warn "Passwords do not match — try again"
+    fi
+done
 
 read -p "Enable Firebase push notifications? (y/N): " USE_FIREBASE
 USE_FIREBASE=${USE_FIREBASE:-n}
@@ -112,23 +123,23 @@ success "Port $NODE_PORT is available"
 
 # ── Install dependencies ──────────────────────────────────────────────
 info "Updating package list..."
-apt-get update -qq
+DEBIAN_FRONTEND=noninteractive apt-get update -qq
 
 info "Installing nginx..."
-apt-get install -y -qq nginx
+DEBIAN_FRONTEND=noninteractive apt-get install -y -qq nginx
 
 info "Installing coturn..."
-apt-get install -y -qq coturn
+DEBIAN_FRONTEND=noninteractive apt-get install -y -qq coturn
 
 info "Installing Node.js 20..."
 if ! command -v node &>/dev/null || [[ $(node -v | cut -d. -f1 | tr -d 'v') -lt 20 ]]; then
     curl -fsSL https://deb.nodesource.com/setup_20.x | bash - &>/dev/null
-    apt-get install -y -qq nodejs
+    DEBIAN_FRONTEND=noninteractive apt-get install -y -qq nodejs
 fi
 success "Node.js $(node -v) installed"
 
 info "Installing certbot..."
-apt-get install -y -qq certbot python3-certbot-nginx
+DEBIAN_FRONTEND=noninteractive apt-get install -y -qq certbot python3-certbot-nginx
 
 # ── Create directory structure ────────────────────────────────────────
 info "Creating directory structure at $INSTALL_DIR..."
@@ -159,7 +170,7 @@ success "Server files copied"
 # ── npm install ───────────────────────────────────────────────────────
 info "Installing Node.js dependencies..."
 cd "$INSTALL_DIR"
-npm install --quiet
+npm install --quiet --no-audit --no-fund
 success "Dependencies installed"
 
 # ── Firebase setup ────────────────────────────────────────────────────
