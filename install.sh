@@ -7,6 +7,11 @@ Content:
 # Supports multiple instances on the same server
 # Run as root on Ubuntu 24.04
 # Usage: bash install.sh
+#
+# Required files in the same directory as install.sh:
+#   server.js, admin.js, package.json
+# Optional:
+#   firebase-adminsdk.json (only if Firebase push is needed)
 
 set -e
 

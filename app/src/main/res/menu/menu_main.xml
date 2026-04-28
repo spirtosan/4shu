@@ -33,9 +33,12 @@
         app:showAsAction="never" />
 
 
+    <!-- Crash log — hidden in distribution builds, useful for debugging.
+         To enable: set android:visible="true" and rebuild. -->
     <item
         android:id="@+id/action_crash_log"
         android:title="View crash log"
+        android:visible="false"
         app:showAsAction="never" />
 
 </menu>
