@@ -161,9 +161,7 @@ for f in server.js admin.js package.json; do
     cp "$SCRIPT_DIR/$f" "$INSTALL_DIR/$f"
 done
 # Fix hardcoded paths in admin.js
-sed -i "s|/opt/fshu/data/users.json|$INSTALL_DIR/data/users.json|g" \
-    "$INSTALL_DIR/admin.js"
-sed -i "s|/opt/fshu/users.json|$INSTALL_DIR/data/users.json|g" \
+sed -i "s|const USERS_FILE = '.*'|const USERS_FILE = '$INSTALL_DIR/data/users.json'|g" \
     "$INSTALL_DIR/admin.js"
 success "Server files copied"
 
