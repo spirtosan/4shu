@@ -469,7 +469,9 @@ class FshuService : Service() {
         if (!com.fshu.ui.chat.ChatActivity.isActive ||
             com.fshu.ui.chat.ChatActivity.currentPeer != from) {
             startActivity(
-                com.fshu.ui.MessagePopupActivity.createIntent(this, from, from, content)
+                com.fshu.ui.MessagePopupActivity.createIntent(
+                    this, from, getDisplayName(from), content
+                )
             )
         }
         notifyMessage(from, content)
@@ -676,7 +678,7 @@ class FshuService : Service() {
                     com.fshu.ui.chat.ChatActivity.currentPeer != owner) {
                     startActivity(
                         com.fshu.ui.MessagePopupActivity.createIntent(
-                            this, owner, owner, "📝 Todo list"
+                            this, owner, getDisplayName(owner), "📝 Todo list"
                         )
                     )
                 }
@@ -868,6 +870,21 @@ class FshuService : Service() {
         notifyCall(from, sdp, isVideo, isEmergency)
     }
 
+    private fun getDisplayName(username: String): String {
+        return try {
+            val usersJson = lastUsersJson ?: return username
+            val arr = usersJson.getAsJsonArray("users") ?: return username
+            for (el in arr) {
+                val obj = el.asJsonObject
+                if (obj.get("username")?.asString == username) {
+                    val nick = obj.get("nickname")?.asString
+                    return if (!nick.isNullOrBlank()) nick else username
+                }
+            }
+            username
+        } catch (_: Exception) { username }
+    }
+
     private fun notifyMessage(from: String, content: String) {
         // Vibrate respecting silent/vibrate mode
         try {
@@ -903,7 +920,7 @@ class FshuService : Service() {
         )
         val notif = NotificationCompat.Builder(this, CHANNEL_MESSAGES)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle(from)
+            .setContentTitle(getDisplayName(from))
             .setContentText(content)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
