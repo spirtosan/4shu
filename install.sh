@@ -149,6 +149,11 @@ for f in server.js admin.js package.json; do
     fi
     cp "$SCRIPT_DIR/$f" "$INSTALL_DIR/$f"
 done
+# Fix hardcoded paths in admin.js
+sed -i "s|/opt/fshu/data/users.json|$INSTALL_DIR/data/users.json|g" \
+    "$INSTALL_DIR/admin.js"
+sed -i "s|/opt/fshu/users.json|$INSTALL_DIR/data/users.json|g" \
+    "$INSTALL_DIR/admin.js"
 success "Server files copied"
 
 # ── npm install ───────────────────────────────────────────────────────
@@ -207,7 +212,7 @@ sed -i "s|df -h /opt/fshu|df -h $INSTALL_DIR|g" "$INSTALL_DIR/server.js"
 success "server.js paths configured"
 
 # ── Configure coturn ──────────────────────────────────────────────────
-info "Configuring coturn..."
+info "Configuring TURN server..."
 
 # Get public IP
 PUBLIC_IP=$(curl -s https://api.ipify.org 2>/dev/null || \
@@ -216,7 +221,21 @@ PUBLIC_IP=$(curl -s https://api.ipify.org 2>/dev/null || \
 PRIVATE_IP=$(hostname -I | awk '{print $1}')
 
 TURN_CONF="/etc/turnserver_${INSTANCE_NAME}.conf"
-cat > "$TURN_CONF" << EOF
+
+# Check if coturn is already running on the requested port
+if ss -ulnp | grep -q ":$TURN_PORT "; then
+    warn "Port $TURN_PORT already in use by another coturn instance."
+    info "Adding TURN user to existing coturn configuration..."
+    # Find the existing turnserver.conf
+    EXISTING_CONF=$(systemctl show coturn --property=ExecStart 2>/dev/null | \
+        grep -o '\-c [^ ]*' | awk '{print $2}')
+    EXISTING_CONF=${EXISTING_CONF:-/etc/turnserver.conf}
+    echo "user=$TURN_USER:$TURN_PASS" >> "$EXISTING_CONF"
+    systemctl restart coturn 2>/dev/null || true
+    success "TURN user added to existing coturn ($EXISTING_CONF)"
+else
+    # Fresh coturn instance
+    cat > "$TURN_CONF" << EOF
 listening-port=$TURN_PORT
 listening-ip=$PRIVATE_IP
 relay-ip=$PRIVATE_IP
@@ -232,9 +251,7 @@ no-rfc5780
 no-stun-backward-compatibility
 response-origin-only-with-rfc5780
 EOF
-
-# Create systemd service for this coturn instance
-cat > "/etc/systemd/system/coturn_${INSTANCE_NAME}.service" << EOF
+    cat > "/etc/systemd/system/coturn_${INSTANCE_NAME}.service" << EOF
 [Unit]
 Description=coturn TURN server for $INSTANCE_NAME
 After=network.target
@@ -248,11 +265,11 @@ RestartSec=5
 [Install]
 WantedBy=multi-user.target
 EOF
-
-systemctl daemon-reload
-systemctl enable "coturn_${INSTANCE_NAME}"
-systemctl start "coturn_${INSTANCE_NAME}"
-success "coturn configured and started"
+    systemctl daemon-reload
+    systemctl enable "coturn_${INSTANCE_NAME}"
+    systemctl start "coturn_${INSTANCE_NAME}"
+    success "coturn configured and started"
+fi
 
 # ── Create systemd service ────────────────────────────────────────────
 info "Creating systemd service..."
@@ -287,27 +304,32 @@ if [ -n "$DOMAIN" ]; then
     NGINX_CONF="/etc/nginx/sites-available/$DOMAIN"
     
     if [ -f "$NGINX_CONF" ]; then
-        # Domain config exists — add new location block
         info "Adding WebSocket location to existing nginx config for $DOMAIN..."
-        
-        # Insert new location block before the last closing brace of the ssl server block
-        LOCATION_BLOCK="
+        if grep -q "location $WS_PATH" "$NGINX_CONF"; then
+            warn "Location $WS_PATH already exists in nginx config — skipping"
+        else
+            python3 - <<PYEOF
+import re
+with open('$NGINX_CONF', 'r') as f:
+    content = f.read()
+block = '''
     # 4shu $INSTANCE_NAME WebSocket
     location $WS_PATH {
         proxy_pass http://127.0.0.1:$NODE_PORT/;
         proxy_http_version 1.1;
         proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection \"upgrade\";
+        proxy_set_header Connection "upgrade";
         proxy_set_header Host \$host;
         proxy_read_timeout 86400;
-    }"
-        
-        # Check if this path already exists in config
-        if grep -q "location $WS_PATH" "$NGINX_CONF"; then
-            warn "Location $WS_PATH already exists in nginx config — skipping"
-        else
-            # Add before the last closing brace
-            sed -i "$ i\\$LOCATION_BLOCK" "$NGINX_CONF"
+    }
+'''
+# Insert before the last closing brace
+content = content.rstrip()
+if content.endswith('}'):
+    content = content[:-1] + block + '}\n'
+with open('$NGINX_CONF', 'w') as f:
+    f.write(content)
+PYEOF
             success "Location block added to existing nginx config"
         fi
     else
@@ -394,10 +416,20 @@ fi
 
 # ── Create first admin user ───────────────────────────────────────────
 info "Creating admin user '$ADMIN_USER'..."
-sleep 2  # Wait for service to be ready
-node "$INSTALL_DIR/admin.js" add "$ADMIN_USER" "$ADMIN_PASS" && \
-    node "$INSTALL_DIR/admin.js" admin "$ADMIN_USER" true 2>/dev/null || true
-success "Admin user created"
+# Wait for service to be ready with retry
+RETRIES=10
+until node "$INSTALL_DIR/admin.js" list &>/dev/null || [ $RETRIES -eq 0 ]; do
+    sleep 1
+    RETRIES=$((RETRIES-1))
+done
+if node "$INSTALL_DIR/admin.js" add "$ADMIN_USER" "$ADMIN_PASS"; then
+    node "$INSTALL_DIR/admin.js" setadmin "$ADMIN_USER" 2>/dev/null || true
+    success "Admin user '$ADMIN_USER' created"
+else
+    warn "Could not create admin user automatically. Run manually:"
+    warn "  node $INSTALL_DIR/admin.js add $ADMIN_USER <password>"
+    warn "  node $INSTALL_DIR/admin.js setadmin $ADMIN_USER"
+fi
 
 # ── Final summary ─────────────────────────────────────────────────────
 echo ""
