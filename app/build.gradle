@@ -12,7 +12,7 @@ if (localPropsFile.exists()) {
 }
 
 android {
-    namespace 'com.fshu'
+    namespace 'com.fshu.next'
     compileSdk 34
 
     signingConfigs {
@@ -25,11 +25,11 @@ android {
     }
 
     defaultConfig {
-        applicationId "com.fshu"
+        applicationId "com.fshu.next"
         minSdk 26
         targetSdk 34
-        versionCode 8
-        versionName "1.1"
+        versionCode 1
+        versionName "0.1.0-next"
 
         externalNativeBuild {
             cmake {
