@@ -18,6 +18,8 @@ object Prefs {
     private const val KEY_IS_ADMIN = "is_admin"
     private const val KEY_DEVICE_ID = "device_id"
     private const val KEY_DEVICE_NAME = "device_name"
+    private const val KEY_EC_PRIVATE_KEY = "ec_private_key"
+    private const val KEY_EC_PUBLIC_KEY  = "ec_public_key"
 
     fun getUsername(ctx: Context) =
         ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE).getString(KEY_USERNAME, "") ?: ""
@@ -123,6 +125,20 @@ object Prefs {
 
     fun setDeviceName(ctx: Context, value: String) =
         ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE).edit().putString(KEY_DEVICE_NAME, value).apply()
+
+    /** X25519 private key (hex, 32 bytes). Stored encrypted. Never leaves the device. */
+    fun getEcPrivateKey(ctx: Context): String =
+        getSecurePrefs(ctx).getString(KEY_EC_PRIVATE_KEY, "") ?: ""
+
+    fun setEcPrivateKey(ctx: Context, value: String) =
+        getSecurePrefs(ctx).edit().putString(KEY_EC_PRIVATE_KEY, value).apply()
+
+    /** X25519 public key (hex, 32 bytes). Stored in plain prefs — not secret. */
+    fun getEcPublicKey(ctx: Context): String =
+        ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE).getString(KEY_EC_PUBLIC_KEY, "") ?: ""
+
+    fun setEcPublicKey(ctx: Context, value: String) =
+        ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE).edit().putString(KEY_EC_PUBLIC_KEY, value).apply()
 
     fun isAdmin(ctx: Context): Boolean =
         ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE).getBoolean(KEY_IS_ADMIN, false)

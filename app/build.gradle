@@ -65,6 +65,15 @@ android {
     buildFeatures {
         viewBinding true
     }
+
+    packagingOptions {
+        exclude 'META-INF/BCKEY.SF'
+        exclude 'META-INF/BCKEY.DSA'
+        exclude 'META-INF/BC2048KE.SF'
+        exclude 'META-INF/BC2048KE.DSA'
+        exclude 'META-INF/BC1024KE.SF'
+        exclude 'META-INF/BC1024KE.DSA'
+    }
 }
 
 dependencies {
@@ -106,6 +115,9 @@ dependencies {
 
     // Encrypted SharedPreferences (Android Keystore-backed password storage)
     implementation 'androidx.security:security-crypto:1.0.0'
+
+    // Bouncy Castle — X25519 key generation and agreement (lightweight API, no JCA conflicts)
+    implementation 'org.bouncycastle:bcprov-jdk15to18:1.78.1'
 
     // Location (FusedLocationProviderClient)
     implementation 'com.google.android.gms:play-services-location:21.1.0'

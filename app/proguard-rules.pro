@@ -20,3 +20,7 @@
 
 # Keep Firebase
 -keep class com.google.firebase.** { *; }
+
+# Keep Bouncy Castle lightweight API (X25519 key generation and agreement)
+-keep class org.bouncycastle.crypto.** { *; }
+-keep class org.bouncycastle.math.** { *; }

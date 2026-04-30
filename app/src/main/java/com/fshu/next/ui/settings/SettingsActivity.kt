@@ -23,8 +23,6 @@ import com.fshu.next.data.remote.WebSocketClient
 import com.fshu.next.databinding.ActivitySettingsBinding
 import com.fshu.next.service.FshuService
 import com.fshu.next.ui.admin.ChangePasswordDialog
-import com.fshu.next.ui.passphrase.PassphraseSetupActivity
-import com.fshu.next.util.CryptoHelper
 import com.fshu.next.util.Prefs
 
 class SettingsActivity : AppCompatActivity() {
@@ -160,20 +158,6 @@ class SettingsActivity : AppCompatActivity() {
         // Change password
         binding.tvChangePassword.setOnClickListener {
             ChangePasswordDialog().show(supportFragmentManager, "change_password")
-        }
-
-        // Reset encryption passphrase
-        binding.tvResetPassphrase.setOnClickListener {
-            AlertDialog.Builder(this)
-                .setTitle("Reset encryption passphrase")
-                .setMessage("This will clear your stored passphrase. You will need to re-enter it on next open. Messages encrypted with the old passphrase will not be readable until you enter the same passphrase again.")
-                .setPositiveButton("Reset") { _, _ ->
-                    Prefs.setPassphrase(this, "")
-                    CryptoHelper.clearKeyCache()
-                    startActivity(Intent(this, PassphraseSetupActivity::class.java))
-                }
-                .setNegativeButton("Cancel", null)
-                .show()
         }
 
         // App version

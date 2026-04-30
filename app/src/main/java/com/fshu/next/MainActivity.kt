@@ -43,7 +43,6 @@ import com.fshu.next.ui.admin.ChangePasswordDialog
 import com.fshu.next.ui.call.CallActivity
 import com.fshu.next.ui.chat.ChatActivity
 import com.fshu.next.ui.login.LoginActivity
-import com.fshu.next.ui.passphrase.PassphraseSetupActivity
 import com.fshu.next.ui.settings.SettingsActivity
 import com.fshu.next.util.CrashHandler
 import com.fshu.next.util.CryptoHelper
@@ -571,9 +570,10 @@ class MainActivity : AppCompatActivity() {
                     "location-request" -> "$senderName: 📍 Location requested"
                     else -> {
                         val rawContent = json.get("content")?.asString ?: ""
-                        val messageId = json.get("messageId")?.asLong ?: 0L
-                        val decrypted = if (CryptoHelper.isReady(this) && messageId != 0L) {
-                            CryptoHelper.decrypt(CryptoHelper.getKey(this, peer), messageId, ts, rawContent) ?: rawContent
+                        val messageId  = json.get("messageId")?.asLong ?: 0L
+                        val previewKey = CryptoHelper.getKey(this, peer)
+                        val decrypted  = if (previewKey != null && messageId != 0L) {
+                            CryptoHelper.decrypt(previewKey, messageId, ts, rawContent) ?: rawContent
                         } else rawContent
                         "$senderName: $decrypted"
                     }

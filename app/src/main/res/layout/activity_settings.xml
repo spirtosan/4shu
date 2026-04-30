@@ -259,27 +259,6 @@
             android:layout_height="1dp"
             android:background="?attr/dividerHorizontal" />
 
-        <!-- Reset encryption passphrase -->
-        <TextView
-            android:id="@+id/tvResetPassphrase"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Reset encryption passphrase"
-            android:textSize="16sp"
-            android:textColor="#E53935"
-            android:paddingStart="16dp"
-            android:paddingEnd="16dp"
-            android:paddingTop="16dp"
-            android:paddingBottom="16dp"
-            android:background="?attr/selectableItemBackground"
-            android:clickable="true"
-            android:focusable="true" />
-
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:background="?attr/dividerHorizontal" />
-
         <!-- History sync -->
         <TextView
             android:layout_width="match_parent"

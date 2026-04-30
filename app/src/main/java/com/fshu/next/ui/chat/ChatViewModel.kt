@@ -53,14 +53,8 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                     replyToId = replyToId, replyToSender = replyToSender,
                     replyToContent = replyToContent)
             )
-            val wireContent = if (CryptoHelper.isReady(getApplication())) {
-                CryptoHelper.encrypt(
-                    CryptoHelper.getKey(getApplication(), peer), id, ts, content,
-                    me, peer, Prefs.getPassphrase(getApplication()), Prefs.getAppSecret(getApplication())
-                )
-            } else {
-                content
-            }
+            val sendKey = CryptoHelper.getKey(getApplication(), peer)
+            val wireContent = if (sendKey != null) CryptoHelper.encrypt(sendKey, id, ts, content) else content
             val payload = mutableMapOf<String, Any>(
                 "type" to "message", "from" to me, "to" to peer,
                 "content" to wireContent, "messageId" to id,
@@ -270,12 +264,8 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                 Message(from = me, to = peer, content = contentJson, type = "location",
                     timestamp = ts, isSent = true, status = "SENDING")
             )
-            val wireContent = if (CryptoHelper.isReady(getApplication())) {
-                CryptoHelper.encrypt(
-                    CryptoHelper.getKey(getApplication(), peer), id, ts, contentJson,
-                    me, peer, Prefs.getPassphrase(getApplication()), Prefs.getAppSecret(getApplication())
-                )
-            } else contentJson
+            val locKey = CryptoHelper.getKey(getApplication(), peer)
+            val wireContent = if (locKey != null) CryptoHelper.encrypt(locKey, id, ts, contentJson) else contentJson
             WebSocketClient.send(mapOf(
                 "type" to "location-response", "from" to me, "to" to peer,
                 "content" to wireContent, "messageId" to id, "timestamp" to ts
@@ -293,12 +283,8 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                     timestamp = ts, isSent = true, status = "SENDING")
             )
             val wirePayload = """{"requestId":"$requestId","timestamp":$ts}"""
-            val wireContent = if (CryptoHelper.isReady(getApplication())) {
-                CryptoHelper.encrypt(
-                    CryptoHelper.getKey(getApplication(), peer), id, ts, wirePayload,
-                    me, peer, Prefs.getPassphrase(getApplication()), Prefs.getAppSecret(getApplication())
-                )
-            } else wirePayload
+            val reqKey = CryptoHelper.getKey(getApplication(), peer)
+            val wireContent = if (reqKey != null) CryptoHelper.encrypt(reqKey, id, ts, wirePayload) else wirePayload
             WebSocketClient.send(mapOf(
                 "type" to "location-request", "from" to me, "to" to peer,
                 "content" to wireContent, "messageId" to id, "timestamp" to ts
@@ -323,12 +309,8 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                     Message(from = me, to = peer, content = locContent, type = "location",
                         timestamp = ts, isSent = true, status = "SENDING")
                 )
-                val wireContent = if (CryptoHelper.isReady(getApplication())) {
-                    CryptoHelper.encrypt(
-                        CryptoHelper.getKey(getApplication(), peer), locId, ts, locContent,
-                        me, peer, Prefs.getPassphrase(getApplication()), Prefs.getAppSecret(getApplication())
-                    )
-                } else locContent
+                val respKey = CryptoHelper.getKey(getApplication(), peer)
+                val wireContent = if (respKey != null) CryptoHelper.encrypt(respKey, locId, ts, locContent) else locContent
                 WebSocketClient.send(mapOf(
                     "type" to "location-response", "from" to me, "to" to peer,
                     "requestId" to requestId, "content" to wireContent,

@@ -11,7 +11,6 @@ import com.google.android.material.snackbar.Snackbar
 import com.fshu.next.MainActivity
 import com.fshu.next.databinding.ActivityLoginBinding
 import com.fshu.next.service.FshuService
-import com.fshu.next.ui.passphrase.PassphraseActivity
 import com.fshu.next.ui.permission.PermissionSetupActivity
 import com.fshu.next.util.MessageBus
 import com.fshu.next.util.Prefs
@@ -127,20 +126,12 @@ class LoginActivity : AppCompatActivity() {
 
     private fun goNext() {
         startService(Intent(this, FshuService::class.java))
-        if (Prefs.getPassphrase(this).isBlank()) {
-            startActivity(Intent(this, PassphraseActivity::class.java))
-        } else {
-            startActivity(Intent(this, MainActivity::class.java))
-        }
+        startActivity(Intent(this, MainActivity::class.java))
         finish()
     }
 
     private fun navigateAfterAuth() {
-        if (Prefs.getPassphrase(this).isBlank()) {
-            startActivity(Intent(this, PassphraseActivity::class.java))
-        } else {
-            startActivity(Intent(this, MainActivity::class.java))
-        }
+        startActivity(Intent(this, MainActivity::class.java))
         finish()
     }
 

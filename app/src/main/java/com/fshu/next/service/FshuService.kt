@@ -152,7 +152,6 @@ class FshuService : Service() {
         }
         WebSocketClient.onAppSecret = { secret ->
             Prefs.setAppSecret(this, secret)
-            CryptoHelper.clearKeyCache()
             Log.d("Crypto", "appSecret stored: ${secret.take(8)}")
         }
         WebSocketClient.onAdmin = { isAdmin ->
@@ -160,6 +159,11 @@ class FshuService : Service() {
         }
         // Register FCM token with server after connect
         WebSocketClient.onConnectedCallback = {
+            // Upload our public key on every connect so server can store/distribute it (Phase 1f)
+            val myPub = Prefs.getEcPublicKey(this@FshuService)
+            if (myPub.isNotEmpty()) {
+                WebSocketClient.send(mapOf("type" to "public-key", "publicKey" to myPub))
+            }
             val token = Prefs.getFcmToken(this@FshuService)
             if (token.isNotEmpty() && Prefs.getFcmEnabled(this@FshuService)) {
                 WebSocketClient.send(mapOf("type" to "fcm-token", "token" to token))
@@ -234,6 +238,15 @@ class FshuService : Service() {
                 WebSocketClient.deviceId = deviceId
                 if (Prefs.getDeviceName(this).isEmpty()) Prefs.setDeviceName(this, Build.MODEL)
                 WebSocketClient.deviceName = Prefs.getDeviceName(this)
+
+                // Generate EC keypair on first launch; load peer key cache from DB
+                if (Prefs.getEcPrivateKey(this).isEmpty()) {
+                    val kp = com.fshu.next.util.EcdhHelper.generateKeyPair()
+                    Prefs.setEcPrivateKey(this, kp.privateKeyHex)
+                    Prefs.setEcPublicKey(this, kp.publicKeyHex)
+                    Log.d("Crypto", "EC keypair generated pub=${kp.publicKeyHex.take(16)}")
+                }
+                scope.launch { preloadPeerKeyCache() }
 
                 connect(url, username, password)
                 registerNetworkCallback(url, username, password)
@@ -404,6 +417,13 @@ class FshuService : Service() {
             "list-state"              -> persistListState(json)
             "list-ack"                -> handleListAck(json)
             "history-response"        -> persistHistoryResponse(json)
+            "public-key-response"     -> {
+                val uname  = json.get("username")?.asString ?: return
+                val pubHex = json.get("publicKey")?.asString ?: return
+                db.peerKeyDao().upsert(com.fshu.next.data.model.PeerKey(uname, pubHex))
+                CryptoHelper.cachePeerKey(this, uname, pubHex)
+                Log.d("Crypto", "peer key received for $uname pub=${pubHex.take(16)}")
+            }
             "peer-test-request"       -> {
                 val testId = json.get("testId")?.asString ?: return
                 val me = Prefs.getUsername(this)
@@ -469,15 +489,12 @@ class FshuService : Service() {
         val replyToId = json.get("replyToId")?.asLong
         val replyToSender = json.get("replyToSender")?.asString?.takeIf { it.isNotEmpty() }
         val replyToContent = json.get("replyToContent")?.asString?.takeIf { it.isNotEmpty() }
-        val me = Prefs.getUsername(this)
-        val content = if (CryptoHelper.isReady(this) && remoteId != 0L) {
-            CryptoHelper.decrypt(
-                CryptoHelper.getKey(this, from), remoteId, ts, rawContent,
-                me, from, Prefs.getPassphrase(this), Prefs.getAppSecret(this)
-            ) ?: "[encrypted]"
-        } else {
-            rawContent
-        }
+        val me  = Prefs.getUsername(this)
+        val key = CryptoHelper.getKey(this, from)
+        if (key == null) requestPeerKey(from)
+        val content = if (key != null && remoteId != 0L) {
+            CryptoHelper.decrypt(key, remoteId, ts, rawContent) ?: "[encrypted]"
+        } else rawContent
         db.messageDao().insert(
             Message(from = from, to = me, content = content, type = "text",
                 timestamp = ts, isSent = false, remoteId = remoteId,
@@ -619,12 +636,9 @@ class FshuService : Service() {
         for (msg in stale) {
             when (msg.type) {
                 "text" -> {
-                    val wireContent = if (CryptoHelper.isReady(this)) {
-                        CryptoHelper.encrypt(
-                            CryptoHelper.getKey(this, msg.to), msg.id, msg.timestamp,
-                            msg.content, msg.from, msg.to,
-                            Prefs.getPassphrase(this), Prefs.getAppSecret(this)
-                        )
+                    val retryKey = CryptoHelper.getKey(this, msg.to)
+                    val wireContent = if (retryKey != null) {
+                        CryptoHelper.encrypt(retryKey, msg.id, msg.timestamp, msg.content)
                     } else msg.content
                     WebSocketClient.send(mapOf(
                         "type" to "message", "from" to msg.from, "to" to msg.to,
@@ -768,18 +782,15 @@ class FshuService : Service() {
         val ts = json.get("timestamp")?.asLong ?: 0L
         val me = Prefs.getUsername(this)
 
-        // Decrypt content if present, fall back to plain-JSON parse, then raw requestId field.
+        // Decrypt content if present; fall back to plain-JSON parse then raw requestId field.
         val requestId: String
         val contentStr = json.get("content")?.asString
-        if (contentStr != null && remoteId != 0L && CryptoHelper.isReady(this)) {
-            val decrypted = CryptoHelper.decrypt(
-                CryptoHelper.getKey(this, from), remoteId, ts, contentStr,
-                me, from, Prefs.getPassphrase(this), Prefs.getAppSecret(this)
-            )
+        val locKey = CryptoHelper.getKey(this, from)
+        if (contentStr != null && remoteId != 0L && locKey != null) {
+            val decrypted = CryptoHelper.decrypt(locKey, remoteId, ts, contentStr)
             val source = if (decrypted != null) {
                 try { com.google.gson.JsonParser.parseString(decrypted).asJsonObject } catch (e: Exception) { return }
             } else {
-                // Decryption failed — message may be unencrypted; try plain JSON then raw field.
                 try { com.google.gson.JsonParser.parseString(contentStr).asJsonObject } catch (e: Exception) { null }
             }
             requestId = source?.get("requestId")?.asString
@@ -809,11 +820,9 @@ class FshuService : Service() {
                 val updatedReqContent = """{"requestId":"$requestId","shared":true,"lat":${location.latitude},"lon":${location.longitude},"accuracy":${location.accuracy},"mapsUrl":"$mapsUrl"}"""
                 db.messageDao().updateContent(reqMsgId, updatedReqContent)
                 val locContent = """{"lat":${location.latitude},"lon":${location.longitude},"accuracy":${location.accuracy},"timestamp":$locTs,"mapsUrl":"$mapsUrl"}"""
-                val wireContent = if (CryptoHelper.isReady(this@FshuService)) {
-                    CryptoHelper.encrypt(
-                        CryptoHelper.getKey(this@FshuService, from), reqMsgId, locTs, locContent,
-                        me, from, Prefs.getPassphrase(this@FshuService), Prefs.getAppSecret(this@FshuService)
-                    )
+                val autoLocKey  = CryptoHelper.getKey(this@FshuService, from)
+                val wireContent = if (autoLocKey != null) {
+                    CryptoHelper.encrypt(autoLocKey, reqMsgId, locTs, locContent)
                 } else locContent
                 WebSocketClient.send(mapOf(
                     "type" to "location-response", "from" to me, "to" to from,
@@ -838,15 +847,12 @@ class FshuService : Service() {
         val accuracy: Float
         val mapsUrl: String
         val contentStr = json.get("content")?.asString
-        if (contentStr != null && remoteId != 0L && CryptoHelper.isReady(this)) {
-            val decrypted = CryptoHelper.decrypt(
-                CryptoHelper.getKey(this, from), remoteId, ts, contentStr,
-                me, from, Prefs.getPassphrase(this), Prefs.getAppSecret(this)
-            )
+        val locRespKey = CryptoHelper.getKey(this, from)
+        if (contentStr != null && remoteId != 0L && locRespKey != null) {
+            val decrypted = CryptoHelper.decrypt(locRespKey, remoteId, ts, contentStr)
             val source = if (decrypted != null) {
                 try { com.google.gson.JsonParser.parseString(decrypted).asJsonObject } catch (e: Exception) { return }
             } else {
-                // Decryption failed — message may be unencrypted; try plain JSON then raw fields.
                 try { com.google.gson.JsonParser.parseString(contentStr).asJsonObject } catch (e: Exception) { null }
             }
             lat = source?.get("lat")?.asDouble ?: json.get("lat")?.asDouble ?: return
@@ -1106,12 +1112,10 @@ class FshuService : Service() {
                 }
                 if (alreadyExists) continue
 
-                val peer = if (from == me) to else from
-                val content = if (CryptoHelper.isReady(this) && msgId > 0) {
-                    CryptoHelper.decrypt(
-                        CryptoHelper.getKey(this, peer), msgId, ts, rawContent,
-                        me, peer, Prefs.getPassphrase(this), Prefs.getAppSecret(this)
-                    ) ?: rawContent
+                val peer    = if (from == me) to else from
+                val histKey = CryptoHelper.getKey(this, peer)
+                val content = if (histKey != null && msgId > 0) {
+                    CryptoHelper.decrypt(histKey, msgId, ts, rawContent) ?: rawContent
                 } else rawContent
 
                 db.messageDao().insert(
@@ -1135,6 +1139,18 @@ class FshuService : Service() {
             addProperty("count", inserted)
         }
         MessageBus.tryEmit(event)
+    }
+
+    /** Load all stored peer public keys into the in-memory key cache. Called on startup. */
+    private suspend fun preloadPeerKeyCache() {
+        db.peerKeyDao().getAll().forEach { pk ->
+            CryptoHelper.cachePeerKey(this, pk.username, pk.publicKey)
+        }
+    }
+
+    /** Request a peer's public key from the server (answered once Phase 1f is live). */
+    private fun requestPeerKey(peer: String) {
+        WebSocketClient.send(mapOf("type" to "public-key-request", "username" to peer))
     }
 
     private fun startConnectionWatchdog(url: String, username: String, password: String) {
