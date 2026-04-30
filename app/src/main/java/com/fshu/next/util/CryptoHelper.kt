@@ -46,6 +46,26 @@ object CryptoHelper {
     /** Clear all cached keys (e.g. on logout). */
     fun clearKeyCache() = keyCache.clear()
 
+    /**
+     * Encrypt [plaintext] for [peer], deriving the conversation key from [peerPubHex] if not
+     * already cached. Returns ciphertext, or [plaintext] unchanged if key derivation fails.
+     */
+    fun encryptForPeer(ctx: Context, peer: String, peerPubHex: String, messageId: Long, plaintext: String): String {
+        if (getKey(ctx, peer) == null) cachePeerKey(ctx, peer, peerPubHex)
+        val key = getKey(ctx, peer) ?: return plaintext
+        return EcdhHelper.encrypt(key, messageId, plaintext)
+    }
+
+    /**
+     * Decrypt [ciphertext] from [peer], deriving the conversation key from [peerPubHex] if not
+     * already cached. Returns null if decryption fails (caller should fall back to raw).
+     */
+    fun decryptFromPeer(ctx: Context, peer: String, peerPubHex: String, messageId: Long, ciphertext: String): String? {
+        if (getKey(ctx, peer) == null) cachePeerKey(ctx, peer, peerPubHex)
+        val key = getKey(ctx, peer) ?: return null
+        return EcdhHelper.decrypt(key, messageId, ciphertext)
+    }
+
     // -------------------------------------------------------------------------
     // Encrypt / Decrypt  — timestamp param kept for call-site compatibility, ignored
     // -------------------------------------------------------------------------

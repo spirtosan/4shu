@@ -53,8 +53,10 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                     replyToId = replyToId, replyToSender = replyToSender,
                     replyToContent = replyToContent)
             )
-            val sendKey = CryptoHelper.getKey(getApplication(), peer)
-            val wireContent = if (sendKey != null) CryptoHelper.encrypt(sendKey, id, ts, content) else content
+            val peerPubKey  = Prefs.getPeerPublicKey(getApplication(), peer)
+            val wireContent = if (peerPubKey.isNotEmpty())
+                CryptoHelper.encryptForPeer(getApplication(), peer, peerPubKey, id, content)
+            else content
             val payload = mutableMapOf<String, Any>(
                 "type" to "message", "from" to me, "to" to peer,
                 "content" to wireContent, "messageId" to id,

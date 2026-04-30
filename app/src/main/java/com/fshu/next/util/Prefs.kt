@@ -140,6 +140,13 @@ object Prefs {
     fun setEcPublicKey(ctx: Context, value: String) =
         ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE).edit().putString(KEY_EC_PUBLIC_KEY, value).apply()
 
+    /** Peer's X25519 public key (hex). Cached locally so decryption works after cache warm. */
+    fun getPeerPublicKey(ctx: Context, peer: String): String =
+        ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE).getString("peer_pub_$peer", "") ?: ""
+
+    fun setPeerPublicKey(ctx: Context, peer: String, key: String) =
+        ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE).edit().putString("peer_pub_$peer", key).apply()
+
     fun isAdmin(ctx: Context): Boolean =
         ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE).getBoolean(KEY_IS_ADMIN, false)
 

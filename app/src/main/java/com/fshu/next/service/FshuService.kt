@@ -473,10 +473,20 @@ class FshuService : Service() {
                 if (CallActivity.isActive) vibrateOnce()
                 MessageBus.emit(json)
             }
-            else                      -> {
-                if (json.get("type")?.asString == "users") lastUsersJson = json
+            "users"                   -> {
+                lastUsersJson = json
+                val me = Prefs.getUsername(this)
+                json.getAsJsonArray("users")?.forEach { el ->
+                    val obj    = el.asJsonObject
+                    val uname  = obj.get("username")?.asString ?: return@forEach
+                    val pubHex = obj.get("publicKey")?.asString ?: return@forEach
+                    if (uname == me || pubHex.isEmpty()) return@forEach
+                    Prefs.setPeerPublicKey(this, uname, pubHex)
+                    CryptoHelper.cachePeerKey(this, uname, pubHex)
+                }
                 MessageBus.emit(json)
             }
+            else                      -> MessageBus.emit(json)
         }
     }
 
@@ -489,11 +499,11 @@ class FshuService : Service() {
         val replyToId = json.get("replyToId")?.asLong
         val replyToSender = json.get("replyToSender")?.asString?.takeIf { it.isNotEmpty() }
         val replyToContent = json.get("replyToContent")?.asString?.takeIf { it.isNotEmpty() }
-        val me  = Prefs.getUsername(this)
-        val key = CryptoHelper.getKey(this, from)
-        if (key == null) requestPeerKey(from)
-        val content = if (key != null && remoteId != 0L) {
-            CryptoHelper.decrypt(key, remoteId, ts, rawContent) ?: "[encrypted]"
+        val me         = Prefs.getUsername(this)
+        val peerPubKey = Prefs.getPeerPublicKey(this, from)
+        if (peerPubKey.isEmpty()) requestPeerKey(from)
+        val content = if (peerPubKey.isNotEmpty() && remoteId != 0L) {
+            CryptoHelper.decryptFromPeer(this, from, peerPubKey, remoteId, rawContent) ?: rawContent
         } else rawContent
         db.messageDao().insert(
             Message(from = from, to = me, content = content, type = "text",
@@ -636,9 +646,9 @@ class FshuService : Service() {
         for (msg in stale) {
             when (msg.type) {
                 "text" -> {
-                    val retryKey = CryptoHelper.getKey(this, msg.to)
-                    val wireContent = if (retryKey != null) {
-                        CryptoHelper.encrypt(retryKey, msg.id, msg.timestamp, msg.content)
+                    val retryPubKey = Prefs.getPeerPublicKey(this, msg.to)
+                    val wireContent = if (retryPubKey.isNotEmpty()) {
+                        CryptoHelper.encryptForPeer(this, msg.to, retryPubKey, msg.id, msg.content)
                     } else msg.content
                     WebSocketClient.send(mapOf(
                         "type" to "message", "from" to msg.from, "to" to msg.to,
