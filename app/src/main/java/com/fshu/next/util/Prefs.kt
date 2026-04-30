@@ -16,6 +16,8 @@ object Prefs {
     private const val KEY_PASSPHRASE = "passphrase"
     private const val KEY_PASSPHRASE_HINT = "passphrase_hint"
     private const val KEY_IS_ADMIN = "is_admin"
+    private const val KEY_DEVICE_ID = "device_id"
+    private const val KEY_DEVICE_NAME = "device_name"
 
     fun getUsername(ctx: Context) =
         ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE).getString(KEY_USERNAME, "") ?: ""
@@ -107,6 +109,20 @@ object Prefs {
 
     fun setPassphraseHint(ctx: Context, value: String) =
         ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE).edit().putString(KEY_PASSPHRASE_HINT, value).apply()
+
+    /** Device UUID — generated once on first launch, stored encrypted. */
+    fun getDeviceId(ctx: Context): String =
+        getSecurePrefs(ctx).getString(KEY_DEVICE_ID, "") ?: ""
+
+    fun setDeviceId(ctx: Context, value: String) =
+        getSecurePrefs(ctx).edit().putString(KEY_DEVICE_ID, value).apply()
+
+    /** Human-readable device name. Defaults to Build.MODEL; user can rename in Settings. */
+    fun getDeviceName(ctx: Context): String =
+        ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE).getString(KEY_DEVICE_NAME, "") ?: ""
+
+    fun setDeviceName(ctx: Context, value: String) =
+        ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE).edit().putString(KEY_DEVICE_NAME, value).apply()
 
     fun isAdmin(ctx: Context): Boolean =
         ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE).getBoolean(KEY_IS_ADMIN, false)

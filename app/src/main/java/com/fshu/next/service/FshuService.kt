@@ -208,6 +208,8 @@ class FshuService : Service() {
                 val url = Prefs.getServerUrl(this)
                 val username = Prefs.getUsername(this)
                 val password = Prefs.getPassword(this)
+                WebSocketClient.deviceId = Prefs.getDeviceId(this)
+                WebSocketClient.deviceName = Prefs.getDeviceName(this).ifEmpty { Build.MODEL }
                 WebSocketClient.disconnect()
                 connect(url, username, password)
             } catch (e: Exception) {
@@ -225,6 +227,14 @@ class FshuService : Service() {
             val username = Prefs.getUsername(this)
             val password = Prefs.getPassword(this)
             if (username.isNotEmpty()) {
+                // Generate or load deviceId on first launch
+                val deviceId = Prefs.getDeviceId(this).ifEmpty {
+                    java.util.UUID.randomUUID().toString().also { Prefs.setDeviceId(this, it) }
+                }
+                WebSocketClient.deviceId = deviceId
+                if (Prefs.getDeviceName(this).isEmpty()) Prefs.setDeviceName(this, Build.MODEL)
+                WebSocketClient.deviceName = Prefs.getDeviceName(this)
+
                 connect(url, username, password)
                 registerNetworkCallback(url, username, password)
                 startConnectionWatchdog(url, username, password)
@@ -323,8 +333,22 @@ class FshuService : Service() {
                     val token = WebSocketClient.sessionToken
                     if (token.isNotEmpty()) Prefs.setSessionToken(this@FshuService, token)
 
-                    // Request all lists we may have missed while offline.
                     val me = Prefs.getUsername(this@FshuService)
+
+                    // On every auth-ok, request history per peer since the last message we have.
+                    val peers = try {
+                        com.google.gson.JsonParser.parseString(Prefs.getCachedUsers(this@FshuService)).asJsonArray
+                            .mapNotNull { it.asJsonObject.get("username")?.asString }
+                            .filter { it != me && !it.startsWith("_") }
+                    } catch (_: Exception) { emptyList() }
+                    for (peer in peers) {
+                        val since = db.messageDao().getLastMessage(peer, me)?.timestamp ?: continue
+                        WebSocketClient.send(mapOf(
+                            "type" to "history-request", "from" to me, "to" to peer, "since" to since
+                        ))
+                    }
+
+                    // Request all lists we may have missed while offline.
                     val versions = db.messageDao().getAllLists()
                         .filter { it.listId != null && it.listVersion != null }
                         .associate { it.listId!! to it.listVersion!! }
@@ -441,6 +465,7 @@ class FshuService : Service() {
         val rawContent = json.get("content")?.asString ?: return
         val ts = json.get("timestamp")?.asLong ?: 0L
         val remoteId = json.get("messageId")?.asLong ?: 0L
+        if (remoteId > 0 && db.messageDao().getByRemoteId(remoteId) != null) return
         val replyToId = json.get("replyToId")?.asLong
         val replyToSender = json.get("replyToSender")?.asString?.takeIf { it.isNotEmpty() }
         val replyToContent = json.get("replyToContent")?.asString?.takeIf { it.isNotEmpty() }
@@ -485,6 +510,7 @@ class FshuService : Service() {
         val dataB64 = json.get("data")?.asString
         val ts = json.get("timestamp")?.asLong ?: System.currentTimeMillis()
         val remoteId = json.get("messageId")?.asLong ?: 0L
+        if (remoteId > 0 && db.messageDao().getByRemoteId(remoteId) != null) return
         val me = Prefs.getUsername(this)
 
         val localUri = if (dataB64 != null) {

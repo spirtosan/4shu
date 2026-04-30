@@ -41,6 +41,29 @@ class SettingsActivity : AppCompatActivity() {
             setDisplayHomeAsUpEnabled(true)
         }
 
+        // Device name
+        binding.tvDeviceName.text = Prefs.getDeviceName(this).ifEmpty { Build.MODEL }
+        binding.rowDeviceName.setOnClickListener {
+            val et = EditText(this).apply {
+                inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_WORDS
+                setText(Prefs.getDeviceName(this@SettingsActivity).ifEmpty { Build.MODEL })
+                setSelection(text.length)
+            }
+            val pad = (16 * resources.displayMetrics.density).toInt()
+            val wrap = FrameLayout(this).apply { setPadding(pad, 0, pad, 0); addView(et) }
+            AlertDialog.Builder(this)
+                .setTitle("Device name")
+                .setView(wrap)
+                .setPositiveButton("Save") { _, _ ->
+                    val name = et.text.toString().trim().ifEmpty { Build.MODEL }
+                    Prefs.setDeviceName(this, name)
+                    binding.tvDeviceName.text = name
+                    WebSocketClient.deviceName = name
+                }
+                .setNegativeButton("Cancel", null)
+                .show()
+        }
+
         // Server URL
         val defaultUrl = ""
         binding.tvServerUrl.text = Prefs.getServerUrl(this)

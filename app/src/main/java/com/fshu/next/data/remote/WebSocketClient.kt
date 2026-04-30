@@ -80,6 +80,12 @@ object WebSocketClient {
     /** Session token received from server on last successful auth — used for fast resume. */
     @Volatile var sessionToken: String = ""
 
+    /** Device UUID generated once on first launch — included in every auth/resume. */
+    @Volatile var deviceId: String = ""
+
+    /** Human-readable device name sent to server — Build.MODEL by default, user can rename. */
+    @Volatile var deviceName: String = ""
+
     /** Called after successful auth or resume — used to send FCM token to server. */
     var onConnectedCallback: (() -> Unit)? = null
 
@@ -129,14 +135,18 @@ object WebSocketClient {
                         "type" to "resume",
                         "sessionToken" to sessionToken,
                         "username" to username,
-                        "lastSeq" to lastSeq
+                        "lastSeq" to lastSeq,
+                        "deviceId" to deviceId,
+                        "deviceName" to deviceName
                     )))
                 } else {
                     ws.send(gson.toJson(mapOf(
                         "type" to "auth",
                         "username" to username,
                         "password" to password,
-                        "lastSeq" to lastSeq
+                        "lastSeq" to lastSeq,
+                        "deviceId" to deviceId,
+                        "deviceName" to deviceName
                     )))
                 }
             }
@@ -178,7 +188,9 @@ object WebSocketClient {
                                 "type" to "auth",
                                 "username" to username,
                                 "password" to password,
-                                "lastSeq" to lastSeq
+                                "lastSeq" to lastSeq,
+                                "deviceId" to deviceId,
+                                "deviceName" to deviceName
                             )))
                         }
                         "pong" -> {
