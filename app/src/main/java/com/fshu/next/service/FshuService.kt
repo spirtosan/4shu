@@ -493,10 +493,10 @@ class FshuService : Service() {
     private suspend fun persistIncomingMessage(json: JsonObject) {
         val from = json.get("from")?.asString ?: return
         val rawContent = json.get("content")?.asString ?: return
-        val ts = json.get("timestamp")?.asLong ?: 0L
-        val remoteId = json.get("messageId")?.asLong ?: 0L
+        val ts = json.get("timestamp")?.asDouble?.toLong() ?: 0L
+        val remoteId = json.get("messageId")?.asDouble?.toLong() ?: 0L
         if (remoteId > 0 && db.messageDao().getByRemoteId(remoteId) != null) return
-        val replyToId = json.get("replyToId")?.asLong
+        val replyToId = json.get("replyToId")?.asDouble?.toLong()
         val replyToSender = json.get("replyToSender")?.asString?.takeIf { it.isNotEmpty() }
         val replyToContent = json.get("replyToContent")?.asString?.takeIf { it.isNotEmpty() }
         val me         = Prefs.getUsername(this)
@@ -511,7 +511,7 @@ class FshuService : Service() {
                 replyToId = replyToId, replyToSender = replyToSender,
                 replyToContent = replyToContent)
         )
-        val seq = json.get("seq")?.asLong ?: 0L
+        val seq = json.get("seq")?.asDouble?.toLong() ?: 0L
         if (seq > 0 && seq > WebSocketClient.lastSeq) WebSocketClient.lastSeq = seq
         if (remoteId != 0L) {
             WebSocketClient.send(mapOf(
@@ -535,8 +535,8 @@ class FshuService : Service() {
         val filename = json.get("filename")?.asString ?: return
         val mimeType = json.get("mimeType")?.asString ?: "application/octet-stream"
         val dataB64 = json.get("data")?.asString
-        val ts = json.get("timestamp")?.asLong ?: System.currentTimeMillis()
-        val remoteId = json.get("messageId")?.asLong ?: 0L
+        val ts = json.get("timestamp")?.asDouble?.toLong() ?: System.currentTimeMillis()
+        val remoteId = json.get("messageId")?.asDouble?.toLong() ?: 0L
         if (remoteId > 0 && db.messageDao().getByRemoteId(remoteId) != null) return
         val me = Prefs.getUsername(this)
 
@@ -557,7 +557,7 @@ class FshuService : Service() {
                 localUri = localUri,
                 timestamp = ts, isSent = false, remoteId = remoteId)
         )
-        val seq = json.get("seq")?.asLong ?: 0L
+        val seq = json.get("seq")?.asDouble?.toLong() ?: 0L
         if (seq > 0 && seq > WebSocketClient.lastSeq) WebSocketClient.lastSeq = seq
         if (remoteId != 0L) {
             WebSocketClient.send(mapOf(
@@ -610,20 +610,20 @@ class FshuService : Service() {
     }
 
     private suspend fun handleAck(json: JsonObject) {
-        val messageId = json.get("messageId")?.asLong ?: return
+        val messageId = json.get("messageId")?.asDouble?.toLong() ?: return
         db.messageDao().upgradeStatus(messageId, "SENT")
         propagateLocationStatus(messageId, "SENT")
         MessageBus.emit(json)
     }
 
     private suspend fun handleDelivered(json: JsonObject) {
-        val messageId = json.get("messageId")?.asLong ?: return
+        val messageId = json.get("messageId")?.asDouble?.toLong() ?: return
         db.messageDao().upgradeStatus(messageId, "DELIVERED")
         propagateLocationStatus(messageId, "DELIVERED")
     }
 
     private suspend fun handleRead(json: JsonObject) {
-        val messageId = json.get("messageId")?.asLong ?: return
+        val messageId = json.get("messageId")?.asDouble?.toLong() ?: return
         db.messageDao().upgradeStatus(messageId, "READ")
         propagateLocationStatus(messageId, "READ")
     }
@@ -695,15 +695,15 @@ class FshuService : Service() {
      * list-state is plain JSON (server processes item operations, so no client-side encryption).
      */
     private suspend fun persistListState(json: JsonObject) {
-        val listId = json.get("listId")?.asString ?: return
-        val version = json.get("version")?.asInt ?: return
-        val owner = json.get("owner")?.asString ?: return
-        val itemsEl = json.get("items") ?: return
-        val ts = json.get("timestamp")?.asLong ?: System.currentTimeMillis()
-        val me = Prefs.getUsername(this)
-        val otherUser = json.get("to")?.asString ?: return
+        val listId    = json.get("listId")?.takeIf { it.isJsonPrimitive }?.asString ?: return
+        val version   = json.get("version")?.takeIf { it.isJsonPrimitive }?.asDouble?.toInt() ?: return
+        val owner     = json.get("owner")?.takeIf { it.isJsonPrimitive }?.asString ?: return
+        val itemsEl   = json.get("items") ?: return
+        val ts        = json.get("timestamp")?.takeIf { it.isJsonPrimitive }?.asDouble?.toLong() ?: System.currentTimeMillis()
+        val me        = Prefs.getUsername(this)
+        val otherUser = json.get("to")?.takeIf { it.isJsonPrimitive }?.asString ?: return
         val content = itemsEl.toString()
-        val msgId = json.get("messageId")?.takeIf { !it.isJsonNull }?.asLong
+        val msgId = json.get("messageId")?.takeIf { !it.isJsonNull }?.asDouble?.toLong()
         val existing = db.messageDao().getByListId(listId)
         if (existing != null) {
             // Ignore stale pushes — only apply if server version is strictly newer.
@@ -745,8 +745,8 @@ class FshuService : Service() {
 
     /** Handles list-ack from server: updates list version and marks message as SENT. */
     private suspend fun handleListAck(json: JsonObject) {
-        val listId = json.get("listId")?.asString ?: return
-        val version = json.get("version")?.asInt ?: return
+        val listId  = json.get("listId")?.takeIf { it.isJsonPrimitive }?.asString ?: return
+        val version = json.get("version")?.takeIf { it.isJsonPrimitive }?.asDouble?.toInt() ?: return
         db.messageDao().updateListVersion(listId, version)
         val msg = db.messageDao().getByListId(listId) ?: return
         db.messageDao().upgradeStatus(msg.id, "SENT")
@@ -754,8 +754,8 @@ class FshuService : Service() {
 
     private suspend fun persistMissedCall(json: JsonObject) {
         val from = json.get("from")?.asString ?: return
-        val ts = json.get("timestamp")?.asLong ?: System.currentTimeMillis()
-        val seq = json.get("seq")?.asLong ?: 0L
+        val ts = json.get("timestamp")?.asDouble?.toLong() ?: System.currentTimeMillis()
+        val seq = json.get("seq")?.asDouble?.toLong() ?: 0L
         if (seq > 0 && seq > WebSocketClient.lastSeq) WebSocketClient.lastSeq = seq
         val me = Prefs.getUsername(this)
         db.messageDao().insert(
@@ -769,8 +769,8 @@ class FshuService : Service() {
         val lat = json.get("lat")?.asDouble ?: return
         val lon = json.get("lon")?.asDouble ?: return
         val accuracy = json.get("accuracy")?.asFloat ?: 0f
-        val ts = json.get("timestamp")?.asLong ?: System.currentTimeMillis()
-        val remoteId = json.get("messageId")?.asLong ?: 0L
+        val ts = json.get("timestamp")?.asDouble?.toLong() ?: System.currentTimeMillis()
+        val remoteId = json.get("messageId")?.asDouble?.toLong() ?: 0L
         val me = Prefs.getUsername(this)
         val mapsUrl = LocationHelper.buildMapsUrl(lat, lon)
         val contentJson = """{"lat":$lat,"lon":$lon,"accuracy":$accuracy,"timestamp":$ts,"mapsUrl":"$mapsUrl"}"""
@@ -778,7 +778,7 @@ class FshuService : Service() {
             Message(from = from, to = me, content = contentJson, type = "location",
                 timestamp = ts, isSent = false, remoteId = remoteId)
         )
-        val seq = json.get("seq")?.asLong ?: 0L
+        val seq = json.get("seq")?.asDouble?.toLong() ?: 0L
         if (seq > 0 && seq > WebSocketClient.lastSeq) WebSocketClient.lastSeq = seq
         if (remoteId != 0L) {
             WebSocketClient.send(mapOf("type" to "delivered", "messageId" to remoteId, "from" to me, "to" to from))
@@ -788,8 +788,8 @@ class FshuService : Service() {
 
     private suspend fun persistLocationRequest(json: JsonObject) {
         val from = json.get("from")?.asString ?: return
-        val remoteId = json.get("messageId")?.asLong ?: 0L
-        val ts = json.get("timestamp")?.asLong ?: 0L
+        val remoteId = json.get("messageId")?.asDouble?.toLong() ?: 0L
+        val ts = json.get("timestamp")?.asDouble?.toLong() ?: 0L
         val me = Prefs.getUsername(this)
 
         // Decrypt content if present; fall back to plain-JSON parse then raw requestId field.
@@ -815,7 +815,7 @@ class FshuService : Service() {
             Message(from = from, to = me, content = contentJson, type = "location-request",
                 timestamp = ts, isSent = false, remoteId = remoteId)
         )
-        val seq = json.get("seq")?.asLong ?: 0L
+        val seq = json.get("seq")?.asDouble?.toLong() ?: 0L
         if (seq > 0 && seq > WebSocketClient.lastSeq) WebSocketClient.lastSeq = seq
         if (remoteId != 0L) {
             WebSocketClient.send(mapOf("type" to "delivered", "messageId" to remoteId, "from" to me, "to" to from))
@@ -846,8 +846,8 @@ class FshuService : Service() {
 
     private suspend fun persistLocationResponse(json: JsonObject) {
         val from = json.get("from")?.asString ?: return
-        val remoteId = json.get("messageId")?.asLong ?: 0L
-        val ts = json.get("timestamp")?.asLong ?: 0L
+        val remoteId = json.get("messageId")?.asDouble?.toLong() ?: 0L
+        val ts = json.get("timestamp")?.asDouble?.toLong() ?: 0L
         val requestId = json.get("requestId")?.asString
         val me = Prefs.getUsername(this)
 
@@ -888,7 +888,7 @@ class FshuService : Service() {
                 db.messageDao().updateContent(req.id, """{"requestId":"$requestId","fulfilled":true}""")
             }
         }
-        val seq = json.get("seq")?.asLong ?: 0L
+        val seq = json.get("seq")?.asDouble?.toLong() ?: 0L
         if (seq > 0 && seq > WebSocketClient.lastSeq) WebSocketClient.lastSeq = seq
         if (remoteId != 0L) {
             WebSocketClient.send(mapOf("type" to "delivered", "messageId" to remoteId, "from" to me, "to" to from))
@@ -1105,12 +1105,12 @@ class FshuService : Service() {
                 val obj = el.asJsonObject
                 // Safe msgId: JsonNull.asLong() throws, so guard explicitly
                 val msgId = obj.get("messageId")
-                    ?.takeIf { !it.isJsonNull }?.asLong ?: 0L
+                    ?.takeIf { !it.isJsonNull }?.asDouble?.toLong() ?: 0L
                 val from = obj.get("from")?.asString ?: continue
                 val to   = obj.get("to")?.asString   ?: continue
                 val rawContent = obj.get("content")?.asString ?: continue
-                val ts   = obj.get("timestamp")?.asLong ?: continue
-                val replyToId      = obj.get("replyToId")?.takeIf { !it.isJsonNull }?.asLong
+                val ts   = obj.get("timestamp")?.asDouble?.toLong() ?: continue
+                val replyToId      = obj.get("replyToId")?.takeIf { !it.isJsonNull }?.asDouble?.toLong()
                 val replyToSender  = obj.get("replyToSender")?.takeIf { !it.isJsonNull }?.asString?.takeIf { it.isNotEmpty() }
                 val replyToContent = obj.get("replyToContent")?.takeIf { !it.isJsonNull }?.asString?.takeIf { it.isNotEmpty() }
 
