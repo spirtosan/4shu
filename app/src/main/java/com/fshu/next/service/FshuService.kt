@@ -416,6 +416,7 @@ class FshuService : Service() {
             "message"                 -> persistIncomingMessage(json)
             "file"                    -> persistIncomingFile(json)
             "typing"                  -> MessageBus.emit(json)
+            "deleted"                 -> handleDeletedForAll(json)
             "missed-call"             -> persistMissedCall(json)
             "list-state"              -> persistListState(json)
             "list-ack"                -> handleListAck(json)
@@ -615,10 +616,25 @@ class FshuService : Service() {
             MessageBus.emit(json)
             return
         }
-        // Text message ack — match by sender's Room Long id
+        // Text message ack — messageId is our Room PK echoed back; server stores it as message_id.
+        // Writing it as remoteId makes remoteId > 0 so delete-for-everyone works from sender side.
         val messageId = json.get("messageId")?.asDouble?.toLong() ?: return
         db.messageDao().upgradeStatus(messageId, "SENT")
+        db.messageDao().updateRemoteId(localId = messageId, remoteId = messageId)
         propagateLocationStatus(messageId, "SENT")
+        MessageBus.emit(json)
+    }
+
+    private suspend fun handleDeletedForAll(json: JsonObject) {
+        val msgId = json.get("messageId")?.asDouble?.toLong() ?: return
+        val deletedBy = json.get("from")?.asString ?: ""
+        val deletedAt = json.get("deletedAt")?.asDouble?.toLong() ?: System.currentTimeMillis()
+        val iWasSender = deletedBy == Prefs.getUsername(this)
+        val content = if (iWasSender)
+            "[Message deleted]"
+        else
+            """{"deletedBy":"$deletedBy","deletedAt":$deletedAt}"""
+        db.messageDao().markDeletedForAll(msgId, content)
         MessageBus.emit(json)
     }
 

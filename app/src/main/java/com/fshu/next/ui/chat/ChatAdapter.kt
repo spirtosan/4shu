@@ -327,6 +327,42 @@ class ChatAdapter : ListAdapter<Message, RecyclerView.ViewHolder>(DIFF) {
     }
 
     private fun bindFileContent(iv: ImageView, tv: TextView, msg: Message) {
+        if (msg.type == "deleted") {
+            iv.visibility = View.GONE
+            tv.visibility = View.VISIBLE
+            tv.setTypeface(null, android.graphics.Typeface.ITALIC)
+            tv.setTextColor(android.graphics.Color.parseColor("#9E9E9E"))
+            tv.movementMethod = null
+            tv.text = if (msg.isSent) {
+                "[Message deleted]"
+            } else {
+                try {
+                    val json = JsonParser.parseString(msg.content).asJsonObject
+                    val deletedBy = json.get("deletedBy")?.asString ?: msg.from
+                    val deletedAt = json.get("deletedAt")?.asLong ?: msg.timestamp
+                    val displayName = getNickname(deletedBy) ?: deletedBy
+                    val now = Calendar.getInstance()
+                    val delCal = Calendar.getInstance().apply { timeInMillis = deletedAt }
+                    val timeFmt = when {
+                        delCal.get(Calendar.YEAR) == now.get(Calendar.YEAR) &&
+                        delCal.get(Calendar.DAY_OF_YEAR) == now.get(Calendar.DAY_OF_YEAR) ->
+                            fmtTime.format(Date(deletedAt))
+                        delCal.get(Calendar.YEAR) == now.get(Calendar.YEAR) ->
+                            fmtDayTime.format(Date(deletedAt))
+                        else ->
+                            fmtFullTime.format(Date(deletedAt))
+                    }
+                    "[Message deleted by $displayName · $timeFmt]"
+                } catch (e: Exception) {
+                    "[Message deleted]"
+                }
+            }
+            return
+        }
+        // Reset styles that may linger from a recycled deleted cell
+        tv.setTypeface(null, android.graphics.Typeface.NORMAL)
+        tv.setTextColor(tv.context.getColor(com.fshu.next.R.color.text_primary))
+
         val isImage = msg.type == "file" && msg.mimeType?.startsWith("image/") == true
         if (isImage && msg.localUri != null) {
             iv.visibility = View.VISIBLE

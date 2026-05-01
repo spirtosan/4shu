@@ -237,16 +237,32 @@ class ChatActivity : AppCompatActivity() {
 
         binding.btnSelectionDelete.setOnClickListener {
             val ids = adapter.getSelectedIds()
+            val selected = adapter.getSelectedMessages()
             val count = ids.size
-            AlertDialog.Builder(this)
-                .setTitle("Delete $count message${if (count > 1) "s" else ""}?")
-                .setMessage("This will delete the selected message${if (count > 1) "s" else ""} from your device only.")
-                .setPositiveButton("Delete") { _, _ ->
-                    vm.deleteMessages(ids)
-                    adapter.clearSelection()
-                }
-                .setNegativeButton("Cancel", null)
-                .show()
+            val single = selected.firstOrNull()
+            val canDeleteForAll = count == 1 && single?.isSent == true && (single.remoteId) > 0L
+
+            if (canDeleteForAll && single != null) {
+                AlertDialog.Builder(this)
+                    .setTitle("Delete message?")
+                    .setItems(arrayOf("Delete for everyone", "Delete for me only")) { _, which ->
+                        if (which == 0) vm.deleteForEveryone(single)
+                        else vm.deleteMessages(ids)
+                        adapter.clearSelection()
+                    }
+                    .setNegativeButton("Cancel", null)
+                    .show()
+            } else {
+                AlertDialog.Builder(this)
+                    .setTitle("Delete $count message${if (count > 1) "s" else ""}?")
+                    .setMessage("This will delete the selected message${if (count > 1) "s" else ""} from your device only.")
+                    .setPositiveButton("Delete") { _, _ ->
+                        vm.deleteMessages(ids)
+                        adapter.clearSelection()
+                    }
+                    .setNegativeButton("Cancel", null)
+                    .show()
+            }
         }
 
         // Edit list on long press for list messages (only when not in selection mode)

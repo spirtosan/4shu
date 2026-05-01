@@ -99,4 +99,21 @@ interface MessageDao {
     /** Set localUri once the binary file has been downloaded and saved. */
     @Query("UPDATE messages SET localUri = :localUri WHERE fileId = :fileId")
     suspend fun updateFileLocalUri(fileId: String, localUri: String)
+
+    /** Store the server-confirmed message_id as remoteId on a sent message after ack. */
+    @Query("UPDATE messages SET remoteId = :remoteId WHERE id = :localId AND isSent = 1")
+    suspend fun updateRemoteId(localId: Long, remoteId: Long)
+
+    /**
+     * Mark a message deleted-for-everyone on both sides of the conversation.
+     * isSent=0 branch: receiver's record identified by remoteId (sender's Room PK).
+     * isSent=1 branch: sender's record identified by id (same value the server stored).
+     * content is built by the caller: "[Message deleted]" for sender, JSON for receiver.
+     */
+    @Query("""
+        UPDATE messages SET content = :content, type = 'deleted'
+        WHERE (isSent = 0 AND remoteId = :msgId AND remoteId > 0)
+           OR (isSent = 1 AND id = :msgId)
+    """)
+    suspend fun markDeletedForAll(msgId: Long, content: String)
 }

@@ -376,4 +376,16 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
             db.messageDao().deleteByIds(ids)
         }
     }
+
+    fun deleteForEveryone(msg: com.fshu.next.data.model.Message) {
+        val msgId = msg.remoteId
+        if (msgId == 0L) {
+            // Never confirmed by server — local delete only
+            viewModelScope.launch(Dispatchers.IO) { db.messageDao().deleteByIds(listOf(msg.id)) }
+            return
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            WebSocketClient.send(mapOf("type" to "delete", "from" to me, "messageId" to msgId, "forAll" to true))
+        }
+    }
 }

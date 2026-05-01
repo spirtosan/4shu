@@ -293,6 +293,8 @@ const stmt = {
           AND timestamp >= ?
         ORDER BY timestamp`),
     deleteOldMessages:  db.prepare('DELETE FROM messages WHERE timestamp < ?'),
+    getMessage:         db.prepare('SELECT * FROM messages WHERE message_id = ?'),
+    setDeletedForAll:   db.prepare('UPDATE messages SET deleted_for_all = 1 WHERE message_id = ?'),
 
     insertFile:         db.prepare(`
         INSERT INTO files (file_id, uploader, filename, mime_type, file_path, size_bytes, nonce, created_at, expires_at)
@@ -436,7 +438,7 @@ function flushQueue(username, ws) {
 function appendMessage(rec) {
     try {
         stmt.insertMessage.run(
-            rec.messageId ?? crypto.randomUUID(),
+            String(rec.messageId ?? crypto.randomUUID()),
             rec.from, rec.to,
             rec.content ?? null,
             rec.timestamp ?? Date.now(),
@@ -785,6 +787,21 @@ wss.on('connection', (ws, req) => {
 
             case 'typing': {
                 if (msg.to && isOnline(msg.to)) sendToAll(msg.to, { type: 'typing', from: username });
+                break;
+            }
+
+            case 'delete': {
+                const { messageId, forAll } = msg;
+                console.log(`  delete request from ${username} for messageId ${messageId}`);
+                if (!messageId || !forAll) { console.log('  delete: missing messageId or forAll, ignored'); break; }
+                const record = stmt.getMessage.get(String(messageId));
+                if (!record) { console.log(`  delete: record not found for message_id=${messageId}`); break; }
+                console.log(`  delete: record found ${record.from_user} → ${record.to_user}`);
+                stmt.setDeletedForAll.run(String(messageId));
+                const notice = { type: 'deleted', messageId, from: record.from_user, to: record.to_user, deletedAt: Date.now() };
+                sendToAll(record.from_user, notice);
+                sendToAll(record.to_user, notice);
+                console.log(`  delete: deleted and broadcast to ${record.from_user} and ${record.to_user}`);
                 break;
             }
 
@@ -1174,6 +1191,7 @@ wss.on('connection', (ws, req) => {
                 if (key) {
                     stmt.updatePublicKey.run(key, username);
                     console.log(`  public key stored for ${username}`);
+                    broadcastAllUsers();
                 }
                 break;
             }
