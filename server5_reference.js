@@ -783,6 +783,11 @@ wss.on('connection', (ws, req) => {
                 break;
             }
 
+            case 'typing': {
+                if (msg.to && isOnline(msg.to)) sendToAll(msg.to, { type: 'typing', from: username });
+                break;
+            }
+
             case 'file-request': {
                 const { fileId } = msg;
                 if (!fileId) break;

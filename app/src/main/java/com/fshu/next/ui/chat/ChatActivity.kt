@@ -15,9 +15,13 @@ import android.graphics.Typeface
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
+import android.os.Handler
+import android.os.Looper
 import android.os.PowerManager
 import android.provider.MediaStore
+import android.text.Editable
 import android.text.InputType
+import android.text.TextWatcher
 import android.view.Gravity
 import android.view.Menu
 import android.view.MenuItem
@@ -65,6 +69,10 @@ class ChatActivity : AppCompatActivity() {
     private lateinit var peer: String
     private val vm: ChatViewModel by viewModels()
     private val adapter = ChatAdapter()
+
+    private var lastTypingSent = 0L
+    private val typingHideHandler = Handler(Looper.getMainLooper())
+    private val typingHideRunnable = Runnable { supportActionBar?.subtitle = null }
 
     // Active reply context — null means no reply pending.
     private var pendingReplyId: Long? = null
@@ -282,6 +290,22 @@ class ChatActivity : AppCompatActivity() {
 
         binding.btnAttach.setOnClickListener { pickFile.launch("*/*") }
 
+        binding.etMessage.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun afterTextChanged(s: Editable?) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                if (s.isNullOrEmpty()) return
+                val now = System.currentTimeMillis()
+                if (now - lastTypingSent > 3000L) {
+                    lastTypingSent = now
+                    val me = Prefs.getUsername(this@ChatActivity)
+                    com.fshu.next.data.remote.WebSocketClient.send(
+                        mapOf("type" to "typing", "from" to me, "to" to peer)
+                    )
+                }
+            }
+        })
+
         lifecycleScope.launch {
             MessageBus.events.collect { json ->
                 when (json.get("type")?.asString) {
@@ -299,9 +323,22 @@ class ChatActivity : AppCompatActivity() {
                         val uname = json.get("username")?.asString
                         if (uname == peer) runOnUiThread { loadPeerAvatar() }
                     }
+                    "typing" -> {
+                        val from = json.get("from")?.asString
+                        if (from == peer) runOnUiThread {
+                            supportActionBar?.subtitle = "typing..."
+                            typingHideHandler.removeCallbacks(typingHideRunnable)
+                            typingHideHandler.postDelayed(typingHideRunnable, 5000L)
+                        }
+                    }
                 }
             }
         }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        typingHideHandler.removeCallbacks(typingHideRunnable)
     }
 
     private fun loadPeerAvatar() {

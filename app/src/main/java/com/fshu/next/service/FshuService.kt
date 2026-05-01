@@ -415,6 +415,7 @@ class FshuService : Service() {
             "call-emergency"          -> handleIncomingCall(json, isEmergency = true)
             "message"                 -> persistIncomingMessage(json)
             "file"                    -> persistIncomingFile(json)
+            "typing"                  -> MessageBus.emit(json)
             "missed-call"             -> persistMissedCall(json)
             "list-state"              -> persistListState(json)
             "list-ack"                -> handleListAck(json)
