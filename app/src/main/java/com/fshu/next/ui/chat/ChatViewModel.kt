@@ -3,7 +3,6 @@ package com.fshu.next.ui.chat
 import android.app.Application
 import android.content.ContentResolver
 import android.net.Uri
-import android.util.Base64
 import android.util.Log
 import android.widget.Toast
 import androidx.lifecycle.AndroidViewModel
@@ -74,23 +73,46 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     fun sendFile(peer: String, uri: Uri, resolver: ContentResolver) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val bytes = resolver.openInputStream(uri)?.use { it.readBytes() } ?: return@launch
-                val base64 = Base64.encodeToString(bytes, Base64.NO_WRAP)
+                val fileBytes = resolver.openInputStream(uri)?.use { it.readBytes() } ?: return@launch
                 val filename = resolveDisplayName(uri, resolver)
                 val mimeType = resolver.getType(uri) ?: "application/octet-stream"
+                val peerPubKey = Prefs.getPeerPublicKey(getApplication(), peer)
+                val tempId = UUID.randomUUID().toString()
+                val ts = System.currentTimeMillis()
 
-                val id = db.messageDao().insert(
+                val roomId = db.messageDao().insert(
                     Message(from = me, to = peer,
                         content = "\uD83D\uDCCE $filename", type = "file",
                         filename = filename, mimeType = mimeType,
-                        localUri = uri.toString(),
-                        isSent = true, status = "SENDING")
+                        localUri = uri.toString(), tempId = tempId,
+                        timestamp = ts, isSent = true, status = "SENDING")
                 )
-                WebSocketClient.send(mapOf(
-                    "type" to "file", "from" to me, "to" to peer,
-                    "filename" to filename, "mimeType" to mimeType, "data" to base64,
-                    "messageId" to id, "timestamp" to System.currentTimeMillis()
-                ))
+
+                val (encBytes, nonce) = if (peerPubKey.isNotEmpty())
+                    CryptoHelper.encryptFileForPeer(getApplication(), peer, peerPubKey, fileBytes)
+                        ?: Pair(fileBytes, ByteArray(12).also { java.security.SecureRandom().nextBytes(it) })
+                else
+                    Pair(fileBytes, ByteArray(12).also { java.security.SecureRandom().nextBytes(it) })
+
+                val nonceHex = CryptoHelper.bytesToHex(nonce)
+                val header = JsonObject().apply {
+                    addProperty("tempId", tempId)
+                    addProperty("from", me)
+                    addProperty("to", peer)
+                    addProperty("filename", filename)
+                    addProperty("mimeType", mimeType)
+                    addProperty("size", encBytes.size)
+                    addProperty("nonce", nonceHex)
+                    addProperty("type", "file")
+                    addProperty("messageId", roomId)
+                    addProperty("timestamp", ts)
+                }
+                val headerBytes = header.toString().toByteArray(Charsets.UTF_8)
+                val sink = okio.Buffer()
+                sink.writeInt(headerBytes.size)
+                sink.write(headerBytes)
+                sink.write(encBytes)
+                WebSocketClient.sendBinary(sink.readByteString())
             } catch (e: Exception) {
                 Log.e("ChatViewModel", "sendFile failed", e)
             }

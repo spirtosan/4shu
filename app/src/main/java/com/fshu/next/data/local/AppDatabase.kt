@@ -9,7 +9,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import com.fshu.next.data.model.Message
 import com.fshu.next.data.model.PeerKey
 
-@Database(entities = [Message::class, PeerKey::class], version = 9, exportSchema = false)
+@Database(entities = [Message::class, PeerKey::class], version = 10, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun messageDao(): MessageDao
     abstract fun peerKeyDao(): PeerKeyDao
@@ -73,6 +73,14 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        // v10: tempId + fileId for binary file transfer (Phase 1g)
+        private val MIGRATION_9_10 = object : Migration(9, 10) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE messages ADD COLUMN tempId TEXT")
+                db.execSQL("ALTER TABLE messages ADD COLUMN fileId TEXT")
+            }
+        }
+
         fun getInstance(context: Context): AppDatabase =
             INSTANCE ?: synchronized(this) {
                 INSTANCE ?: Room.databaseBuilder(
@@ -81,7 +89,8 @@ abstract class AppDatabase : RoomDatabase() {
                     "fshu.db"
                 ).addMigrations(
                     MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5,
-                    MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9
+                    MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9,
+                    MIGRATION_9_10
                 ).build().also { INSTANCE = it }
             }
     }

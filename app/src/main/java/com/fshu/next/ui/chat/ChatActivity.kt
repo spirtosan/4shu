@@ -289,10 +289,9 @@ class ChatActivity : AppCompatActivity() {
                         val peer = json.get("peer")?.asString ?: ""
                         if (peer == this@ChatActivity.peer) {
                             val count = json.get("count")?.asInt ?: 0
-                            val msg = if (count > 0) "Loaded $count message(s)" else "No new messages"
-                            runOnUiThread {
-                                Toast.makeText(this@ChatActivity, msg, Toast.LENGTH_SHORT).show()
-                                if (count > 0) binding.rvMessages.scrollToPosition(0)
+                            if (count > 0) runOnUiThread {
+                                Toast.makeText(this@ChatActivity, "Loaded $count message(s)", Toast.LENGTH_SHORT).show()
+                                binding.rvMessages.scrollToPosition(0)
                             }
                         }
                     }

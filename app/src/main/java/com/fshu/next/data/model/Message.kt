@@ -31,5 +31,9 @@ data class Message(
     // Server-authoritative version counter for this list; null until first server ack.
     val listVersion: Int? = null,
     // Username of the list creator (owner); null for non-list messages.
-    val listOwner: String? = null
+    val listOwner: String? = null,
+    // Client-generated UUID sent with file uploads — matched to server ack.
+    val tempId: String? = null,
+    // Server-assigned file UUID — used to request binary download.
+    val fileId: String? = null
 )

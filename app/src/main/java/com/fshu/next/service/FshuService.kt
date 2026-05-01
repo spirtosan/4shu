@@ -23,7 +23,6 @@ import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
 import android.provider.MediaStore
-import android.util.Base64
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.content.FileProvider
@@ -183,6 +182,9 @@ class FshuService : Service() {
             if (nickname.isNotEmpty()) {
                 WebSocketClient.send(mapOf("type" to "set-nickname", "nickname" to nickname))
             }
+        }
+        WebSocketClient.onBinaryMessage = { bytes ->
+            scope.launch { handleIncomingBinaryFile(bytes) }
         }
         WebSocketClient.listVersionsProvider = {
             db.messageDao().getAllLists()
@@ -534,35 +536,29 @@ class FshuService : Service() {
         val from = json.get("from")?.asString ?: return
         val filename = json.get("filename")?.asString ?: return
         val mimeType = json.get("mimeType")?.asString ?: "application/octet-stream"
-        val dataB64 = json.get("data")?.asString
         val ts = json.get("timestamp")?.asDouble?.toLong() ?: System.currentTimeMillis()
+        val fileId = json.get("fileId")?.asString
         val remoteId = json.get("messageId")?.asDouble?.toLong() ?: 0L
-        if (remoteId > 0 && db.messageDao().getByRemoteId(remoteId) != null) return
         val me = Prefs.getUsername(this)
 
-        val localUri = if (dataB64 != null) {
-            try {
-                val bytes = Base64.decode(dataB64, Base64.NO_WRAP)
-                saveFileToStorage(filename, mimeType, bytes)
-            } catch (e: Exception) {
-                Log.e("FshuService", "Failed to save received file", e)
-                null
-            }
-        } else null
+        if (remoteId > 0 && db.messageDao().getByRemoteId(remoteId) != null) return
 
         val content = "\uD83D\uDCCE $filename"
         db.messageDao().insert(
             Message(from = from, to = me, content = content,
                 type = "file", filename = filename, mimeType = mimeType,
-                localUri = localUri,
-                timestamp = ts, isSent = false, remoteId = remoteId)
+                fileId = fileId, timestamp = ts, isSent = false, remoteId = remoteId)
         )
+
         val seq = json.get("seq")?.asDouble?.toLong() ?: 0L
         if (seq > 0 && seq > WebSocketClient.lastSeq) WebSocketClient.lastSeq = seq
+
+        // Request the encrypted binary from the server
+        if (fileId != null) {
+            WebSocketClient.send(mapOf("type" to "file-request", "fileId" to fileId, "from" to me))
+        }
         if (remoteId != 0L) {
-            WebSocketClient.send(mapOf(
-                "type" to "delivered", "messageId" to remoteId, "from" to me, "to" to from
-            ))
+            WebSocketClient.send(mapOf("type" to "delivered", "messageId" to remoteId, "from" to me, "to" to from))
         }
         notifyMessage(from, content)
         MessageBus.tryEmit(json)
@@ -610,6 +606,15 @@ class FshuService : Service() {
     }
 
     private suspend fun handleAck(json: JsonObject) {
+        val tempId = json.get("tempId")?.asString
+        val fileId = json.get("fileId")?.asString
+        if (tempId != null && fileId != null) {
+            // Binary file ack — match by tempId, store fileId
+            db.messageDao().updateOnFileAck(tempId, fileId)
+            MessageBus.emit(json)
+            return
+        }
+        // Text message ack — match by sender's Room Long id
         val messageId = json.get("messageId")?.asDouble?.toLong() ?: return
         db.messageDao().upgradeStatus(messageId, "SENT")
         propagateLocationStatus(messageId, "SENT")
@@ -640,6 +645,44 @@ class FshuService : Service() {
         }
     }
 
+    private suspend fun handleIncomingBinaryFile(bytes: okio.ByteString) {
+        try {
+            val buf = bytes.asByteBuffer()
+            if (buf.remaining() < 4) return
+            val headerLen = buf.getInt()
+            if (headerLen <= 0 || buf.remaining() < headerLen) return
+            val headerBytes = ByteArray(headerLen)
+            buf.get(headerBytes)
+            val encBytes = ByteArray(buf.remaining())
+            buf.get(encBytes)
+
+            val header = com.google.gson.JsonParser.parseString(headerBytes.toString(Charsets.UTF_8)).asJsonObject
+            val fileId = header.get("fileId")?.asString ?: return
+            val from = header.get("from")?.asString ?: return
+            val filename = header.get("filename")?.asString ?: return
+            val mimeType = header.get("mimeType")?.asString ?: "application/octet-stream"
+            val nonceHex = header.get("nonce")?.asString ?: return
+
+            val peerPubKey = Prefs.getPeerPublicKey(this, from)
+            val decrypted = if (peerPubKey.isNotEmpty())
+                CryptoHelper.decryptFileFromPeer(this, from, nonceHex, encBytes)
+            else {
+                Log.w("FshuService", "No peer key for $from — saving raw bytes")
+                encBytes
+            }
+
+            val localUri = decrypted?.let { saveFileToStorage(filename, mimeType, it) }
+            if (localUri != null) {
+                db.messageDao().updateFileLocalUri(fileId, localUri)
+                Log.d("FshuService", "File saved: $filename → $localUri")
+            } else {
+                Log.e("FshuService", "Failed to decrypt/save file $filename from $from")
+            }
+        } catch (e: Exception) {
+            Log.e("FshuService", "Binary file handling failed", e)
+        }
+    }
+
     private suspend fun checkStaleSending() {
         val cutoff = System.currentTimeMillis() - 10_000L
         val stale = db.messageDao().getStaleSending(cutoff)
@@ -658,17 +701,36 @@ class FshuService : Service() {
                 }
                 "file" -> {
                     val uri = msg.localUri ?: continue
+                    val tempId = msg.tempId ?: continue
+                    val peer = msg.to
+                    val peerPubKey = Prefs.getPeerPublicKey(this, peer)
                     try {
-                        val bytes = contentResolver.openInputStream(android.net.Uri.parse(uri))
+                        val fileBytes = contentResolver.openInputStream(android.net.Uri.parse(uri))
                             ?.use { it.readBytes() } ?: continue
-                        val base64 = Base64.encodeToString(bytes, Base64.NO_WRAP)
-                        WebSocketClient.send(mapOf(
-                            "type" to "file", "from" to msg.from, "to" to msg.to,
-                            "filename" to (msg.filename ?: "file"),
-                            "mimeType" to (msg.mimeType ?: "application/octet-stream"),
-                            "data" to base64, "messageId" to msg.id,
-                            "timestamp" to msg.timestamp
-                        ))
+                        val (encBytes, nonce) = if (peerPubKey.isNotEmpty())
+                            CryptoHelper.encryptFileForPeer(this, peer, peerPubKey, fileBytes)
+                                ?: (fileBytes to ByteArray(12).also { java.security.SecureRandom().nextBytes(it) })
+                        else
+                            fileBytes to ByteArray(12).also { java.security.SecureRandom().nextBytes(it) }
+                        val nonceHex = CryptoHelper.bytesToHex(nonce)
+                        val headerObj = com.google.gson.JsonObject().apply {
+                            addProperty("tempId", tempId)
+                            addProperty("from", msg.from)
+                            addProperty("to", peer)
+                            addProperty("filename", msg.filename ?: "file")
+                            addProperty("mimeType", msg.mimeType ?: "application/octet-stream")
+                            addProperty("size", encBytes.size)
+                            addProperty("nonce", nonceHex)
+                            addProperty("type", "file")
+                            addProperty("messageId", msg.id)
+                            addProperty("timestamp", msg.timestamp)
+                        }
+                        val headerBytes = headerObj.toString().toByteArray(Charsets.UTF_8)
+                        val sink = okio.Buffer()
+                        sink.writeInt(headerBytes.size)
+                        sink.write(headerBytes)
+                        sink.write(encBytes)
+                        WebSocketClient.sendBinary(sink.readByteString())
                     } catch (e: Exception) {
                         Log.e("FshuService", "File retry failed for msg ${msg.id}", e)
                     }
@@ -1236,6 +1298,7 @@ class FshuService : Service() {
         wifiLock = null
         wakeLock?.let { if (it.isHeld) it.release() }
         wakeLock = null
+        WebSocketClient.onBinaryMessage = null
         WebSocketClient.onHeartbeat = null
         WebSocketClient.onPong = null
         WebSocketClient.onOnlineUsers = null

@@ -5,6 +5,7 @@ import com.google.gson.Gson
 import com.google.gson.JsonObject
 import kotlinx.coroutines.*
 import okhttp3.*
+import okio.ByteString
 import java.util.concurrent.atomic.AtomicBoolean
 
 typealias MessageHandler = (JsonObject) -> Unit
@@ -13,7 +14,7 @@ object WebSocketClient {
     private const val TAG = "WebSocketClient"
     private const val PING_INTERVAL_MIN_MS = 5_000L
     private const val PING_INTERVAL_MAX_MS = 15_000L
-    private const val PONG_TIMEOUT_MS      = 10_000L
+    private const val PONG_TIMEOUT_MS      = 30_000L
     private const val RTT_HISTORY_SIZE     = 5
 
     private val gson = Gson()
@@ -89,6 +90,9 @@ object WebSocketClient {
     /** Called after successful auth or resume — used to send FCM token to server. */
     var onConnectedCallback: (() -> Unit)? = null
 
+    /** Called on the IO thread when a binary WebSocket frame arrives (file download). */
+    var onBinaryMessage: ((ByteString) -> Unit)? = null
+
     /**
      * Connect to [url], authenticate with [username]/[password].
      *
@@ -149,6 +153,10 @@ object WebSocketClient {
                         "deviceName" to deviceName
                     )))
                 }
+            }
+
+            override fun onMessage(ws: WebSocket, bytes: ByteString) {
+                onBinaryMessage?.invoke(bytes)
             }
 
             override fun onMessage(ws: WebSocket, text: String) {
@@ -287,6 +295,10 @@ object WebSocketClient {
     /** Returns true if the message was successfully enqueued on the socket. */
     fun send(data: Map<String, Any?>): Boolean =
         webSocket?.send(gson.toJson(data)) ?: false
+
+    /** Send a binary frame (file upload). Returns true if enqueued. */
+    fun sendBinary(bytes: ByteString): Boolean =
+        webSocket?.send(bytes) ?: false
 
     fun addHandler(handler: MessageHandler) = handlers.add(handler)
     fun removeHandler(handler: MessageHandler) = handlers.remove(handler)

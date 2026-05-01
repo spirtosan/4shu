@@ -99,6 +99,27 @@ object CryptoHelper {
     fun String.decodeHex(): ByteArray = with(EcdhHelper) { this@decodeHex.fromHex() }
     fun ByteArray.toHex(): String     = with(EcdhHelper) { this@toHex.toHex() }
 
+    fun encryptFileForPeer(ctx: Context, peer: String, peerPubHex: String, plaintext: ByteArray): Pair<ByteArray, ByteArray>? {
+        if (getKey(ctx, peer) == null) cachePeerKey(ctx, peer, peerPubHex)
+        val convKey = getKey(ctx, peer) ?: return null
+        val fileKey = EcdhHelper.deriveFileKey(convKey)
+        val nonce = ByteArray(12).also { java.security.SecureRandom().nextBytes(it) }
+        val encrypted = EcdhHelper.encryptBytes(fileKey, nonce, plaintext)
+        return Pair(encrypted, nonce)
+    }
+
+    fun decryptFileFromPeer(ctx: Context, peer: String, nonceHex: String, ciphertext: ByteArray): ByteArray? {
+        val convKey = getKey(ctx, peer) ?: run {
+            Log.w(TAG, "No key for $peer, can't decrypt file")
+            return null
+        }
+        val fileKey = EcdhHelper.deriveFileKey(convKey)
+        val nonce = with(EcdhHelper) { nonceHex.fromHex() }
+        return EcdhHelper.decryptBytes(fileKey, nonce, ciphertext)
+    }
+
+    fun bytesToHex(bytes: ByteArray): String = with(EcdhHelper) { bytes.toHex() }
+
     /** MD5 hex — for list integrity checks only, not security. */
     fun md5(input: String): String {
         val bytes = java.security.MessageDigest.getInstance("MD5")

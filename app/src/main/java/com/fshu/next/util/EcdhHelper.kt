@@ -139,4 +139,30 @@ object EcdhHelper {
         Log.w(TAG, "decrypt msgId=$messageId: ${e.message}")
         null
     }
+
+    // -------------------------------------------------------------------------
+    // File crypto — HKDF with separate info, random 12-byte nonce
+    // §5.4: file_key = HKDF(conversation_key, salt=zeroes, info="fshu-next-file-v1")
+    // -------------------------------------------------------------------------
+
+    fun deriveFileKey(conversationKey: ByteArray): ByteArray {
+        val salt = ByteArray(32)
+        val info = "fshu-next-file-v1".toByteArray(Charsets.UTF_8)
+        return hkdf(conversationKey, salt, info, 32)
+    }
+
+    fun encryptBytes(key: ByteArray, nonce: ByteArray, plaintext: ByteArray): ByteArray {
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+        cipher.init(Cipher.ENCRYPT_MODE, SecretKeySpec(key, "AES"), GCMParameterSpec(GCM_TAG_BITS, nonce))
+        return cipher.doFinal(plaintext)
+    }
+
+    fun decryptBytes(key: ByteArray, nonce: ByteArray, ciphertext: ByteArray): ByteArray? = try {
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+        cipher.init(Cipher.DECRYPT_MODE, SecretKeySpec(key, "AES"), GCMParameterSpec(GCM_TAG_BITS, nonce))
+        cipher.doFinal(ciphertext)
+    } catch (e: Exception) {
+        Log.w(TAG, "decryptBytes: ${e.message}")
+        null
+    }
 }

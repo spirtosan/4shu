@@ -88,4 +88,15 @@ interface MessageDao {
 
     @Query("DELETE FROM messages WHERE id IN (:ids)")
     suspend fun deleteByIds(ids: List<Long>)
+
+    @Query("SELECT * FROM messages WHERE tempId = :tempId LIMIT 1")
+    suspend fun getByTempId(tempId: String): Message?
+
+    /** Set status=SENT and fileId on ack for a binary file upload. */
+    @Query("UPDATE messages SET status = 'SENT', fileId = :fileId WHERE tempId = :tempId AND status = 'SENDING'")
+    suspend fun updateOnFileAck(tempId: String, fileId: String)
+
+    /** Set localUri once the binary file has been downloaded and saved. */
+    @Query("UPDATE messages SET localUri = :localUri WHERE fileId = :fileId")
+    suspend fun updateFileLocalUri(fileId: String, localUri: String)
 }
