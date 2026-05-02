@@ -92,6 +92,17 @@
                 android:contentDescription="Reply" />
 
             <ImageButton
+                android:id="@+id/btnSelectionEdit"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:src="@drawable/ic_edit"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:tint="@android:color/white"
+                android:padding="8dp"
+                android:contentDescription="Edit"
+                android:visibility="gone" />
+
+            <ImageButton
                 android:id="@+id/btnSelectionDelete"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"

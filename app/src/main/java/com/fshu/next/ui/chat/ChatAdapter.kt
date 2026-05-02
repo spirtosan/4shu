@@ -151,7 +151,7 @@ class ChatAdapter : ListAdapter<Message, RecyclerView.ViewHolder>(DIFF) {
         }
         when (holder) {
             is SentVH -> {
-                bindFileContent(holder.b.ivThumbnail, holder.b.tvContent, msg)
+                bindFileContent(holder.b.ivThumbnail, holder.b.tvContent, msg, holder.b.bubble)
                 bindReplyQuote(holder.b.replyQuote, holder.b.tvReplySender, holder.b.tvReplyContent, msg)
                 holder.b.tvTime.text = time
                 when (msg.status) {
@@ -182,10 +182,6 @@ class ChatAdapter : ListAdapter<Message, RecyclerView.ViewHolder>(DIFF) {
                         holder.b.tvStatus.visibility = View.GONE
                     }
                 }
-                holder.b.bubble.setOnLongClickListener { _ ->
-                    toggleSelection(msg)
-                    true
-                }
                 holder.b.bubble.setOnClickListener {
                     if (isInSelectionMode()) {
                         toggleSelection(msg)
@@ -196,13 +192,9 @@ class ChatAdapter : ListAdapter<Message, RecyclerView.ViewHolder>(DIFF) {
                 holder.b.bubble.alpha = if (msg.id in selectedIds) 0.5f else 1.0f
             }
             is RecvVH -> {
-                bindFileContent(holder.b.ivThumbnail, holder.b.tvContent, msg)
+                bindFileContent(holder.b.ivThumbnail, holder.b.tvContent, msg, holder.b.bubble)
                 bindReplyQuote(holder.b.replyQuote, holder.b.tvReplySender, holder.b.tvReplyContent, msg)
                 holder.b.tvTime.text = time
-                holder.b.bubble.setOnLongClickListener { _ ->
-                    toggleSelection(msg)
-                    true
-                }
                 holder.b.bubble.setOnClickListener {
                     if (isInSelectionMode()) {
                         toggleSelection(msg)
@@ -326,13 +318,16 @@ class ChatAdapter : ListAdapter<Message, RecyclerView.ViewHolder>(DIFF) {
         }
     }
 
-    private fun bindFileContent(iv: ImageView, tv: TextView, msg: Message) {
+    private fun bindFileContent(iv: ImageView, tv: TextView, msg: Message, bubble: View) {
+        bubble.setOnLongClickListener { toggleSelection(msg); true }
+
         if (msg.type == "deleted") {
             iv.visibility = View.GONE
             tv.visibility = View.VISIBLE
             tv.setTypeface(null, android.graphics.Typeface.ITALIC)
             tv.setTextColor(android.graphics.Color.parseColor("#9E9E9E"))
             tv.movementMethod = null
+            tv.isLongClickable = false
             tv.text = if (msg.isSent) {
                 "[Message deleted]"
             } else {
@@ -367,14 +362,31 @@ class ChatAdapter : ListAdapter<Message, RecyclerView.ViewHolder>(DIFF) {
         if (isImage && msg.localUri != null) {
             iv.visibility = View.VISIBLE
             tv.visibility = View.GONE
+            tv.isLongClickable = false
             iv.load(Uri.parse(msg.localUri))
         } else {
             iv.visibility = View.GONE
             tv.visibility = View.VISIBLE
             tv.text = msg.content
             android.text.util.Linkify.addLinks(tv, android.text.util.Linkify.WEB_URLS)
-            tv.movementMethod = android.text.method.LinkMovementMethod.getInstance()
+            tv.movementMethod = if (tv.urls.isNotEmpty())
+                android.text.method.LinkMovementMethod.getInstance()
+            else
+                null
             tv.setLinkTextColor(android.graphics.Color.parseColor("#E8711A"))
+            tv.setOnLongClickListener { bubble.performLongClick(); true }
+            if (msg.editedAt > 0L) {
+                val full = android.text.SpannableStringBuilder(tv.text)
+                val start = full.length
+                full.append(" · edited")
+                full.setSpan(android.text.style.StyleSpan(android.graphics.Typeface.ITALIC),
+                    start, full.length, android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                full.setSpan(android.text.style.RelativeSizeSpan(0.8f),
+                    start, full.length, android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                full.setSpan(android.text.style.ForegroundColorSpan(Color.parseColor("#9E9E9E")),
+                    start, full.length, android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                tv.text = full
+            }
         }
     }
 

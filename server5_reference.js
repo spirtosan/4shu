@@ -295,6 +295,7 @@ const stmt = {
     deleteOldMessages:  db.prepare('DELETE FROM messages WHERE timestamp < ?'),
     getMessage:         db.prepare('SELECT * FROM messages WHERE message_id = ?'),
     setDeletedForAll:   db.prepare('UPDATE messages SET deleted_for_all = 1 WHERE message_id = ?'),
+    editMessage:        db.prepare('UPDATE messages SET content = ?, edited_at = ? WHERE message_id = ? AND from_user = ?'),
 
     insertFile:         db.prepare(`
         INSERT INTO files (file_id, uploader, filename, mime_type, file_path, size_bytes, nonce, created_at, expires_at)
@@ -787,6 +788,21 @@ wss.on('connection', (ws, req) => {
 
             case 'typing': {
                 if (msg.to && isOnline(msg.to)) sendToAll(msg.to, { type: 'typing', from: username });
+                break;
+            }
+
+            case 'edit': {
+                const { messageId, newContent } = msg;
+                if (!messageId || !newContent) { console.log('  edit: missing fields, ignored'); break; }
+                const record = stmt.getMessage.get(String(messageId));
+                if (!record) { console.log(`  edit: record not found for message_id=${messageId}`); break; }
+                if (record.from_user !== username) { console.log(`  edit: ${username} is not sender, rejected`); break; }
+                const editedAt = Date.now();
+                stmt.editMessage.run(newContent, editedAt, String(messageId), username);
+                const notice = { type: 'edited', messageId, newContent, editedAt, from: record.from_user, to: record.to_user };
+                sendToAll(record.from_user, notice);
+                sendToAll(record.to_user, notice);
+                console.log(`  edit: updated and broadcast to ${record.from_user} and ${record.to_user}`);
                 break;
             }
 

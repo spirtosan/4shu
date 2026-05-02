@@ -105,6 +105,15 @@ interface MessageDao {
     suspend fun updateRemoteId(localId: Long, remoteId: Long)
 
     /**
+     * Update content and mark as edited on both sides (sender by id, receiver by remoteId).
+     */
+    @Query("""
+        UPDATE messages SET content = :content, editedAt = :editedAt
+        WHERE (id = :remoteId AND isSent = 1) OR (remoteId = :remoteId AND remoteId > 0)
+    """)
+    suspend fun updateEditedContent(remoteId: Long, content: String, editedAt: Long)
+
+    /**
      * Mark a message deleted-for-everyone on both sides of the conversation.
      * isSent=0 branch: receiver's record identified by remoteId (sender's Room PK).
      * isSent=1 branch: sender's record identified by id (same value the server stored).

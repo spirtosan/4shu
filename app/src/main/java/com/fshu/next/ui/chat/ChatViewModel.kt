@@ -377,6 +377,20 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    fun editMessage(msg: Message, newContent: String, peer: String) {
+        if (msg.remoteId == 0L) return
+        viewModelScope.launch(Dispatchers.IO) {
+            val peerPubKey = Prefs.getPeerPublicKey(getApplication(), peer)
+            val wireContent = if (peerPubKey.isNotEmpty())
+                CryptoHelper.encryptForPeer(getApplication(), peer, peerPubKey, msg.remoteId, newContent)
+            else newContent
+            WebSocketClient.send(mapOf(
+                "type" to "edit", "from" to me, "to" to peer,
+                "messageId" to msg.remoteId, "newContent" to wireContent
+            ))
+        }
+    }
+
     fun deleteForEveryone(msg: com.fshu.next.data.model.Message) {
         val msgId = msg.remoteId
         if (msgId == 0L) {

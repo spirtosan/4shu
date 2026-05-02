@@ -417,6 +417,7 @@ class FshuService : Service() {
             "file"                    -> persistIncomingFile(json)
             "typing"                  -> MessageBus.emit(json)
             "deleted"                 -> handleDeletedForAll(json)
+            "edited"                  -> handleEdited(json)
             "missed-call"             -> persistMissedCall(json)
             "list-state"              -> persistListState(json)
             "list-ack"                -> handleListAck(json)
@@ -622,6 +623,22 @@ class FshuService : Service() {
         db.messageDao().upgradeStatus(messageId, "SENT")
         db.messageDao().updateRemoteId(localId = messageId, remoteId = messageId)
         propagateLocationStatus(messageId, "SENT")
+        MessageBus.emit(json)
+    }
+
+    private suspend fun handleEdited(json: JsonObject) {
+        val messageId = json.get("messageId")?.asDouble?.toLong() ?: return
+        val rawContent = json.get("newContent")?.asString ?: return
+        val editedAt = json.get("editedAt")?.asDouble?.toLong() ?: System.currentTimeMillis()
+        val from = json.get("from")?.asString ?: return
+        val to = json.get("to")?.asString ?: return
+        val me = Prefs.getUsername(this)
+        val peer = if (from == me) to else from
+        val peerPubKey = Prefs.getPeerPublicKey(this, peer)
+        val content = if (peerPubKey.isNotEmpty())
+            CryptoHelper.decryptFromPeer(this, peer, peerPubKey, messageId, rawContent) ?: rawContent
+        else rawContent
+        db.messageDao().updateEditedContent(messageId, content, editedAt)
         MessageBus.emit(json)
     }
 

@@ -136,6 +136,11 @@ class ChatActivity : AppCompatActivity() {
                     singleMsg.type !in listOf("list", "location", "location-request")
                 binding.btnSelectionReply.visibility =
                     if (canReply) View.VISIBLE else View.GONE
+                val canEdit = count == 1 &&
+                    singleMsg != null && singleMsg.isSent && singleMsg.remoteId > 0L &&
+                    singleMsg.type !in listOf("file", "list", "location", "location-request", "deleted")
+                binding.btnSelectionEdit.visibility =
+                    if (canEdit) View.VISIBLE else View.GONE
             }
         }
 
@@ -233,6 +238,32 @@ class ChatActivity : AppCompatActivity() {
             binding.replyPreview.visibility = View.VISIBLE
             binding.etMessage.requestFocus()
             adapter.clearSelection()
+        }
+
+        binding.btnSelectionEdit.setOnClickListener {
+            val msg = adapter.getSelectedMessages().firstOrNull() ?: return@setOnClickListener
+            val et = EditText(this).apply {
+                setText(msg.content)
+                inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE
+                setSelection(msg.content.length)
+            }
+            val pad = (16 * resources.displayMetrics.density).toInt()
+            val wrap = android.widget.FrameLayout(this).apply {
+                setPadding(pad, pad / 2, pad, 0)
+                addView(et)
+            }
+            AlertDialog.Builder(this)
+                .setTitle("Edit message")
+                .setView(wrap)
+                .setPositiveButton("Save") { _, _ ->
+                    val newText = et.text.toString().trim()
+                    if (newText.isNotBlank() && newText != msg.content) {
+                        vm.editMessage(msg, newText, peer)
+                    }
+                    adapter.clearSelection()
+                }
+                .setNegativeButton("Cancel") { _, _ -> adapter.clearSelection() }
+                .show()
         }
 
         binding.btnSelectionDelete.setOnClickListener {

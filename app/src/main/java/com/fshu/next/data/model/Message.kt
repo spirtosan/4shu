@@ -35,5 +35,7 @@ data class Message(
     // Client-generated UUID sent with file uploads — matched to server ack.
     val tempId: String? = null,
     // Server-assigned file UUID — used to request binary download.
-    val fileId: String? = null
+    val fileId: String? = null,
+    // Epoch ms of last server-confirmed edit; 0 = never edited.
+    val editedAt: Long = 0
 )
