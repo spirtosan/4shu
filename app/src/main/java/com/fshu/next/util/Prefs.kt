@@ -223,6 +223,11 @@ object Prefs {
         ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE)
             .edit().putString("turn_password", value).apply()
 
+    fun getMyPrivateKeyBytes(ctx: Context): ByteArray =
+        with(EcdhHelper) { getEcPrivateKey(ctx).fromHex() }
+
+    fun getMyPublicKeyHex(ctx: Context): String = getEcPublicKey(ctx)
+
     fun getContactNickname(ctx: Context, username: String): String =
         ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE).getString("contact_nick_$username", "") ?: ""
 

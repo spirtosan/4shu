@@ -6,13 +6,17 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import com.fshu.next.data.model.Group
+import com.fshu.next.data.model.GroupMember
 import com.fshu.next.data.model.Message
 import com.fshu.next.data.model.PeerKey
 
-@Database(entities = [Message::class, PeerKey::class], version = 13, exportSchema = false)
+@Database(entities = [Message::class, PeerKey::class, Group::class, GroupMember::class], version = 14, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun messageDao(): MessageDao
     abstract fun peerKeyDao(): PeerKeyDao
+    abstract fun groupDao(): GroupDao
+    abstract fun groupMemberDao(): GroupMemberDao
 
     companion object {
         @Volatile private var INSTANCE: AppDatabase? = null
@@ -103,6 +107,37 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        // v14: groups + group_members tables; messages.groupId (Phase 3b)
+        private val MIGRATION_13_14 = object : Migration(13, 14) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE messages ADD COLUMN groupId TEXT")
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `groups` (
+                        groupId TEXT NOT NULL PRIMARY KEY,
+                        name TEXT NOT NULL,
+                        owner TEXT NOT NULL,
+                        groupType TEXT NOT NULL,
+                        createdAt INTEGER NOT NULL,
+                        avatarPath TEXT,
+                        personalAvatar TEXT,
+                        encryptedGroupKey TEXT NOT NULL DEFAULT '',
+                        groupKey TEXT NOT NULL DEFAULT ''
+                    )
+                """.trimIndent())
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS group_members (
+                        groupId TEXT NOT NULL,
+                        username TEXT NOT NULL,
+                        role TEXT NOT NULL DEFAULT 'member',
+                        joinedAt INTEGER NOT NULL,
+                        PRIMARY KEY (groupId, username),
+                        FOREIGN KEY (groupId) REFERENCES `groups`(groupId) ON DELETE CASCADE
+                    )
+                """.trimIndent())
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_group_members_groupId ON group_members(groupId)")
+            }
+        }
+
         fun getInstance(context: Context): AppDatabase =
             INSTANCE ?: synchronized(this) {
                 INSTANCE ?: Room.databaseBuilder(
@@ -112,7 +147,8 @@ abstract class AppDatabase : RoomDatabase() {
                 ).addMigrations(
                     MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5,
                     MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9,
-                    MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13
+                    MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13,
+                    MIGRATION_13_14
                 ).build().also { INSTANCE = it }
             }
     }

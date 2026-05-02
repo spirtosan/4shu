@@ -33,7 +33,10 @@ import androidx.work.WorkManager
 import com.google.gson.JsonObject
 import com.fshu.next.R
 import com.fshu.next.data.local.AppDatabase
+import com.fshu.next.data.model.Group
+import com.fshu.next.data.model.GroupMember
 import com.fshu.next.data.model.Message
+import com.fshu.next.util.EcdhHelper
 import com.fshu.next.data.remote.WebSocketClient
 import com.fshu.next.ui.call.CallActivity
 import com.fshu.next.ui.login.LoginActivity
@@ -436,6 +439,12 @@ class FshuService : Service() {
                 WebSocketClient.send(mapOf("type" to "peer-test-response", "from" to me, "testId" to testId))
             }
             "peer-test-result"        -> MessageBus.emit(json)
+            "group-state"             -> handleGroupState(json)
+            "group-message"           -> persistGroupMessage(json)
+            "group-removed"           -> handleGroupRemoved(json)
+            "group-delivery-update"   -> handleGroupDeliveryUpdate(json)
+            "group-key-update"        -> handleGroupKeyUpdate(json)
+            "group-error"             -> MessageBus.emit(json)
             "ack"                     -> handleAck(json)
             "delivered"               -> handleDelivered(json)
             "read"                    -> handleRead(json)
@@ -628,12 +637,19 @@ class FshuService : Service() {
             MessageBus.emit(json)
             return
         }
-        // Text message ack — messageId is our Room PK echoed back; server stores it as message_id.
-        // Writing it as remoteId makes remoteId > 0 so delete-for-everyone works from sender side.
-        val messageId = json.get("messageId")?.asDouble?.toLong() ?: return
-        db.messageDao().upgradeStatus(messageId, "SENT")
-        db.messageDao().updateRemoteId(localId = messageId, remoteId = messageId)
-        propagateLocationStatus(messageId, "SENT")
+        // Distinguish 1-1 ack (numeric messageId) from group ack (UUID string messageId).
+        val messageIdStr = json.get("messageId")?.asString ?: return
+        val messageIdLong = messageIdStr.toLongOrNull()
+        if (messageIdLong == null) {
+            // Group message ack — tempId is client UUID, messageIdStr is server UUID
+            if (tempId != null) db.messageDao().updateGroupMsgAck(tempId, messageIdStr)
+            MessageBus.emit(json)
+            return
+        }
+        // 1-1 text message ack — messageId is our Room PK echoed back.
+        db.messageDao().upgradeStatus(messageIdLong, "SENT")
+        db.messageDao().updateRemoteId(localId = messageIdLong, remoteId = messageIdLong)
+        propagateLocationStatus(messageIdLong, "SENT")
         MessageBus.emit(json)
     }
 
@@ -1276,6 +1292,140 @@ class FshuService : Service() {
             addProperty("count", inserted)
         }
         MessageBus.tryEmit(event)
+    }
+
+    // -------------------------------------------------------------------------
+    // Group handlers (Phase 3b)
+    // -------------------------------------------------------------------------
+
+    private suspend fun handleGroupState(json: JsonObject) {
+        val groupId   = json.get("groupId")?.asString ?: return
+        val name      = json.get("name")?.asString ?: return
+        val owner     = json.get("owner")?.asString ?: return
+        val groupType = json.get("groupType")?.asString ?: "private"
+        val encKey    = json.get("encryptedGroupKey")?.takeIf { !it.isJsonNull }?.asString ?: ""
+
+        val existing  = db.groupDao().getById(groupId)
+        val createdAt = existing?.createdAt ?: System.currentTimeMillis()
+        db.groupDao().upsert(Group(
+            groupId = groupId, name = name, owner = owner, groupType = groupType,
+            createdAt = createdAt, encryptedGroupKey = encKey,
+            groupKey = existing?.groupKey ?: ""
+        ))
+
+        if (encKey.isNotEmpty()) {
+            val me       = Prefs.getUsername(this)
+            val myPriv   = Prefs.getEcPrivateKey(this)
+            val ownerPub = if (owner == me) Prefs.getEcPublicKey(this)
+                           else Prefs.getPeerPublicKey(this, owner)
+            if (myPriv.isNotEmpty() && ownerPub.isNotEmpty()) {
+                val groupKey = CryptoHelper.decryptGroupKey(encKey, ownerPub, myPriv)
+                if (groupKey != null) {
+                    db.groupDao().updateGroupKey(groupId, with(EcdhHelper) { groupKey.toHex() })
+                } else {
+                    Log.w("FshuService", "handleGroupState: group key decryption failed for $groupId")
+                }
+            }
+        }
+
+        val membersEl = json.getAsJsonArray("members") ?: return
+        val members   = membersEl.mapNotNull { el ->
+            val obj      = el.asJsonObject
+            val username = obj.get("username")?.asString ?: return@mapNotNull null
+            val role     = obj.get("role")?.asString ?: "member"
+            val joinedAt = obj.get("joinedAt")?.asDouble?.toLong() ?: System.currentTimeMillis()
+            GroupMember(groupId = groupId, username = username, role = role, joinedAt = joinedAt)
+        }
+        db.groupMemberDao().removeAll(groupId)
+        db.groupMemberDao().upsertAll(members)
+
+        MessageBus.emit(json)
+    }
+
+    private suspend fun persistGroupMessage(json: JsonObject) {
+        val groupId     = json.get("groupId")?.asString ?: return
+        val from        = json.get("from")?.asString ?: return
+        val rawContent  = json.get("content")?.asString ?: return
+        val serverMsgId = json.get("messageId")?.asString ?: return
+        val ts          = json.get("timestamp")?.asDouble?.toLong() ?: System.currentTimeMillis()
+        val me          = Prefs.getUsername(this)
+
+        if (db.messageDao().getByTempId(serverMsgId) != null) return
+
+        val group       = db.groupDao().getById(groupId)
+        val groupKeyHex = group?.groupKey ?: ""
+        val content     = if (groupKeyHex.isNotEmpty()) {
+            val key = with(EcdhHelper) { groupKeyHex.fromHex() }
+            CryptoHelper.decryptGroupMessage(key, serverMsgId, rawContent) ?: rawContent
+        } else rawContent
+
+        db.messageDao().insert(
+            Message(
+                from = from, to = "", content = content, type = "text",
+                timestamp = ts, isSent = from == me, remoteId = 0,
+                tempId = serverMsgId, groupId = groupId
+            )
+        )
+
+        if (from != me) {
+            WebSocketClient.send(mapOf(
+                "type" to "group-delivered", "groupId" to groupId, "messageId" to serverMsgId
+            ))
+            if (!com.fshu.next.ui.chat.ChatActivity.isActive ||
+                com.fshu.next.ui.chat.ChatActivity.currentPeer != groupId) {
+                val groupName = group?.name ?: groupId
+                notifyGroupMessage(groupId, groupName, from, content)
+            }
+        }
+
+        MessageBus.tryEmit(json)
+    }
+
+    private suspend fun handleGroupRemoved(json: JsonObject) {
+        val groupId = json.get("groupId")?.asString ?: return
+        db.groupDao().deleteById(groupId)
+        MessageBus.emit(json)
+    }
+
+    private suspend fun handleGroupDeliveryUpdate(json: JsonObject) {
+        val serverMsgId = json.get("messageId")?.asString ?: return
+        val status = when (json.get("status")?.asString) {
+            "delivered" -> "DELIVERED"
+            "read"      -> "READ"
+            else        -> return
+        }
+        val msg = db.messageDao().getByTempId(serverMsgId) ?: return
+        db.messageDao().upgradeStatus(msg.id, status)
+        MessageBus.emit(json)
+    }
+
+    private suspend fun handleGroupKeyUpdate(json: JsonObject) {
+        val groupId = json.get("groupId")?.asString ?: return
+        WebSocketClient.send(mapOf("type" to "group-info-request", "groupId" to groupId))
+    }
+
+    private fun notifyGroupMessage(groupId: String, groupName: String, from: String, content: String) {
+        try {
+            val am = getSystemService(android.media.AudioManager::class.java)
+            if (am.ringerMode != android.media.AudioManager.RINGER_MODE_SILENT) {
+                val vib = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
+                    getSystemService(android.os.VibratorManager::class.java).defaultVibrator
+                else @Suppress("DEPRECATION") getSystemService(android.os.Vibrator::class.java)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+                    vib.vibrate(android.os.VibrationEffect.createWaveform(longArrayOf(0, 250, 250, 250), -1))
+            }
+        } catch (_: Exception) {}
+
+        val notif = NotificationCompat.Builder(this, CHANNEL_MESSAGES)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle("$groupName · $from")
+            .setContentText(content)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+            .setAutoCancel(true)
+            .build()
+        getSystemService(NotificationManager::class.java)
+            .notify(groupId.hashCode().and(Int.MAX_VALUE), notif)
     }
 
     /** Load all stored peer public keys into the in-memory key cache. Called on startup. */

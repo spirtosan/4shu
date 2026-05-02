@@ -122,6 +122,16 @@ interface MessageDao {
     @Query("UPDATE messages SET voiceWaveform = :waveform, voiceDuration = :duration WHERE fileId = :fileId")
     suspend fun updateVoiceMeta(fileId: String, waveform: String, duration: Int)
 
+    @Query("SELECT * FROM messages WHERE groupId = :groupId ORDER BY timestamp ASC")
+    fun getGroupMessages(groupId: String): LiveData<List<Message>>
+
+    @Insert
+    suspend fun insertGroupMessage(message: Message): Long
+
+    /** Updates tempId to serverMsgId and marks SENT — called on group message ack. */
+    @Query("UPDATE messages SET tempId = :serverMsgId, status = 'SENT' WHERE tempId = :clientTempId AND status = 'SENDING'")
+    suspend fun updateGroupMsgAck(clientTempId: String, serverMsgId: String)
+
     /**
      * Mark a message deleted-for-everyone on both sides of the conversation.
      * isSent=0 branch: receiver's record identified by remoteId (sender's Room PK).

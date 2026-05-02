@@ -145,6 +145,58 @@ object EcdhHelper {
     // §5.4: file_key = HKDF(conversation_key, salt=zeroes, info="fshu-next-file-v1")
     // -------------------------------------------------------------------------
 
+    // -------------------------------------------------------------------------
+    // Group key crypto
+    // §5.5: group_key = random 32 bytes
+    //       encrypted_for_member = nonce || AES-GCM(SHA-256(X25519(myPriv,memberPub)), groupKey)
+    //       group message nonce  = SHA-256(messageId UTF-8)[0:12]
+    // -------------------------------------------------------------------------
+
+    fun generateGroupKey(): ByteArray = ByteArray(32).also { SecureRandom().nextBytes(it) }
+
+    /** Returns hex(nonce || ciphertext+tag). The AES key is SHA-256(X25519(myPriv, memberPub)). */
+    fun encryptGroupKey(groupKey: ByteArray, memberPubHex: String, myPrivHex: String): String {
+        val shared = x25519(myPrivHex, memberPubHex)
+        val aesKey = MessageDigest.getInstance("SHA-256").digest(shared)
+        val nonce  = ByteArray(NONCE_BYTES).also { SecureRandom().nextBytes(it) }
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+        cipher.init(Cipher.ENCRYPT_MODE, SecretKeySpec(aesKey, "AES"), GCMParameterSpec(GCM_TAG_BITS, nonce))
+        return (nonce + cipher.doFinal(groupKey)).toHex()
+    }
+
+    /** Reverses encryptGroupKey. senderPubHex = the pub key of whoever encrypted this (usually owner). */
+    fun decryptGroupKey(encryptedHex: String, senderPubHex: String, myPrivHex: String): ByteArray? = try {
+        val bytes  = encryptedHex.fromHex()
+        val nonce  = bytes.copyOf(NONCE_BYTES)
+        val ct     = bytes.copyOfRange(NONCE_BYTES, bytes.size)
+        val shared = x25519(myPrivHex, senderPubHex)
+        val aesKey = MessageDigest.getInstance("SHA-256").digest(shared)
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+        cipher.init(Cipher.DECRYPT_MODE, SecretKeySpec(aesKey, "AES"), GCMParameterSpec(GCM_TAG_BITS, nonce))
+        cipher.doFinal(ct)
+    } catch (e: Exception) {
+        Log.w(TAG, "decryptGroupKey: ${e.message}")
+        null
+    }
+
+    private fun groupNonce(messageId: String): ByteArray =
+        MessageDigest.getInstance("SHA-256").digest(messageId.toByteArray(Charsets.UTF_8)).copyOf(NONCE_BYTES)
+
+    fun encryptGroupMessage(groupKey: ByteArray, messageId: String, plaintext: String): String {
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+        cipher.init(Cipher.ENCRYPT_MODE, SecretKeySpec(groupKey, "AES"), GCMParameterSpec(GCM_TAG_BITS, groupNonce(messageId)))
+        return Base64.encodeToString(cipher.doFinal(plaintext.toByteArray(Charsets.UTF_8)), Base64.NO_WRAP)
+    }
+
+    fun decryptGroupMessage(groupKey: ByteArray, messageId: String, ciphertext: String): String? = try {
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+        cipher.init(Cipher.DECRYPT_MODE, SecretKeySpec(groupKey, "AES"), GCMParameterSpec(GCM_TAG_BITS, groupNonce(messageId)))
+        cipher.doFinal(Base64.decode(ciphertext, Base64.NO_WRAP)).toString(Charsets.UTF_8)
+    } catch (e: Exception) {
+        Log.w(TAG, "decryptGroupMessage msgId=$messageId: ${e.message}")
+        null
+    }
+
     fun deriveFileKey(conversationKey: ByteArray): ByteArray {
         val salt = ByteArray(32)
         val info = "fshu-next-file-v1".toByteArray(Charsets.UTF_8)

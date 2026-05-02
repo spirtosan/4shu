@@ -43,5 +43,7 @@ data class Message(
     // Voice message duration in seconds; 0 for non-voice messages.
     val voiceDuration: Int = 0,
     // Compact JSON float array of amplitude samples 0..1; null for non-voice messages.
-    val voiceWaveform: String? = null
+    val voiceWaveform: String? = null,
+    // Group ID for group messages; null for 1-1 messages.
+    val groupId: String? = null
 )

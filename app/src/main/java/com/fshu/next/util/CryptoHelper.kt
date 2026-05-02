@@ -120,6 +120,24 @@ object CryptoHelper {
 
     fun bytesToHex(bytes: ByteArray): String = with(EcdhHelper) { bytes.toHex() }
 
+    // -------------------------------------------------------------------------
+    // Group crypto wrappers
+    // -------------------------------------------------------------------------
+
+    fun generateGroupKey(): ByteArray = EcdhHelper.generateGroupKey()
+
+    fun encryptGroupKeyForMember(groupKey: ByteArray, memberPubHex: String, myPrivHex: String): String =
+        EcdhHelper.encryptGroupKey(groupKey, memberPubHex, myPrivHex)
+
+    fun decryptGroupKey(encryptedHex: String, senderPubHex: String, myPrivHex: String): ByteArray? =
+        EcdhHelper.decryptGroupKey(encryptedHex, senderPubHex, myPrivHex)
+
+    fun encryptGroupMessage(groupKey: ByteArray, messageId: String, plaintext: String): String =
+        EcdhHelper.encryptGroupMessage(groupKey, messageId, plaintext)
+
+    fun decryptGroupMessage(groupKey: ByteArray, messageId: String, ciphertext: String): String? =
+        EcdhHelper.decryptGroupMessage(groupKey, messageId, ciphertext)
+
     /** MD5 hex — for list integrity checks only, not security. */
     fun md5(input: String): String {
         val bytes = java.security.MessageDigest.getInstance("MD5")
