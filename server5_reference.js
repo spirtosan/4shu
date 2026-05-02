@@ -333,6 +333,24 @@ const stmt = {
         ON CONFLICT(message_id, from_user) DO UPDATE SET emoji=excluded.emoji, timestamp=excluded.timestamp`),
     deleteReaction: db.prepare('DELETE FROM reactions WHERE message_id = ? AND from_user = ?'),
     getReactions:   db.prepare('SELECT from_user, emoji FROM reactions WHERE message_id = ?'),
+
+    // Group statements
+    createGroup:           db.prepare('INSERT INTO groups (group_id, name, owner, type, created_at) VALUES (?, ?, ?, ?, ?)'),
+    getGroup:              db.prepare('SELECT * FROM groups WHERE group_id = ?'),
+    getGroupMembers:       db.prepare('SELECT * FROM group_members WHERE group_id = ?'),
+    getMemberGroups:       db.prepare('SELECT g.* FROM groups g JOIN group_members gm ON g.group_id = gm.group_id WHERE gm.username = ?'),
+    addGroupMember:        db.prepare('INSERT INTO group_members (group_id, username, role, joined_at, encrypted_group_key) VALUES (?, ?, ?, ?, ?)'),
+    removeGroupMember:     db.prepare('DELETE FROM group_members WHERE group_id = ? AND username = ?'),
+    updateGroupMemberRole: db.prepare('UPDATE group_members SET role = ? WHERE group_id = ? AND username = ?'),
+    updateGroupMemberKey:  db.prepare('UPDATE group_members SET encrypted_group_key = ? WHERE group_id = ? AND username = ?'),
+    updateGroupName:       db.prepare('UPDATE groups SET name = ? WHERE group_id = ?'),
+    updateGroupOwner:      db.prepare('UPDATE groups SET owner = ? WHERE group_id = ?'),
+    deleteGroup:           db.prepare('DELETE FROM groups WHERE group_id = ?'),
+    insertGroupMessage:    db.prepare(`
+        INSERT OR IGNORE INTO messages
+          (message_id, from_user, group_id, content, timestamp, type, reply_to_id, reply_to_sender, reply_to_content)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`),
+    getGroupHistory:       db.prepare('SELECT * FROM messages WHERE group_id = ? AND timestamp >= ? ORDER BY timestamp'),
 };
 
 // ---------------------------------------------------------------------------
@@ -521,6 +539,83 @@ function broadcastListState(list, listId) {
     const env = { ...msg, timestamp: Date.now() };
     if (!isOnline(list.owner)) enqueue(list.owner, env);
     if (list.peer && !isOnline(list.peer)) enqueue(list.peer, env);
+}
+
+// ---------------------------------------------------------------------------
+// Group helpers
+// ---------------------------------------------------------------------------
+
+// In-memory delivery tracker: Map<messageId, Set<deliveredByUsername>>
+const groupDeliveryTracker = new Map();
+
+function sendGroupState(ws, groupId, forUsername) {
+    const group = stmt.getGroup.get(groupId);
+    if (!group) return;
+    const members = stmt.getGroupMembers.all(groupId);
+    const myMembership = members.find(m => m.username === forUsername);
+    if (!myMembership) return;
+    send(ws, {
+        type:              'group-state',
+        groupId:           group.group_id,
+        name:              group.name,
+        groupType:         group.type,
+        owner:             group.owner,
+        members:           members.map(m => ({ username: m.username, role: m.role, joinedAt: m.joined_at })),
+        encryptedGroupKey: myMembership.encrypted_group_key || null,
+    });
+}
+
+function broadcastGroupState(groupId) {
+    const group = stmt.getGroup.get(groupId);
+    if (!group) return;
+    const members = stmt.getGroupMembers.all(groupId);
+    const memberList = members.map(m => ({ username: m.username, role: m.role, joinedAt: m.joined_at }));
+    for (const m of members) {
+        const state = {
+            type:              'group-state',
+            groupId:           group.group_id,
+            name:              group.name,
+            groupType:         group.type,
+            owner:             group.owner,
+            members:           memberList,
+            encryptedGroupKey: m.encrypted_group_key || null,
+        };
+        if (isOnline(m.username)) {
+            sendToAll(m.username, state);
+        } else {
+            enqueue(m.username, state);
+        }
+    }
+}
+
+function sendGroupStatesOnConnect(username, ws) {
+    const groups = stmt.getMemberGroups.all(username);
+    for (const g of groups) {
+        sendGroupState(ws, g.group_id, username);
+    }
+}
+
+function fanOutGroupMessage(groupId, msgData, senderUsername, senderDeviceId) {
+    const members = stmt.getGroupMembers.all(groupId);
+    for (const m of members) {
+        if (m.username === senderUsername) {
+            // Deliver to sender's other devices only
+            const devices = clients.get(m.username);
+            if (devices) {
+                for (const [devId, devWs] of devices.entries()) {
+                    if (devId !== senderDeviceId) send(devWs, msgData);
+                }
+            }
+        } else {
+            if (isOnline(m.username)) {
+                sendToAll(m.username, msgData);
+            } else {
+                enqueue(m.username, msgData);
+                const u = stmt.getUser.get(m.username);
+                if (u?.fcm_token) sendFcmWakeup(u.fcm_token);
+            }
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -733,6 +828,7 @@ wss.on('connection', (ws, req) => {
                 sendAllAvatars(ws);
                 console.log(`~ ${username}/${deviceId} resumed (${clients.size} users online)`);
                 broadcastAllUsers();
+                sendGroupStatesOnConnect(username, ws);
                 flushQueue(username, ws);
                 return;
             }
@@ -776,6 +872,7 @@ wss.on('connection', (ws, req) => {
             sendAllAvatars(ws);
             console.log(`+ ${username}/${deviceId} (${clients.size} users online)`);
             broadcastAllUsers();
+            sendGroupStatesOnConnect(username, ws);
             flushQueue(username, ws);
             return;
         }
@@ -1269,6 +1366,219 @@ wss.on('connection', (ws, req) => {
                 const target = (msg.username || '').trim().toLowerCase();
                 const u = target ? stmt.getUser.get(target) : null;
                 send(ws, { type: 'public-key-response', username: target, publicKey: u?.public_key || null });
+                break;
+            }
+
+            case 'group-create': {
+                const { groupId, name, groupType, members } = msg;
+                if (!groupId || !name || !Array.isArray(members) || members.length === 0) break;
+                let memberError = null;
+                for (const m of members) {
+                    if (m.username !== username && !stmt.getUser.get(m.username)) {
+                        memberError = m.username; break;
+                    }
+                }
+                if (memberError) { send(ws, { type: 'group-error', groupId, reason: `user-not-found:${memberError}` }); break; }
+                const now = Date.now();
+                try {
+                    stmt.createGroup.run(groupId, name.slice(0, 100), username, groupType || 'group', now);
+                } catch {
+                    send(ws, { type: 'group-error', groupId, reason: 'already-exists' }); break;
+                }
+                const creatorEntry = members.find(m => m.username === username);
+                stmt.addGroupMember.run(groupId, username, 'owner', now, creatorEntry?.encryptedKey || null);
+                for (const m of members) {
+                    if (m.username === username) continue;
+                    stmt.addGroupMember.run(groupId, m.username, 'member', now, m.encryptedKey || null);
+                }
+                broadcastGroupState(groupId);
+                console.log(`  group-create: ${groupId} "${name}" by ${username}, ${members.length} member(s)`);
+                break;
+            }
+
+            case 'group-message': {
+                const { groupId, content, messageId: tempId, timestamp } = msg;
+                if (!groupId || !content) break;
+                const members = stmt.getGroupMembers.all(groupId);
+                if (!members.find(m => m.username === username)) {
+                    send(ws, { type: 'group-error', groupId, reason: 'not-a-member' }); break;
+                }
+                const serverMsgId = crypto.randomUUID();
+                const ts = timestamp ?? Date.now();
+                stmt.insertGroupMessage.run(serverMsgId, username, groupId, content, ts, 'message',
+                    msg.replyToId ?? null, msg.replyToSender ?? null, msg.replyToContent ?? null);
+                send(ws, { type: 'ack', tempId: tempId ?? null, messageId: serverMsgId, timestamp: ts });
+                const outMsg = {
+                    type: 'group-message', groupId, from: username, content,
+                    messageId: serverMsgId, timestamp: ts,
+                    replyToId: msg.replyToId ?? null,
+                    replyToSender: msg.replyToSender ?? null,
+                    replyToContent: msg.replyToContent ?? null,
+                };
+                fanOutGroupMessage(groupId, outMsg, username, ws.deviceId);
+                console.log(`  group-message: ${serverMsgId} → ${groupId} from ${username}`);
+                break;
+            }
+
+            case 'group-delivered': {
+                const { groupId, messageId } = msg;
+                if (!groupId || !messageId) break;
+                const members = stmt.getGroupMembers.all(groupId);
+                if (!members.find(m => m.username === username)) break;
+                const record = stmt.getMessage.get(String(messageId));
+                if (!record) break;
+                if (!groupDeliveryTracker.has(messageId)) groupDeliveryTracker.set(messageId, new Set());
+                groupDeliveryTracker.get(messageId).add(username);
+                const nonSenderMembers = members.filter(m => m.username !== record.from_user);
+                const deliveredSet = groupDeliveryTracker.get(messageId);
+                if (nonSenderMembers.length > 0 && nonSenderMembers.every(m => deliveredSet.has(m.username))) {
+                    sendToAll(record.from_user, { type: 'group-delivery-update', messageId, groupId, status: 'delivered' });
+                    groupDeliveryTracker.delete(messageId);
+                }
+                break;
+            }
+
+            case 'group-read': {
+                const { groupId, messageId } = msg;
+                if (!groupId || !messageId) break;
+                const members = stmt.getGroupMembers.all(groupId);
+                if (!members.find(m => m.username === username)) break;
+                const record = stmt.getMessage.get(String(messageId));
+                if (!record) break;
+                sendToAll(record.from_user, { type: 'group-delivery-update', messageId, groupId, status: 'read' });
+                break;
+            }
+
+            case 'group-invite': {
+                const { groupId, username: invitee, encryptedKey } = msg;
+                if (!groupId || !invitee) break;
+                const group = stmt.getGroup.get(groupId);
+                if (!group) { send(ws, { type: 'group-error', groupId, reason: 'not-found' }); break; }
+                const members = stmt.getGroupMembers.all(groupId);
+                const senderMem = members.find(m => m.username === username);
+                if (!senderMem || !['owner', 'admin'].includes(senderMem.role)) {
+                    send(ws, { type: 'group-error', groupId, reason: 'unauthorized' }); break;
+                }
+                if (!stmt.getUser.get(invitee)) {
+                    send(ws, { type: 'group-error', groupId, reason: 'user-not-found' }); break;
+                }
+                if (members.find(m => m.username === invitee)) {
+                    send(ws, { type: 'group-error', groupId, reason: 'already-member' }); break;
+                }
+                stmt.addGroupMember.run(groupId, invitee, 'member', Date.now(), encryptedKey || null);
+                broadcastGroupState(groupId);
+                console.log(`  group-invite: ${invitee} added to ${groupId} by ${username}`);
+                break;
+            }
+
+            case 'group-kick': {
+                const { groupId, username: target } = msg;
+                if (!groupId || !target) break;
+                if (!stmt.getGroup.get(groupId)) break;
+                const members = stmt.getGroupMembers.all(groupId);
+                const senderMem = members.find(m => m.username === username);
+                if (!senderMem || !['owner', 'admin'].includes(senderMem.role)) {
+                    send(ws, { type: 'group-error', groupId, reason: 'unauthorized' }); break;
+                }
+                const targetMem = members.find(m => m.username === target);
+                if (!targetMem) { send(ws, { type: 'group-error', groupId, reason: 'not-a-member' }); break; }
+                if (targetMem.role === 'owner') { send(ws, { type: 'group-error', groupId, reason: 'cannot-kick-owner' }); break; }
+                stmt.removeGroupMember.run(groupId, target);
+                const removedMsg = { type: 'group-removed', groupId, reason: 'kicked' };
+                if (isOnline(target)) { sendToAll(target, removedMsg); } else { enqueue(target, removedMsg); }
+                broadcastGroupState(groupId);
+                console.log(`  group-kick: ${target} removed from ${groupId} by ${username}`);
+                break;
+            }
+
+            case 'group-leave': {
+                const { groupId } = msg;
+                if (!groupId) break;
+                if (!stmt.getGroup.get(groupId)) break;
+                const members = stmt.getGroupMembers.all(groupId);
+                const myMem = members.find(m => m.username === username);
+                if (!myMem) break;
+                if (myMem.role === 'owner') { send(ws, { type: 'group-error', groupId, reason: 'owner-cannot-leave' }); break; }
+                stmt.removeGroupMember.run(groupId, username);
+                sendToAll(username, { type: 'group-removed', groupId, reason: 'left' });
+                broadcastGroupState(groupId);
+                console.log(`  group-leave: ${username} left ${groupId}`);
+                break;
+            }
+
+            case 'group-key-rotate': {
+                const { groupId, keys } = msg;
+                if (!groupId || !Array.isArray(keys)) break;
+                const members = stmt.getGroupMembers.all(groupId);
+                const senderMem = members.find(m => m.username === username);
+                if (!senderMem || !['owner', 'admin'].includes(senderMem.role)) {
+                    send(ws, { type: 'group-error', groupId, reason: 'unauthorized' }); break;
+                }
+                for (const k of keys) {
+                    if (k.username && k.encryptedKey) stmt.updateGroupMemberKey.run(k.encryptedKey, groupId, k.username);
+                }
+                const update = { type: 'group-key-update', groupId };
+                for (const m of members) {
+                    if (isOnline(m.username)) { sendToAll(m.username, update); } else { enqueue(m.username, update); }
+                }
+                console.log(`  group-key-rotate: ${groupId} by ${username}, ${keys.length} key(s) updated`);
+                break;
+            }
+
+            case 'group-promote': {
+                const { groupId, username: target, role: newRole } = msg;
+                if (!groupId || !target || !['owner', 'admin', 'member'].includes(newRole)) break;
+                if (!stmt.getGroup.get(groupId)) break;
+                const members = stmt.getGroupMembers.all(groupId);
+                const senderMem = members.find(m => m.username === username);
+                if (!senderMem) break;
+                const targetMem = members.find(m => m.username === target);
+                if (!targetMem) { send(ws, { type: 'group-error', groupId, reason: 'not-a-member' }); break; }
+                if (newRole === 'owner') {
+                    if (senderMem.role !== 'owner') { send(ws, { type: 'group-error', groupId, reason: 'unauthorized' }); break; }
+                    stmt.updateGroupMemberRole.run('admin', groupId, username);
+                    stmt.updateGroupOwner.run(target, groupId);
+                    stmt.updateGroupMemberRole.run('owner', groupId, target);
+                } else {
+                    if (!['owner', 'admin'].includes(senderMem.role)) { send(ws, { type: 'group-error', groupId, reason: 'unauthorized' }); break; }
+                    stmt.updateGroupMemberRole.run(newRole, groupId, target);
+                }
+                broadcastGroupState(groupId);
+                console.log(`  group-promote: ${target} → ${newRole} in ${groupId} by ${username}`);
+                break;
+            }
+
+            case 'group-rename': {
+                const { groupId, name } = msg;
+                if (!groupId || !name) break;
+                const members = stmt.getGroupMembers.all(groupId);
+                const senderMem = members.find(m => m.username === username);
+                if (!senderMem || !['owner', 'admin'].includes(senderMem.role)) {
+                    send(ws, { type: 'group-error', groupId, reason: 'unauthorized' }); break;
+                }
+                stmt.updateGroupName.run(name.slice(0, 100), groupId);
+                broadcastGroupState(groupId);
+                console.log(`  group-rename: ${groupId} → "${name}" by ${username}`);
+                break;
+            }
+
+            case 'group-info-request': {
+                const { groupId } = msg;
+                if (!groupId) break;
+                const group = stmt.getGroup.get(groupId);
+                if (!group) { send(ws, { type: 'group-error', groupId, reason: 'not-found' }); break; }
+                const members = stmt.getGroupMembers.all(groupId);
+                const myMem = members.find(m => m.username === username);
+                if (!myMem) { send(ws, { type: 'group-error', groupId, reason: 'not-a-member' }); break; }
+                send(ws, {
+                    type:              'group-state',
+                    groupId:           group.group_id,
+                    name:              group.name,
+                    groupType:         group.type,
+                    owner:             group.owner,
+                    members:           members.map(m => ({ username: m.username, role: m.role, joinedAt: m.joined_at })),
+                    encryptedGroupKey: myMem.encrypted_group_key || null,
+                });
                 break;
             }
 
