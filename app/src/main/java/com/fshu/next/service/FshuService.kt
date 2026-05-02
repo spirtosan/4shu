@@ -418,6 +418,7 @@ class FshuService : Service() {
             "typing"                  -> MessageBus.emit(json)
             "deleted"                 -> handleDeletedForAll(json)
             "edited"                  -> handleEdited(json)
+            "reactions"               -> handleReactions(json)
             "missed-call"             -> persistMissedCall(json)
             "list-state"              -> persistListState(json)
             "list-ack"                -> handleListAck(json)
@@ -623,6 +624,15 @@ class FshuService : Service() {
         db.messageDao().upgradeStatus(messageId, "SENT")
         db.messageDao().updateRemoteId(localId = messageId, remoteId = messageId)
         propagateLocationStatus(messageId, "SENT")
+        MessageBus.emit(json)
+    }
+
+    private suspend fun handleReactions(json: JsonObject) {
+        val messageId = json.get("messageId")?.asDouble?.toLong() ?: return
+        val reactionsEl = json.get("reactions")
+        val reactionsJson = if (reactionsEl != null && reactionsEl.isJsonArray)
+            reactionsEl.toString() else "[]"
+        db.messageDao().updateReactions(messageId, reactionsJson)
         MessageBus.emit(json)
     }
 

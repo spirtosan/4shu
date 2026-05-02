@@ -112,8 +112,13 @@ class ChatActivity : AppCompatActivity() {
         binding.rvMessages.layoutManager = LinearLayoutManager(this).apply { stackFromEnd = true }
         binding.rvMessages.adapter = adapter
 
+        adapter.me = vm.getMe()
         adapter.onListItemToggle = { listId, itemId, done ->
             vm.checkItem(listId, itemId, done, peer)
+        }
+        adapter.onReactionTap = { msg, emoji ->
+            val myEmoji = findMyEmoji(msg)
+            if (emoji == myEmoji) vm.sendReaction(msg, null) else vm.sendReaction(msg, emoji)
         }
         refreshNicknameMap()
 
@@ -141,6 +146,10 @@ class ChatActivity : AppCompatActivity() {
                     singleMsg.type !in listOf("file", "list", "location", "location-request", "deleted")
                 binding.btnSelectionEdit.visibility =
                     if (canEdit) View.VISIBLE else View.GONE
+                val canReact = count == 1 && singleMsg != null &&
+                    singleMsg.remoteId > 0L && singleMsg.type != "deleted"
+                binding.btnSelectionReact.visibility =
+                    if (canReact) View.VISIBLE else View.GONE
             }
         }
 
@@ -260,6 +269,23 @@ class ChatActivity : AppCompatActivity() {
                     if (newText.isNotBlank() && newText != msg.content) {
                         vm.editMessage(msg, newText, peer)
                     }
+                    adapter.clearSelection()
+                }
+                .setNegativeButton("Cancel") { _, _ -> adapter.clearSelection() }
+                .show()
+        }
+
+        binding.btnSelectionReact.setOnClickListener {
+            val msg = adapter.getSelectedMessages().firstOrNull() ?: return@setOnClickListener
+            val myEmoji = findMyEmoji(msg)
+            val emojis = arrayOf("👍", "👎", "❤️", "😂", "😮", "😢", "😡", "🔥", "👏", "🎉")
+            val labels = emojis.map { if (it == myEmoji) "$it ✓" else it }.toTypedArray()
+            AlertDialog.Builder(this)
+                .setTitle("React")
+                .setItems(labels) { _, which ->
+                    val picked = emojis[which]
+                    if (picked == myEmoji) vm.sendReaction(msg, null)
+                    else vm.sendReaction(msg, picked)
                     adapter.clearSelection()
                 }
                 .setNegativeButton("Cancel") { _, _ -> adapter.clearSelection() }
@@ -730,6 +756,18 @@ class ChatActivity : AppCompatActivity() {
                 }
                 .joinToString("\n")
         } catch (e: Exception) { msg.content }
+    }
+
+    private fun findMyEmoji(msg: com.fshu.next.data.model.Message): String? {
+        val me = vm.getMe()
+        return try {
+            val arr = com.google.gson.JsonParser.parseString(msg.reactions).asJsonArray
+            for (i in 0 until arr.size()) {
+                val item = arr[i].asJsonObject
+                if (item.get("from")?.asString == me) return item.get("emoji")?.asString
+            }
+            null
+        } catch (e: Exception) { null }
     }
 
     private fun exportConversation() {

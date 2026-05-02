@@ -322,6 +322,13 @@ const stmt = {
           deleted_at=excluded.deleted_at`),
     markItemDeleted:    db.prepare('UPDATE list_items SET deleted_at = ? WHERE item_id = ? AND list_id = ?'),
     getRecentLists:     db.prepare('SELECT * FROM lists WHERE (owner = ? OR peer = ?) AND created_at > ?'),
+
+    upsertReaction: db.prepare(`
+        INSERT INTO reactions (message_id, from_user, emoji, timestamp)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT(message_id, from_user) DO UPDATE SET emoji=excluded.emoji, timestamp=excluded.timestamp`),
+    deleteReaction: db.prepare('DELETE FROM reactions WHERE message_id = ? AND from_user = ?'),
+    getReactions:   db.prepare('SELECT from_user, emoji FROM reactions WHERE message_id = ?'),
 };
 
 // ---------------------------------------------------------------------------
@@ -803,6 +810,25 @@ wss.on('connection', (ws, req) => {
                 sendToAll(record.from_user, notice);
                 sendToAll(record.to_user, notice);
                 console.log(`  edit: updated and broadcast to ${record.from_user} and ${record.to_user}`);
+                break;
+            }
+
+            case 'react': {
+                const { messageId, emoji } = msg;
+                if (!messageId) { console.log('  react: missing messageId, ignored'); break; }
+                const msgId = String(messageId);
+                const record = stmt.getMessage.get(msgId);
+                if (!record) { console.log(`  react: record not found for message_id=${msgId}`); break; }
+                if (emoji) {
+                    stmt.upsertReaction.run(msgId, username, emoji, Date.now());
+                } else {
+                    stmt.deleteReaction.run(msgId, username);
+                }
+                const reactions = stmt.getReactions.all(msgId).map(r => ({ from: r.from_user, emoji: r.emoji }));
+                const notice = { type: 'reactions', messageId, reactions };
+                sendToAll(record.from_user, notice);
+                sendToAll(record.to_user, notice);
+                console.log(`  react: broadcast to ${record.from_user} and ${record.to_user}, count=${reactions.length}`);
                 break;
             }
 

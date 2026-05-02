@@ -391,6 +391,18 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    fun sendReaction(msg: Message, emoji: String?) {
+        if (msg.remoteId == 0L) return
+        viewModelScope.launch(Dispatchers.IO) {
+            val payload = mutableMapOf<String, Any>(
+                "type" to "react",
+                "messageId" to msg.remoteId
+            )
+            if (emoji != null) payload["emoji"] = emoji
+            WebSocketClient.send(payload)
+        }
+    }
+
     fun deleteForEveryone(msg: com.fshu.next.data.model.Message) {
         val msgId = msg.remoteId
         if (msgId == 0L) {

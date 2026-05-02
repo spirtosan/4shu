@@ -52,6 +52,12 @@ class ChatAdapter : ListAdapter<Message, RecyclerView.ViewHolder>(DIFF) {
     /** username → display name map, set by the host Activity. Used to resolve checkedBy labels. */
     var nicknameMap: Map<String, String> = emptyMap()
 
+    /** Current user's username — set by ChatActivity so reaction chips can highlight own reactions. */
+    var me: String = ""
+
+    /** Invoked when a reaction chip is tapped: (message, emoji). Activity decides add/remove. */
+    var onReactionTap: ((Message, String) -> Unit)? = null
+
     private fun getNickname(username: String): String? = nicknameMap[username]
 
     fun isInSelectionMode() = selectedIds.isNotEmpty()
@@ -153,6 +159,7 @@ class ChatAdapter : ListAdapter<Message, RecyclerView.ViewHolder>(DIFF) {
             is SentVH -> {
                 bindFileContent(holder.b.ivThumbnail, holder.b.tvContent, msg, holder.b.bubble)
                 bindReplyQuote(holder.b.replyQuote, holder.b.tvReplySender, holder.b.tvReplyContent, msg)
+                bindReactions(holder.b.llReactions, msg)
                 holder.b.tvTime.text = time
                 when (msg.status) {
                     "SENDING" -> {
@@ -194,6 +201,7 @@ class ChatAdapter : ListAdapter<Message, RecyclerView.ViewHolder>(DIFF) {
             is RecvVH -> {
                 bindFileContent(holder.b.ivThumbnail, holder.b.tvContent, msg, holder.b.bubble)
                 bindReplyQuote(holder.b.replyQuote, holder.b.tvReplySender, holder.b.tvReplyContent, msg)
+                bindReactions(holder.b.llReactions, msg)
                 holder.b.tvTime.text = time
                 holder.b.bubble.setOnClickListener {
                     if (isInSelectionMode()) {
@@ -387,6 +395,60 @@ class ChatAdapter : ListAdapter<Message, RecyclerView.ViewHolder>(DIFF) {
                     start, full.length, android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
                 tv.text = full
             }
+        }
+    }
+
+    private fun bindReactions(container: LinearLayout, msg: Message) {
+        container.removeAllViews()
+        val json = msg.reactions
+        if (json.isEmpty()) { container.visibility = View.GONE; return }
+        val arr = try { JsonParser.parseString(json).asJsonArray } catch (e: Exception) {
+            container.visibility = View.GONE; return
+        }
+        if (arr.size() == 0) { container.visibility = View.GONE; return }
+
+        // Group by emoji → count
+        val counts = linkedMapOf<String, Int>()
+        for (i in 0 until arr.size()) {
+            val item = try { arr[i].asJsonObject } catch (e: Exception) { continue }
+            val emoji = item.get("emoji")?.asString ?: continue
+            counts[emoji] = (counts[emoji] ?: 0) + 1
+        }
+        // Find current user's reaction
+        val myEmoji: String? = run {
+            for (i in 0 until arr.size()) {
+                val item = try { arr[i].asJsonObject } catch (e: Exception) { continue }
+                if (item.get("from")?.asString == me) return@run item.get("emoji")?.asString
+            }
+            null
+        }
+
+        container.visibility = View.VISIBLE
+        val ctx = container.context
+        val dp = ctx.resources.displayMetrics.density
+        val hPad = (7 * dp).toInt()
+        val vPad = (3 * dp).toInt()
+        val marginEnd = (4 * dp).toInt()
+
+        for ((emoji, count) in counts) {
+            val isMine = emoji == myEmoji
+            val chip = android.widget.TextView(ctx).apply {
+                text = if (count > 1) "$emoji $count" else emoji
+                textSize = 13f
+                setPadding(hPad, vPad, hPad, vPad)
+                val bg = android.graphics.drawable.GradientDrawable().apply {
+                    shape = android.graphics.drawable.GradientDrawable.RECTANGLE
+                    cornerRadius = 14 * dp
+                    setColor(if (isMine) 0xFF2979AA.toInt() else 0x44000000.toInt())
+                }
+                background = bg
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).also { it.marginEnd = marginEnd }
+                setOnClickListener { onReactionTap?.invoke(msg, emoji) }
+            }
+            container.addView(chip)
         }
     }
 

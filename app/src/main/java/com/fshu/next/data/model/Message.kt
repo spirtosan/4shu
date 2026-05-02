@@ -37,5 +37,7 @@ data class Message(
     // Server-assigned file UUID — used to request binary download.
     val fileId: String? = null,
     // Epoch ms of last server-confirmed edit; 0 = never edited.
-    val editedAt: Long = 0
+    val editedAt: Long = 0,
+    // JSON array of {from, emoji} — stored as string; "" means no reactions.
+    val reactions: String = ""
 )

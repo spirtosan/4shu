@@ -113,6 +113,12 @@ interface MessageDao {
     """)
     suspend fun updateEditedContent(remoteId: Long, content: String, editedAt: Long)
 
+    @Query("""
+        UPDATE messages SET reactions = :reactions
+        WHERE (id = :remoteId AND isSent = 1) OR (remoteId = :remoteId AND remoteId > 0)
+    """)
+    suspend fun updateReactions(remoteId: Long, reactions: String)
+
     /**
      * Mark a message deleted-for-everyone on both sides of the conversation.
      * isSent=0 branch: receiver's record identified by remoteId (sender's Room PK).
