@@ -207,21 +207,49 @@
                 android:contentDescription="Attach file"
                 android:background="?attr/selectableItemBackgroundBorderless" />
 
-            <EditText
-                android:id="@+id/et_message"
+            <!-- Slot shared by text input and recording indicator -->
+            <FrameLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:layout_marginHorizontal="6dp"
-                android:hint="Message"
-                android:inputType="textMultiLine|textCapSentences"
-                android:maxLines="4"
-                android:paddingHorizontal="14dp"
-                android:paddingVertical="10dp"
-                android:background="@drawable/bg_input"
-                android:textSize="15sp"
-                android:textColor="@color/text_primary"
-                android:textColorHint="@color/text_secondary" />
+                android:layout_marginHorizontal="6dp">
+
+                <EditText
+                    android:id="@+id/et_message"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Message"
+                    android:inputType="textMultiLine|textCapSentences"
+                    android:maxLines="4"
+                    android:paddingHorizontal="14dp"
+                    android:paddingVertical="10dp"
+                    android:background="@drawable/bg_input"
+                    android:textSize="15sp"
+                    android:textColor="@color/text_primary"
+                    android:textColorHint="@color/text_secondary" />
+
+                <TextView
+                    android:id="@+id/tv_recording_state"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_vertical"
+                    android:paddingHorizontal="14dp"
+                    android:paddingVertical="10dp"
+                    android:textSize="15sp"
+                    android:textColor="@color/text_primary"
+                    android:visibility="gone"
+                    android:text="🎤 0:00" />
+
+            </FrameLayout>
+
+            <ImageButton
+                android:id="@+id/btn_mic"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:src="@drawable/ic_mic"
+                android:tint="@color/primary"
+                android:contentDescription="Hold to record voice message"
+                android:background="?attr/selectableItemBackgroundBorderless" />
 
             <ImageButton
                 android:id="@+id/btn_send"

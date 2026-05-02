@@ -414,7 +414,7 @@ class FshuService : Service() {
             "call-offer"              -> handleIncomingCall(json, isEmergency = false)
             "call-emergency"          -> handleIncomingCall(json, isEmergency = true)
             "message"                 -> persistIncomingMessage(json)
-            "file"                    -> persistIncomingFile(json)
+            "file", "voice"           -> persistIncomingFile(json)
             "typing"                  -> MessageBus.emit(json)
             "deleted"                 -> handleDeletedForAll(json)
             "edited"                  -> handleEdited(json)
@@ -537,27 +537,31 @@ class FshuService : Service() {
     }
 
     private suspend fun persistIncomingFile(json: JsonObject) {
-        val from = json.get("from")?.asString ?: return
+        val from     = json.get("from")?.asString ?: return
         val filename = json.get("filename")?.asString ?: return
         val mimeType = json.get("mimeType")?.asString ?: "application/octet-stream"
-        val ts = json.get("timestamp")?.asDouble?.toLong() ?: System.currentTimeMillis()
-        val fileId = json.get("fileId")?.asString
+        val ts       = json.get("timestamp")?.asDouble?.toLong() ?: System.currentTimeMillis()
+        val fileId   = json.get("fileId")?.asString
         val remoteId = json.get("messageId")?.asDouble?.toLong() ?: 0L
-        val me = Prefs.getUsername(this)
+        val msgType  = json.get("type")?.asString ?: "file"   // "file" or "voice"
+        val me       = Prefs.getUsername(this)
 
         if (remoteId > 0 && db.messageDao().getByRemoteId(remoteId) != null) return
 
-        val content = "\uD83D\uDCCE $filename"
+        val content       = if (msgType == "voice") "\uD83C\uDF99\uFE0F Voice message" else "\uD83D\uDCCE $filename"
+        val voiceDuration = if (msgType == "voice") json.get("duration")?.asDouble?.toInt() ?: 0 else 0
+        val voiceWaveform = if (msgType == "voice") json.get("waveform")?.asString?.takeIf { it.isNotEmpty() } else null
+
         db.messageDao().insert(
             Message(from = from, to = me, content = content,
-                type = "file", filename = filename, mimeType = mimeType,
-                fileId = fileId, timestamp = ts, isSent = false, remoteId = remoteId)
+                type = msgType, filename = filename, mimeType = mimeType,
+                fileId = fileId, timestamp = ts, isSent = false, remoteId = remoteId,
+                voiceDuration = voiceDuration, voiceWaveform = voiceWaveform)
         )
 
         val seq = json.get("seq")?.asDouble?.toLong() ?: 0L
         if (seq > 0 && seq > WebSocketClient.lastSeq) WebSocketClient.lastSeq = seq
 
-        // Request the encrypted binary from the server
         if (fileId != null) {
             WebSocketClient.send(mapOf("type" to "file-request", "fileId" to fileId, "from" to me))
         }
@@ -721,6 +725,17 @@ class FshuService : Service() {
                 Log.d("FshuService", "File saved: $filename → $localUri")
             } else {
                 Log.e("FshuService", "Failed to decrypt/save file $filename from $from")
+            }
+
+            // For voice messages: populate waveform+duration from binary header if present.
+            // This covers cases where the metadata JSON arrived before server was patched.
+            val headerType = header.get("type")?.asString ?: "file"
+            if (headerType == "voice") {
+                val waveformStr = header.get("waveform")?.asString ?: ""
+                val duration    = header.get("duration")?.asDouble?.toInt() ?: 0
+                if (waveformStr.isNotEmpty() || duration > 0) {
+                    db.messageDao().updateVoiceMeta(fileId, waveformStr, duration)
+                }
             }
         } catch (e: Exception) {
             Log.e("FshuService", "Binary file handling failed", e)

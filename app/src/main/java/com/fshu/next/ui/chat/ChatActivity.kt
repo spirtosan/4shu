@@ -50,6 +50,7 @@ import com.fshu.next.ui.BackgroundHelper
 import com.fshu.next.ui.call.CallActivity
 import com.fshu.next.util.MessageBus
 import com.fshu.next.util.Prefs
+import com.fshu.next.util.VoiceRecorder
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -79,6 +80,8 @@ class ChatActivity : AppCompatActivity() {
     private var pendingReplySender: String? = null
     private var pendingReplyContent: String? = null
 
+    private lateinit var voiceRecorder: VoiceRecorder
+
     private val pickFile = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         uri?.let { vm.sendFile(peer, it, contentResolver) }
     }
@@ -98,6 +101,7 @@ class ChatActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         peer = intent.getStringExtra(EXTRA_PEER) ?: run { finish(); return }
+        voiceRecorder = VoiceRecorder(this)
 
         val toolbar = findViewById<androidx.appcompat.widget.Toolbar>(R.id.toolbar)
         setSupportActionBar(toolbar)
@@ -363,6 +367,45 @@ class ChatActivity : AppCompatActivity() {
 
         binding.btnAttach.setOnClickListener { pickFile.launch("*/*") }
 
+        binding.btnMic.setOnTouchListener { _, event ->
+            when (event.action) {
+                android.view.MotionEvent.ACTION_DOWN -> {
+                    if (androidx.core.app.ActivityCompat.checkSelfPermission(
+                            this, android.Manifest.permission.RECORD_AUDIO
+                        ) != android.content.pm.PackageManager.PERMISSION_GRANTED
+                    ) {
+                        androidx.core.app.ActivityCompat.requestPermissions(
+                            this, arrayOf(android.Manifest.permission.RECORD_AUDIO), 101
+                        )
+                        return@setOnTouchListener true
+                    }
+                    binding.etMessage.visibility = View.GONE
+                    binding.tvRecordingState.visibility = View.VISIBLE
+                    voiceRecorder.start("voice_temp.m4a") { secs ->
+                        runOnUiThread {
+                            binding.tvRecordingState.text =
+                                "🎤 ${secs / 60}:${"%02d".format(secs % 60)}"
+                        }
+                    }
+                    true
+                }
+                android.view.MotionEvent.ACTION_UP,
+                android.view.MotionEvent.ACTION_CANCEL -> {
+                    binding.etMessage.visibility = View.VISIBLE
+                    binding.tvRecordingState.visibility = View.GONE
+                    binding.tvRecordingState.text = "🎤 0:00"
+                    val result = voiceRecorder.stop()
+                    if (result != null && result.durationSecs >= 1) {
+                        vm.sendVoice(peer, result.file, result.waveform, result.durationSecs)
+                    } else if (result != null) {
+                        Toast.makeText(this, "Hold longer to record", Toast.LENGTH_SHORT).show()
+                    }
+                    true
+                }
+                else -> false
+            }
+        }
+
         binding.etMessage.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun afterTextChanged(s: Editable?) {}
@@ -412,6 +455,8 @@ class ChatActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         typingHideHandler.removeCallbacks(typingHideRunnable)
+        ChatAdapter.stopAll()
+        voiceRecorder.release()
     }
 
     private fun loadPeerAvatar() {
@@ -489,6 +534,7 @@ class ChatActivity : AppCompatActivity() {
     override fun onPause() {
         super.onPause()
         isActive = false
+        ChatAdapter.stopAll()
         unregisterReceiver(screenOnReceiver)
     }
 
@@ -664,6 +710,19 @@ class ChatActivity : AppCompatActivity() {
             }
             .setNegativeButton("Cancel", null)
             .show()
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == 101 &&
+            grantResults.isNotEmpty() &&
+            grantResults[0] == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            Toast.makeText(this, "Microphone permission granted. Hold mic to record.", Toast.LENGTH_SHORT).show()
+        }
     }
 
     @Deprecated("Deprecated in Java")

@@ -39,5 +39,9 @@ data class Message(
     // Epoch ms of last server-confirmed edit; 0 = never edited.
     val editedAt: Long = 0,
     // JSON array of {from, emoji} — stored as string; "" means no reactions.
-    val reactions: String = ""
+    val reactions: String = "",
+    // Voice message duration in seconds; 0 for non-voice messages.
+    val voiceDuration: Int = 0,
+    // Compact JSON float array of amplitude samples 0..1; null for non-voice messages.
+    val voiceWaveform: String? = null
 )

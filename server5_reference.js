@@ -255,6 +255,7 @@ CREATE TABLE IF NOT EXISTS invites (
 
 // Phase 1g migration: add nonce column to files if not present
 try { db.exec('ALTER TABLE files ADD COLUMN nonce TEXT'); } catch {}
+try { db.exec('ALTER TABLE files ADD COLUMN meta_json TEXT'); } catch {}
 
 // ---------------------------------------------------------------------------
 // Prepared statements
@@ -298,8 +299,8 @@ const stmt = {
     editMessage:        db.prepare('UPDATE messages SET content = ?, edited_at = ? WHERE message_id = ? AND from_user = ?'),
 
     insertFile:         db.prepare(`
-        INSERT INTO files (file_id, uploader, filename, mime_type, file_path, size_bytes, nonce, created_at, expires_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`),
+        INSERT INTO files (file_id, uploader, filename, mime_type, file_path, size_bytes, nonce, created_at, expires_at, meta_json)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`),
     getFile:            db.prepare("SELECT * FROM files WHERE file_id = ?"),
     insertFileMessage:  db.prepare(`
         INSERT OR IGNORE INTO messages (message_id, from_user, to_user, content, timestamp, type, file_id)
@@ -635,20 +636,26 @@ function handleBinaryUpload(ws, raw, fromUser) {
         const filePath    = path.join(FILES_DIR, fileId + safeExt);
         const ts          = timestamp ?? Date.now();
 
+        const msgType  = header.type || 'file';
+        const metaJson = (msgType === 'voice')
+            ? JSON.stringify({ type: msgType, duration: header.duration ?? 0, waveform: header.waveform ?? '' })
+            : null;
+
         fs.writeFileSync(filePath, encBytes);
-        stmt.insertFile.run(fileId, from, filename, mimeType || null, filePath, encBytes.length, nonce || null, ts, ts + FILE_MAX_AGE_MS);
+        stmt.insertFile.run(fileId, from, filename, mimeType || null, filePath, encBytes.length, nonce || null, ts, ts + FILE_MAX_AGE_MS, metaJson);
         stmt.insertFileMessage.run(serverMsgId, from, to, ts, fileId);
 
         send(ws, { type: 'ack', tempId: tempId ?? null, messageId: senderRoomId ?? null, fileId, serverMsgId, timestamp: ts });
 
         const meta = {
-            type: 'file', from, to, filename,
+            type: msgType, from, to, filename,
             mimeType: mimeType || null,
             size: encBytes.length,
             fileId,
             messageId: senderRoomId ?? null,
             serverMsgId,
-            timestamp: ts
+            timestamp: ts,
+            ...(msgType === 'voice' && { duration: header.duration ?? 0, waveform: header.waveform ?? '' })
         };
         if (isOnline(to)) {
             sendToAll(to, meta);
@@ -853,14 +860,17 @@ wss.on('connection', (ws, req) => {
                 const file = stmt.getFile.get(fileId);
                 if (!file) { send(ws, { type: 'file-error', fileId, reason: 'not-found' }); break; }
                 try {
-                    const encBytes = fs.readFileSync(file.file_path);
-                    const hdrJson  = JSON.stringify({
+                    const encBytes  = fs.readFileSync(file.file_path);
+                    const fileMeta  = file.meta_json ? JSON.parse(file.meta_json) : {};
+                    const hdrJson   = JSON.stringify({
                         fileId,
                         from:      file.uploader,
                         filename:  file.filename,
                         mimeType:  file.mime_type || 'application/octet-stream',
                         nonce:     file.nonce,
-                        timestamp: file.created_at
+                        timestamp: file.created_at,
+                        type:      fileMeta.type || 'file',
+                        ...(fileMeta.type === 'voice' && { duration: fileMeta.duration ?? 0, waveform: fileMeta.waveform ?? '' })
                     });
                     const hdrBytes = Buffer.from(hdrJson, 'utf8');
                     const lenBuf   = Buffer.alloc(4);

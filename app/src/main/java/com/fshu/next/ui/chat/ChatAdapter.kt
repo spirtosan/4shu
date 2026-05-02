@@ -4,7 +4,10 @@ import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.graphics.Color
 import android.graphics.Paint
+import android.media.MediaPlayer
 import android.net.Uri
+import android.os.Handler
+import android.os.Looper
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -28,7 +31,10 @@ import com.fshu.next.databinding.ItemLocationRequestSentBinding
 import com.fshu.next.databinding.ItemLocationSentBinding
 import com.fshu.next.databinding.ItemMessageReceivedBinding
 import com.fshu.next.databinding.ItemMessageSentBinding
+import com.fshu.next.databinding.ItemVoiceReceivedBinding
+import com.fshu.next.databinding.ItemVoiceSentBinding
 import com.fshu.next.util.LocationHelper
+import java.lang.ref.WeakReference
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -103,6 +109,30 @@ class ChatAdapter : ListAdapter<Message, RecyclerView.ViewHolder>(DIFF) {
         private const val RECV_LOC     = 5
         private const val SENT_LOC_REQ = 6
         private const val RECV_LOC_REQ = 7
+        private const val SENT_VOICE   = 8
+        private const val RECV_VOICE   = 9
+
+        // ── Voice playback state ──────────────────────────────────────────────
+        private var activePlayer: MediaPlayer? = null
+        private var activeMsgId: Long = -1L
+        private val playHandler = Handler(Looper.getMainLooper())
+        private var activeWaveRef: WeakReference<WaveformView>? = null
+        private var activeDurRef: WeakReference<TextView>? = null
+        private var activePlayBtnRef: WeakReference<android.widget.ImageButton>? = null
+        private var totalDurSecs: Int = 0
+
+        fun stopAll() {
+            playHandler.removeCallbacksAndMessages(null)
+            activeWaveRef?.get()?.progress = 0f
+            activeWaveRef = null
+            activeDurRef = null
+            activePlayBtnRef?.get()?.setImageResource(android.R.drawable.ic_media_play)
+            activePlayBtnRef = null
+            activePlayer?.release()
+            activePlayer = null
+            activeMsgId = -1L
+        }
+
         val DIFF = object : DiffUtil.ItemCallback<Message>() {
             override fun areItemsTheSame(a: Message, b: Message) = a.id == b.id
             override fun areContentsTheSame(a: Message, b: Message) = a == b
@@ -123,6 +153,8 @@ class ChatAdapter : ListAdapter<Message, RecyclerView.ViewHolder>(DIFF) {
             msg.type == "location"                   -> RECV_LOC
             msg.type == "location-request" && msg.isSent -> SENT_LOC_REQ
             msg.type == "location-request"           -> RECV_LOC_REQ
+            msg.type == "voice" && msg.isSent        -> SENT_VOICE
+            msg.type == "voice"                      -> RECV_VOICE
             msg.isSent                               -> SENT
             else                                     -> RECV
         }
@@ -138,6 +170,8 @@ class ChatAdapter : ListAdapter<Message, RecyclerView.ViewHolder>(DIFF) {
             SENT_LOC     -> SentLocVH(ItemLocationSentBinding.inflate(inf, parent, false))
             RECV_LOC     -> RecvLocVH(ItemLocationReceivedBinding.inflate(inf, parent, false))
             SENT_LOC_REQ -> SentLocReqVH(ItemLocationRequestSentBinding.inflate(inf, parent, false))
+            SENT_VOICE   -> SentVoiceVH(ItemVoiceSentBinding.inflate(inf, parent, false))
+            RECV_VOICE   -> RecvVoiceVH(ItemVoiceReceivedBinding.inflate(inf, parent, false))
             else         -> RecvLocReqVH(ItemLocationRequestReceivedBinding.inflate(inf, parent, false))
         }
     }
@@ -274,6 +308,8 @@ class ChatAdapter : ListAdapter<Message, RecyclerView.ViewHolder>(DIFF) {
                     else        -> { holder.b.pbSending.visibility = View.GONE; holder.b.tvStatus.visibility = View.GONE }
                 }
             }
+            is SentVoiceVH -> bindVoiceSent(holder, msg, time)
+            is RecvVoiceVH -> bindVoiceRecv(holder, msg, time)
             is RecvLocReqVH -> {
                 val json = try { JsonParser.parseString(msg.content).asJsonObject } catch (e: Exception) { null }
                 val hasCoords = json?.has("lat") == true
@@ -545,4 +581,153 @@ class ChatAdapter : ListAdapter<Message, RecyclerView.ViewHolder>(DIFF) {
     inner class RecvLocVH(val b: ItemLocationReceivedBinding) : RecyclerView.ViewHolder(b.root)
     inner class SentLocReqVH(val b: ItemLocationRequestSentBinding) : RecyclerView.ViewHolder(b.root)
     inner class RecvLocReqVH(val b: ItemLocationRequestReceivedBinding) : RecyclerView.ViewHolder(b.root)
+    inner class SentVoiceVH(val b: ItemVoiceSentBinding) : RecyclerView.ViewHolder(b.root)
+    inner class RecvVoiceVH(val b: ItemVoiceReceivedBinding) : RecyclerView.ViewHolder(b.root)
+
+    // ── Voice binding ─────────────────────────────────────────────────────────
+
+    private fun bindVoiceSent(holder: SentVoiceVH, msg: Message, time: String) {
+        holder.b.bubble.setOnLongClickListener { toggleSelection(msg); true }
+        holder.b.bubble.alpha = if (msg.id in selectedIds) 0.5f else 1.0f
+        holder.b.tvTime.text = time
+        when (msg.status) {
+            "SENDING"   -> { holder.b.pbSending.visibility = View.VISIBLE; holder.b.tvStatus.visibility = View.GONE }
+            "SENT"      -> { holder.b.pbSending.visibility = View.GONE; holder.b.tvStatus.visibility = View.VISIBLE; holder.b.tvStatus.text = TICK_SINGLE; holder.b.tvStatus.setTextColor(COLOR_GREY) }
+            "DELIVERED" -> { holder.b.pbSending.visibility = View.GONE; holder.b.tvStatus.visibility = View.VISIBLE; holder.b.tvStatus.text = TICK_DOUBLE; holder.b.tvStatus.setTextColor(COLOR_GREY) }
+            "READ"      -> { holder.b.pbSending.visibility = View.GONE; holder.b.tvStatus.visibility = View.VISIBLE; holder.b.tvStatus.text = TICK_DOUBLE; holder.b.tvStatus.setTextColor(COLOR_BLUE) }
+            else        -> { holder.b.pbSending.visibility = View.GONE; holder.b.tvStatus.visibility = View.GONE }
+        }
+        bindVoicePlayer(msg, holder.b.waveformView, holder.b.tvDuration, holder.b.btnPlay)
+        bindReactions(holder.b.llReactions, msg)
+    }
+
+    private fun bindVoiceRecv(holder: RecvVoiceVH, msg: Message, time: String) {
+        holder.b.bubble.setOnLongClickListener { toggleSelection(msg); true }
+        holder.b.bubble.alpha = if (msg.id in selectedIds) 0.5f else 1.0f
+        holder.b.tvTime.text = time
+        bindVoicePlayer(msg, holder.b.waveformView, holder.b.tvDuration, holder.b.btnPlay)
+        bindReactions(holder.b.llReactions, msg)
+    }
+
+    private fun bindVoicePlayer(
+        msg: Message,
+        waveView: WaveformView,
+        durView: TextView,
+        playBtn: android.widget.ImageButton
+    ) {
+        val amps = parseWaveform(msg.voiceWaveform)
+        waveView.amplitudes = amps
+        durView.text = fmtDur(msg.voiceDuration)
+
+        val isActive = activeMsgId == msg.id
+        if (isActive) {
+            // Re-attach references after RecyclerView rebind
+            activeWaveRef = WeakReference(waveView)
+            activeDurRef = WeakReference(durView)
+            activePlayBtnRef = WeakReference(playBtn)
+            val player = activePlayer
+            if (player != null && player.isPlaying) {
+                playBtn.setImageResource(android.R.drawable.ic_media_pause)
+                waveView.progress = if (player.duration > 0) player.currentPosition.toFloat() / player.duration else 0f
+            } else {
+                playBtn.setImageResource(android.R.drawable.ic_media_play)
+            }
+        } else {
+            waveView.progress = 0f
+            playBtn.setImageResource(android.R.drawable.ic_media_play)
+        }
+
+        playBtn.isEnabled = msg.localUri != null
+        playBtn.alpha = if (msg.localUri != null) 1f else 0.4f
+
+        playBtn.setOnClickListener {
+            val uri = msg.localUri ?: run {
+                Toast.makeText(it.context, "Downloading…", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            if (activeMsgId == msg.id) {
+                val player = activePlayer
+                if (player != null) {
+                    if (player.isPlaying) {
+                        player.pause()
+                        playBtn.setImageResource(android.R.drawable.ic_media_play)
+                        playHandler.removeCallbacksAndMessages(null)
+                    } else {
+                        player.start()
+                        playBtn.setImageResource(android.R.drawable.ic_media_pause)
+                        scheduleProgressUpdate()
+                    }
+                }
+            } else {
+                stopAll()
+                startVoicePlayback(msg, uri, waveView, durView, playBtn)
+            }
+        }
+    }
+
+    private fun startVoicePlayback(
+        msg: Message,
+        uriStr: String,
+        waveView: WaveformView,
+        durView: TextView,
+        playBtn: android.widget.ImageButton
+    ) {
+        activeMsgId = msg.id
+        totalDurSecs = msg.voiceDuration
+        activeWaveRef = WeakReference(waveView)
+        activeDurRef = WeakReference(durView)
+        activePlayBtnRef = WeakReference(playBtn)
+        try {
+            val player = MediaPlayer().apply {
+                setDataSource(playBtn.context, Uri.parse(uriStr))
+                setOnCompletionListener {
+                    playHandler.removeCallbacksAndMessages(null)
+                    activeWaveRef?.get()?.progress = 0f
+                    activeDurRef?.get()?.text = fmtDur(totalDurSecs)
+                    activePlayBtnRef?.get()?.setImageResource(android.R.drawable.ic_media_play)
+                    release()
+                    if (activeMsgId == msg.id) {
+                        activePlayer = null
+                        activeMsgId = -1L
+                    }
+                }
+                prepare()
+                start()
+            }
+            activePlayer = player
+            playBtn.setImageResource(android.R.drawable.ic_media_pause)
+            scheduleProgressUpdate()
+        } catch (e: Exception) {
+            android.util.Log.e("ChatAdapter", "Voice playback failed", e)
+            Toast.makeText(playBtn.context, "Cannot play voice message", Toast.LENGTH_SHORT).show()
+            activeMsgId = -1L
+        }
+    }
+
+    private fun scheduleProgressUpdate() {
+        playHandler.removeCallbacksAndMessages(null)
+        val tick = object : Runnable {
+            override fun run() {
+                val player = activePlayer ?: return
+                if (!player.isPlaying) return
+                val dur = player.duration.coerceAtLeast(1)
+                val pos = player.currentPosition
+                activeWaveRef?.get()?.progress = pos.toFloat() / dur
+                val remaining = ((dur - pos) / 1000).toInt()
+                activeDurRef?.get()?.text = fmtDur(remaining)
+                playHandler.postDelayed(this, 80)
+            }
+        }
+        playHandler.post(tick)
+    }
+
+    private fun parseWaveform(json: String?): FloatArray {
+        if (json.isNullOrEmpty()) return FloatArray(0)
+        return try {
+            val arr = JsonParser.parseString(json).asJsonArray
+            FloatArray(arr.size()) { arr[it].asFloat }
+        } catch (e: Exception) { FloatArray(0) }
+    }
+
+    private fun fmtDur(secs: Int): String = "%d:%02d".format(secs / 60, secs % 60)
 }

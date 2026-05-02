@@ -119,6 +119,9 @@ interface MessageDao {
     """)
     suspend fun updateReactions(remoteId: Long, reactions: String)
 
+    @Query("UPDATE messages SET voiceWaveform = :waveform, voiceDuration = :duration WHERE fileId = :fileId")
+    suspend fun updateVoiceMeta(fileId: String, waveform: String, duration: Int)
+
     /**
      * Mark a message deleted-for-everyone on both sides of the conversation.
      * isSent=0 branch: receiver's record identified by remoteId (sender's Room PK).

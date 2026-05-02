@@ -70,6 +70,59 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    fun sendVoice(peer: String, file: java.io.File, waveform: FloatArray, durationSecs: Int) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val fileBytes = file.readBytes()
+                val mimeType = "audio/mp4"
+                val filename = "voice_${System.currentTimeMillis()}.m4a"
+                val peerPubKey = Prefs.getPeerPublicKey(getApplication(), peer)
+                val tempId = UUID.randomUUID().toString()
+                val ts = System.currentTimeMillis()
+                val waveformJson = "[${waveform.joinToString(",") { "%.2f".format(it) }}]"
+
+                val roomId = db.messageDao().insert(
+                    Message(from = me, to = peer,
+                        content = "🎤 Voice message", type = "voice",
+                        filename = filename, mimeType = mimeType,
+                        localUri = file.toURI().toString(), tempId = tempId,
+                        timestamp = ts, isSent = true, status = "SENDING",
+                        voiceDuration = durationSecs, voiceWaveform = waveformJson)
+                )
+
+                val (encBytes, nonce) = if (peerPubKey.isNotEmpty())
+                    CryptoHelper.encryptFileForPeer(getApplication(), peer, peerPubKey, fileBytes)
+                        ?: Pair(fileBytes, ByteArray(12).also { java.security.SecureRandom().nextBytes(it) })
+                else
+                    Pair(fileBytes, ByteArray(12).also { java.security.SecureRandom().nextBytes(it) })
+
+                val nonceHex = CryptoHelper.bytesToHex(nonce)
+                val header = JsonObject().apply {
+                    addProperty("tempId", tempId)
+                    addProperty("from", me)
+                    addProperty("to", peer)
+                    addProperty("filename", filename)
+                    addProperty("mimeType", mimeType)
+                    addProperty("size", encBytes.size)
+                    addProperty("nonce", nonceHex)
+                    addProperty("type", "voice")
+                    addProperty("duration", durationSecs)
+                    addProperty("waveform", waveformJson)
+                    addProperty("messageId", roomId)
+                    addProperty("timestamp", ts)
+                }
+                val headerBytes = header.toString().toByteArray(Charsets.UTF_8)
+                val sink = okio.Buffer()
+                sink.writeInt(headerBytes.size)
+                sink.write(headerBytes)
+                sink.write(encBytes)
+                WebSocketClient.sendBinary(sink.readByteString())
+            } catch (e: Exception) {
+                Log.e("ChatViewModel", "sendVoice failed", e)
+            }
+        }
+    }
+
     fun sendFile(peer: String, uri: Uri, resolver: ContentResolver) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
