@@ -223,6 +223,23 @@ object Prefs {
         ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE)
             .edit().putString("turn_password", value).apply()
 
+    fun getContactNickname(ctx: Context, username: String): String =
+        ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE).getString("contact_nick_$username", "") ?: ""
+
+    fun setContactNickname(ctx: Context, username: String, value: String) =
+        ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE).edit().putString("contact_nick_$username", value).apply()
+
+    fun getDisplayName(ctx: Context, username: String): String {
+        val contactNick = getContactNickname(ctx, username)
+        if (contactNick.isNotEmpty()) return contactNick
+        return try {
+            com.google.gson.JsonParser.parseString(getCachedUsers(ctx)).asJsonArray
+                .firstOrNull { it.asJsonObject.get("username")?.asString == username }
+                ?.asJsonObject?.get("nickname")?.takeIf { !it.isJsonNull }?.asString
+                ?: username
+        } catch (_: Exception) { username }
+    }
+
     private fun getSecurePrefs(ctx: Context): SharedPreferences {
         return try {
             val masterKeyAlias = MasterKeys.getOrCreate(MasterKeys.AES256_GCM_SPEC)

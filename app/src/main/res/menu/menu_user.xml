@@ -21,5 +21,8 @@
         android:id="@+id/action_user_emergency_location"
         android:title="🆘 Emergency call + location" />
 
+    <item
+        android:id="@+id/action_user_set_nickname"
+        android:title="Set nickname" />
 
 </menu>

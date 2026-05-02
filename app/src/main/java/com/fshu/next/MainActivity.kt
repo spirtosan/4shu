@@ -176,6 +176,36 @@ class MainActivity : AppCompatActivity() {
                         "requestId" to requestId, "timestamp" to ts
                     ))
                 }
+            },
+            onSetNickname = { user ->
+                val current = Prefs.getContactNickname(this, user.username)
+                val et = android.widget.EditText(this).apply {
+                    setText(current)
+                    hint = "Nickname for ${user.username} (leave empty to clear)"
+                    inputType = android.text.InputType.TYPE_CLASS_TEXT or
+                        android.text.InputType.TYPE_TEXT_FLAG_CAP_WORDS
+                    filters = arrayOf(android.text.InputFilter.LengthFilter(30))
+                }
+                val pad = (16 * resources.displayMetrics.density).toInt()
+                val wrap = android.widget.FrameLayout(this).apply {
+                    setPadding(pad, pad / 2, pad, 0)
+                    addView(et)
+                }
+                AlertDialog.Builder(this)
+                    .setTitle("Nickname for ${user.username}")
+                    .setView(wrap)
+                    .setPositiveButton("Save") { _, _ ->
+                        val nick = et.text.toString().trim()
+                        Prefs.setContactNickname(this, user.username, nick)
+                        WebSocketClient.send(mapOf(
+                            "type" to "set-contact-nickname",
+                            "contact" to user.username,
+                            "nickname" to nick
+                        ))
+                        adapter.notifyDataSetChanged()
+                    }
+                    .setNegativeButton("Cancel", null)
+                    .show()
             }
         )
         binding.rvUsers.layoutManager = LinearLayoutManager(this)

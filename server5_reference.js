@@ -267,6 +267,9 @@ const stmt = {
     insertUser:         db.prepare('INSERT INTO users (username, password_hash, admin, created_at) VALUES (?, ?, ?, ?)'),
     deleteUser:         db.prepare('DELETE FROM users WHERE username = ?'),
     updateNickname:     db.prepare('UPDATE users SET nickname = ? WHERE username = ?'),
+    getContactNicknames:   db.prepare('SELECT contact, nickname FROM contact_nicknames WHERE owner = ?'),
+    setContactNickname:    db.prepare('INSERT INTO contact_nicknames (owner, contact, nickname) VALUES (?, ?, ?) ON CONFLICT(owner, contact) DO UPDATE SET nickname=excluded.nickname'),
+    deleteContactNickname: db.prepare('DELETE FROM contact_nicknames WHERE owner = ? AND contact = ?'),
     updateFcmToken:     db.prepare('UPDATE users SET fcm_token = ? WHERE username = ?'),
     updateLastSeen:     db.prepare('UPDATE users SET last_seen = ? WHERE username = ?'),
     updatePassword:     db.prepare('UPDATE users SET password_hash = ? WHERE username = ?'),
@@ -725,7 +728,8 @@ wss.on('connection', (ws, req) => {
                 const stale = userDevices.get(deviceId);
                 if (stale && stale !== ws) { try { stale.terminate(); } catch {} }
                 userDevices.set(deviceId, ws);
-                send(ws, { type: 'auth-ok', appSecret: sharedAppSecret, admin: user.admin === 1, sessionToken: token, features: config.features, turnUsername: TURN_USERNAME, turnPassword: TURN_PASSWORD, publicKey: user.public_key || null });
+                const contactNicknames = stmt.getContactNicknames.all(username);
+                send(ws, { type: 'auth-ok', appSecret: sharedAppSecret, admin: user.admin === 1, sessionToken: token, features: config.features, turnUsername: TURN_USERNAME, turnPassword: TURN_PASSWORD, publicKey: user.public_key || null, contactNicknames });
                 sendAllAvatars(ws);
                 console.log(`~ ${username}/${deviceId} resumed (${clients.size} users online)`);
                 broadcastAllUsers();
@@ -767,7 +771,8 @@ wss.on('connection', (ws, req) => {
             stmt.deleteDeviceSession.run(username, deviceId);
             const token = crypto.randomBytes(32).toString('hex');
             stmt.insertSession.run(token, username, deviceId, Date.now());
-            send(ws, { type: 'auth-ok', appSecret: sharedAppSecret, admin: user.admin === 1, sessionToken: token, features: config.features, turnUsername: TURN_USERNAME, turnPassword: TURN_PASSWORD, publicKey: user.public_key || null });
+            const contactNicknames = stmt.getContactNicknames.all(username);
+            send(ws, { type: 'auth-ok', appSecret: sharedAppSecret, admin: user.admin === 1, sessionToken: token, features: config.features, turnUsername: TURN_USERNAME, turnPassword: TURN_PASSWORD, publicKey: user.public_key || null, contactNicknames });
             sendAllAvatars(ws);
             console.log(`+ ${username}/${deviceId} (${clients.size} users online)`);
             broadcastAllUsers();
@@ -972,6 +977,18 @@ wss.on('connection', (ws, req) => {
                 stmt.updateNickname.run(nick, username);
                 broadcastAllUsers();
                 console.log(`  nickname set for ${username}: "${nick}"`);
+                break;
+            }
+
+            case 'set-contact-nickname': {
+                const contact = (msg.contact || '').trim().toLowerCase();
+                const nick    = (msg.nickname || '').trim().slice(0, 30);
+                if (!contact) break;
+                if (nick === '') {
+                    stmt.deleteContactNickname.run(username, contact);
+                } else {
+                    stmt.setContactNickname.run(username, contact, nick);
+                }
                 break;
             }
 

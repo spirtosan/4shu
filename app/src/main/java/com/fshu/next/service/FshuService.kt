@@ -465,6 +465,12 @@ class FshuService : Service() {
                 val turnPass = json.get("turnPassword")?.asString
                 if (!turnUser.isNullOrEmpty()) Prefs.setTurnUsername(this, turnUser)
                 if (!turnPass.isNullOrEmpty()) Prefs.setTurnPassword(this, turnPass)
+                json.getAsJsonArray("contactNicknames")?.forEach { el ->
+                    val obj = el.asJsonObject
+                    val contact = obj.get("contact")?.asString ?: return@forEach
+                    val nick = obj.get("nickname")?.asString ?: return@forEach
+                    Prefs.setContactNickname(this, contact, nick)
+                }
                 MessageBus.emit(json)
             }
             "passphrase-hint"         -> MessageBus.emit(json)

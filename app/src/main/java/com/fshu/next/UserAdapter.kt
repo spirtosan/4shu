@@ -16,6 +16,7 @@ import coil.transform.CircleCropTransformation
 import com.fshu.next.R
 import com.fshu.next.data.model.User
 import com.fshu.next.databinding.ItemUserBinding
+import com.fshu.next.util.Prefs
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
@@ -29,7 +30,8 @@ class UserAdapter(
     private val onTestConnection: (User) -> Unit = {},
     private val onEmergencyCall: (User) -> Unit = {},
     private val onEmergencyWithLocation: (User) -> Unit = {},
-    private val onRequestLocation: (User) -> Unit = {}
+    private val onRequestLocation: (User) -> Unit = {},
+    private val onSetNickname: (User) -> Unit = {}
 ) : RecyclerView.Adapter<UserAdapter.VH>() {
 
     inner class VH(val binding: ItemUserBinding) : RecyclerView.ViewHolder(binding.root)
@@ -41,6 +43,9 @@ class UserAdapter(
         val user = users[position]
         val ctx = holder.itemView.context
 
+        val contactNick = Prefs.getContactNickname(ctx, user.username)
+        val displayName = contactNick.ifEmpty { user.displayName }
+
         val avatarFile = File(ctx.filesDir, "avatars/${user.username}.jpg")
         val sizePx = (48 * ctx.resources.displayMetrics.density).toInt()
         if (avatarFile.exists()) {
@@ -49,7 +54,7 @@ class UserAdapter(
                 crossfade(true)
             }
         } else {
-            val letter = user.displayName.firstOrNull()?.uppercaseChar()?.toString() ?: "?"
+            val letter = displayName.firstOrNull()?.uppercaseChar()?.toString() ?: "?"
             holder.binding.ivAvatar.setImageBitmap(
                 createLetterBitmap(letter, avatarColor(user.username, ctx), sizePx)
             )
@@ -60,12 +65,12 @@ class UserAdapter(
             if (user.online) R.drawable.bg_online_dot else R.drawable.bg_offline_dot
         )
 
-        holder.binding.tvUsername.text = user.displayName
-        if (user.nickname.isNullOrBlank()) {
-            holder.binding.tvHandle.visibility = android.view.View.GONE
-        } else {
+        holder.binding.tvUsername.text = displayName
+        if (contactNick.isNotEmpty() || !user.nickname.isNullOrBlank()) {
             holder.binding.tvHandle.visibility = android.view.View.VISIBLE
             holder.binding.tvHandle.text = "@${user.username}"
+        } else {
+            holder.binding.tvHandle.visibility = android.view.View.GONE
         }
 
         // Show last seen for offline users, last message preview otherwise
@@ -97,6 +102,7 @@ class UserAdapter(
                         R.id.action_user_test_connection -> { onTestConnection(user); true }
                         R.id.action_user_emergency_call -> { onEmergencyCall(user); true }
                         R.id.action_user_emergency_location -> { onEmergencyWithLocation(user); true }
+                        R.id.action_user_set_nickname -> { onSetNickname(user); true }
                         else -> false
                     }
                 }
