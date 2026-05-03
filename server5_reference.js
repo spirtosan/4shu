@@ -352,6 +352,10 @@ const stmt = {
           (message_id, from_user, group_id, content, timestamp, type, reply_to_id, reply_to_sender, reply_to_content)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`),
     getGroupHistory:       db.prepare('SELECT * FROM messages WHERE group_id = ? AND timestamp >= ? ORDER BY timestamp'),
+
+    getUserTrustLevel:     db.prepare('SELECT trust_level FROM users WHERE username = ?'),
+    setUserTrustLevel:     db.prepare("UPDATE users SET trust_level = ? WHERE username = ?"),
+    getMemberFamilyGroups: db.prepare("SELECT 1 FROM groups g JOIN group_members gm ON g.group_id = gm.group_id WHERE gm.username = ? AND g.type = 'family' LIMIT 1"),
 };
 
 // ---------------------------------------------------------------------------
@@ -416,11 +420,12 @@ function getAnySocket(username) {
 
 function broadcastAllUsers() {
     const allUsers = stmt.getAllUsers.all().map(u => ({
-        username:  u.username,
-        online:    isOnline(u.username),
-        lastSeen:  isOnline(u.username) ? null : (u.last_seen || null),
-        nickname:  u.nickname || null,
-        publicKey: u.public_key || null,
+        username:   u.username,
+        online:     isOnline(u.username),
+        lastSeen:   isOnline(u.username) ? null : (u.last_seen || null),
+        nickname:   u.nickname || null,
+        publicKey:  u.public_key || null,
+        trustLevel: u.trust_level || 'contact',
     }));
     for (const userDevices of clients.values()) {
         for (const ws of userDevices.values()) {
@@ -1199,6 +1204,11 @@ wss.on('connection', (ws, req) => {
             }
 
             case 'location-request': {
+                const senderTrust = stmt.getUserTrustLevel.get(username)?.trust_level || 'contact';
+                if (senderTrust === 'stranger') {
+                    send(ws, { type: 'location-error', reason: 'trust-denied', to: msg.to });
+                    break;
+                }
                 if (msg.messageId != null) send(ws, { type: 'ack', messageId: msg.messageId });
                 if (isOnline(msg.to)) {
                     sendToAll(msg.to, msg);
@@ -1332,9 +1342,10 @@ wss.on('connection', (ws, req) => {
                 send(ws, {
                     type: 'admin-users',
                     users: stmt.getAllUsers.all().map(u => ({
-                        username:  u.username,
-                        createdAt: u.created_at ? new Date(u.created_at).toISOString().slice(0, 10) : '',
-                        admin:     u.admin === 1
+                        username:   u.username,
+                        createdAt:  u.created_at ? new Date(u.created_at).toISOString().slice(0, 10) : '',
+                        admin:      u.admin === 1,
+                        trustLevel: u.trust_level || 'contact',
                     }))
                 });
                 break;
@@ -1380,6 +1391,21 @@ wss.on('connection', (ws, req) => {
                 break;
             }
 
+            case 'admin-set-trust': {
+                const user = stmt.getUser.get(username);
+                if (!user?.admin) { send(ws, { type: 'admin-error', message: 'Unauthorized' }); break; }
+                const target = (msg.username || '').trim().toLowerCase();
+                const trust  = msg.trustLevel;
+                if (!target || !['family', 'trusted', 'contact', 'stranger'].includes(trust)) {
+                    send(ws, { type: 'admin-error', message: 'Invalid trust level' }); break;
+                }
+                if (!stmt.getUser.get(target)) { send(ws, { type: 'admin-error', message: 'User not found' }); break; }
+                stmt.setUserTrustLevel.run(trust, target);
+                broadcastAllUsers();
+                send(ws, { type: 'admin-result', message: `Trust level for "${target}" set to ${trust}` });
+                break;
+            }
+
             case 'public-key': {
                 const key = (msg.publicKey || '').trim();
                 if (key) {
@@ -1418,6 +1444,10 @@ wss.on('connection', (ws, req) => {
                 for (const m of members) {
                     if (m.username === username) continue;
                     stmt.addGroupMember.run(groupId, m.username, 'member', now, m.encryptedKey || null);
+                }
+                if ((groupType || 'group') === 'family') {
+                    const allMembers = stmt.getGroupMembers.all(groupId);
+                    for (const m of allMembers) stmt.setUserTrustLevel.run('family', m.username);
                 }
                 broadcastGroupState(groupId);
                 console.log(`  group-create: ${groupId} "${name}" by ${username}, ${members.length} member(s)`);
@@ -1494,6 +1524,10 @@ wss.on('connection', (ws, req) => {
                     send(ws, { type: 'group-error', groupId, reason: 'already-member' }); break;
                 }
                 stmt.addGroupMember.run(groupId, invitee, 'member', Date.now(), encryptedKey || null);
+                if (group.type === 'family') {
+                    const allMembers = stmt.getGroupMembers.all(groupId);
+                    for (const m of allMembers) stmt.setUserTrustLevel.run('family', m.username);
+                }
                 broadcastGroupState(groupId);
                 console.log(`  group-invite: ${invitee} added to ${groupId} by ${username}`);
                 break;
@@ -1502,7 +1536,8 @@ wss.on('connection', (ws, req) => {
             case 'group-kick': {
                 const { groupId, username: target } = msg;
                 if (!groupId || !target) break;
-                if (!stmt.getGroup.get(groupId)) break;
+                const kickedGroup = stmt.getGroup.get(groupId);
+                if (!kickedGroup) break;
                 const members = stmt.getGroupMembers.all(groupId);
                 const senderMem = members.find(m => m.username === username);
                 if (!senderMem || !['owner', 'admin'].includes(senderMem.role)) {
@@ -1512,6 +1547,9 @@ wss.on('connection', (ws, req) => {
                 if (!targetMem) { send(ws, { type: 'group-error', groupId, reason: 'not-a-member' }); break; }
                 if (targetMem.role === 'owner') { send(ws, { type: 'group-error', groupId, reason: 'cannot-kick-owner' }); break; }
                 stmt.removeGroupMember.run(groupId, target);
+                if (kickedGroup.type === 'family') {
+                    if (!stmt.getMemberFamilyGroups.get(target)) stmt.setUserTrustLevel.run('contact', target);
+                }
                 const removedMsg = { type: 'group-removed', groupId, reason: 'kicked' };
                 if (isOnline(target)) { sendToAll(target, removedMsg); } else { enqueue(target, removedMsg); }
                 broadcastGroupState(groupId);
@@ -1522,12 +1560,16 @@ wss.on('connection', (ws, req) => {
             case 'group-leave': {
                 const { groupId } = msg;
                 if (!groupId) break;
-                if (!stmt.getGroup.get(groupId)) break;
+                const leftGroup = stmt.getGroup.get(groupId);
+                if (!leftGroup) break;
                 const members = stmt.getGroupMembers.all(groupId);
                 const myMem = members.find(m => m.username === username);
                 if (!myMem) break;
                 if (myMem.role === 'owner') { send(ws, { type: 'group-error', groupId, reason: 'owner-cannot-leave' }); break; }
                 stmt.removeGroupMember.run(groupId, username);
+                if (leftGroup.type === 'family') {
+                    if (!stmt.getMemberFamilyGroups.get(username)) stmt.setUserTrustLevel.run('contact', username);
+                }
                 sendToAll(username, { type: 'group-removed', groupId, reason: 'left' });
                 broadcastGroupState(groupId);
                 console.log(`  group-leave: ${username} left ${groupId}`);
@@ -1546,6 +1588,11 @@ wss.on('connection', (ws, req) => {
                 const members = stmt.getGroupMembers.all(groupId);
                 stmt.deleteGroupMembers.run(groupId);
                 stmt.deleteGroup.run(groupId);
+                if (group.type === 'family') {
+                    for (const m of members) {
+                        if (!stmt.getMemberFamilyGroups.get(m.username)) stmt.setUserTrustLevel.run('contact', m.username);
+                    }
+                }
                 const deletedMsg = { type: 'group-removed', groupId, reason: 'deleted' };
                 for (const m of members) {
                     if (isOnline(m.username)) { sendToAll(m.username, deletedMsg); }

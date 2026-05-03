@@ -515,9 +515,11 @@ class FshuService : Service() {
                     val obj    = el.asJsonObject
                     val uname  = obj.get("username")?.asString ?: return@forEach
                     val pubHex = obj.get("publicKey")?.asString ?: return@forEach
+                    val trust  = obj.get("trustLevel")?.asString ?: "contact"
                     if (uname == me || pubHex.isEmpty()) return@forEach
                     Prefs.setPeerPublicKey(this, uname, pubHex)
                     CryptoHelper.cachePeerKey(this, uname, pubHex)
+                    Prefs.setPeerTrustLevel(this, uname, trust)
                 }
                 MessageBus.emit(json)
             }
@@ -978,7 +980,7 @@ class FshuService : Service() {
             WebSocketClient.send(mapOf("type" to "delivered", "messageId" to remoteId, "from" to me, "to" to from))
         }
         playLocationRequestSound()
-        if (Prefs.getLocationSharingEnabled(this)) {
+        if (Prefs.getLocationSharingEnabled(this) && Prefs.getPeerTrustLevel(this, from) == "family") {
             scope.launch {
                 val location = LocationHelper.getCurrentLocation(this@FshuService) ?: return@launch
                 val mapsUrl = LocationHelper.buildMapsUrl(location.latitude, location.longitude)
