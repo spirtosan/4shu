@@ -31,6 +31,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.google.gson.JsonObject
+import com.fshu.next.MainActivity
 import com.fshu.next.R
 import com.fshu.next.data.local.AppDatabase
 import com.fshu.next.data.model.Group
@@ -1383,7 +1384,35 @@ class FshuService : Service() {
 
     private suspend fun handleGroupRemoved(json: JsonObject) {
         val groupId = json.get("groupId")?.asString ?: return
+        val groupName = db.groupDao().getById(groupId)?.name ?: "a group"
         db.groupDao().deleteById(groupId)
+
+        val reason    = json.get("reason")?.asString ?: "removed"
+        val notifText = when (reason) {
+            "kicked"  -> "You were removed from $groupName"
+            "deleted" -> "$groupName was deleted"
+            else      -> "You left $groupName"
+        }
+
+        if (!com.fshu.next.ui.chat.ChatActivity.isActive) {
+            val intent = Intent(this, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            }
+            val pi = PendingIntent.getActivity(
+                this, groupId.hashCode(), intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            val notif = NotificationCompat.Builder(this, CHANNEL_MESSAGES)
+                .setSmallIcon(R.drawable.ic_notification)
+                .setContentTitle("Group update")
+                .setContentText(notifText)
+                .setAutoCancel(true)
+                .setContentIntent(pi)
+                .build()
+            getSystemService(android.app.NotificationManager::class.java)
+                .notify(groupId.hashCode(), notif)
+        }
+
         MessageBus.emit(json)
     }
 
