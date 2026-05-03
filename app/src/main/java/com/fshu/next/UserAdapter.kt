@@ -43,11 +43,28 @@ class UserAdapter(
         val user = users[position]
         val ctx = holder.itemView.context
 
+        val sizePx = (48 * ctx.resources.displayMetrics.density).toInt()
+
+        if (user.isGroup) {
+            // Group item: letter avatar, no online dot, no call actions
+            val letter = user.displayName.firstOrNull()?.uppercaseChar()?.toString() ?: "G"
+            holder.binding.ivAvatar.load(
+                createLetterBitmap(letter, avatarColor(user.displayName, ctx), sizePx)
+            )
+            holder.binding.viewOnlineDot.visibility = android.view.View.INVISIBLE
+            holder.binding.tvUsername.text = user.displayName
+            holder.binding.tvHandle.visibility = android.view.View.GONE
+            holder.binding.tvLastMessage.text = user.lastMessage ?: ""
+            holder.binding.tvTime.text = user.lastMessageTime?.let { formatTime(it) } ?: ""
+            holder.itemView.setOnClickListener { onClick(user) }
+            holder.binding.btnMore.visibility = android.view.View.GONE
+            return
+        }
+
         val contactNick = Prefs.getContactNickname(ctx, user.username)
         val displayName = contactNick.ifEmpty { user.displayName }
 
         val avatarFile = File(ctx.filesDir, "avatars/${user.username}.jpg")
-        val sizePx = (48 * ctx.resources.displayMetrics.density).toInt()
         if (avatarFile.exists()) {
             holder.binding.ivAvatar.load(avatarFile) {
                 transformations(CircleCropTransformation())
@@ -60,6 +77,7 @@ class UserAdapter(
             )
         }
 
+        holder.binding.viewOnlineDot.visibility = android.view.View.VISIBLE
         // Online indicator dot
         holder.binding.viewOnlineDot.setBackgroundResource(
             if (user.online) R.drawable.bg_online_dot else R.drawable.bg_offline_dot
@@ -84,6 +102,7 @@ class UserAdapter(
 
         holder.itemView.setOnClickListener { onClick(user) }
 
+        holder.binding.btnMore.visibility = android.view.View.VISIBLE
         holder.binding.btnMore.setOnClickListener { anchor ->
             PopupMenu(anchor.context, anchor).apply {
                 menuInflater.inflate(R.menu.menu_user, menu)

@@ -346,6 +346,7 @@ const stmt = {
     updateGroupName:       db.prepare('UPDATE groups SET name = ? WHERE group_id = ?'),
     updateGroupOwner:      db.prepare('UPDATE groups SET owner = ? WHERE group_id = ?'),
     deleteGroup:           db.prepare('DELETE FROM groups WHERE group_id = ?'),
+    deleteGroupMembers:    db.prepare('DELETE FROM group_members WHERE group_id = ?'),
     insertGroupMessage:    db.prepare(`
         INSERT OR IGNORE INTO messages
           (message_id, from_user, group_id, content, timestamp, type, reply_to_id, reply_to_sender, reply_to_content)
@@ -1503,6 +1504,27 @@ wss.on('connection', (ws, req) => {
                 sendToAll(username, { type: 'group-removed', groupId, reason: 'left' });
                 broadcastGroupState(groupId);
                 console.log(`  group-leave: ${username} left ${groupId}`);
+                break;
+            }
+
+            case 'group-delete': {
+                const { groupId } = msg;
+                if (!groupId) break;
+                const group = stmt.getGroup.get(groupId);
+                if (!group) break;
+                if (group.owner !== username) {
+                    send(ws, { type: 'group-error', groupId, reason: 'unauthorized' });
+                    break;
+                }
+                const members = stmt.getGroupMembers.all(groupId);
+                stmt.deleteGroupMembers.run(groupId);
+                stmt.deleteGroup.run(groupId);
+                const deletedMsg = { type: 'group-removed', groupId, reason: 'deleted' };
+                for (const m of members) {
+                    if (isOnline(m.username)) { sendToAll(m.username, deletedMsg); }
+                    else { enqueue(m.username, deletedMsg); }
+                }
+                console.log(`  group-delete: ${groupId} by ${username}`);
                 break;
             }
 

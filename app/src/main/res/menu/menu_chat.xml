@@ -18,6 +18,11 @@
 
 
     <item
+        android:id="@+id/action_group_info"
+        android:title="Group info"
+        app:showAsAction="never" />
+
+    <item
         android:id="@+id/action_export"
         android:title="Export conversation"
         app:showAsAction="never" />

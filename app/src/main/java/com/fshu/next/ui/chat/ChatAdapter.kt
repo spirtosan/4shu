@@ -61,6 +61,9 @@ class ChatAdapter : ListAdapter<Message, RecyclerView.ViewHolder>(DIFF) {
     /** Current user's username — set by ChatActivity so reaction chips can highlight own reactions. */
     var me: String = ""
 
+    /** True when displaying a group conversation — shows sender name on received bubbles. */
+    var isGroupChat: Boolean = false
+
     /** Invoked when a reaction chip is tapped: (message, emoji). Activity decides add/remove. */
     var onReactionTap: ((Message, String) -> Unit)? = null
 
@@ -237,6 +240,17 @@ class ChatAdapter : ListAdapter<Message, RecyclerView.ViewHolder>(DIFF) {
                 bindReplyQuote(holder.b.replyQuote, holder.b.tvReplySender, holder.b.tvReplyContent, msg)
                 bindReactions(holder.b.llReactions, msg)
                 holder.b.tvTime.text = time
+                if (isGroupChat) {
+                    holder.b.tvSender.visibility = View.VISIBLE
+                    holder.b.tvSender.text = nicknameMap[msg.from] ?: msg.from
+                    val colors = intArrayOf(0xFFE53935.toInt(), 0xFF1E88E5.toInt(), 0xFF43A047.toInt(),
+                        0xFF8E24AA.toInt(), 0xFFFF8F00.toInt(), 0xFF00ACC1.toInt())
+                    holder.b.tvSender.setTextColor(
+                        colors[msg.from.hashCode().let { if (it < 0) -it else it } % colors.size]
+                    )
+                } else {
+                    holder.b.tvSender.visibility = View.GONE
+                }
                 holder.b.bubble.setOnClickListener {
                     if (isInSelectionMode()) {
                         toggleSelection(msg)

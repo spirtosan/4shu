@@ -132,11 +132,11 @@ object CryptoHelper {
     fun decryptGroupKey(encryptedHex: String, senderPubHex: String, myPrivHex: String): ByteArray? =
         EcdhHelper.decryptGroupKey(encryptedHex, senderPubHex, myPrivHex)
 
-    fun encryptGroupMessage(groupKey: ByteArray, messageId: String, plaintext: String): String =
-        EcdhHelper.encryptGroupMessage(groupKey, messageId, plaintext)
+    fun encryptGroupMessage(groupKey: ByteArray, plaintext: String): Pair<String, String> =
+        EcdhHelper.encryptGroupMessage(groupKey, plaintext)
 
-    fun decryptGroupMessage(groupKey: ByteArray, messageId: String, ciphertext: String): String? =
-        EcdhHelper.decryptGroupMessage(groupKey, messageId, ciphertext)
+    fun decryptGroupMessage(groupKey: ByteArray, ciphertext: String): String? =
+        EcdhHelper.decryptGroupMessage(groupKey, ciphertext)
 
     /** MD5 hex — for list integrity checks only, not security. */
     fun md5(input: String): String {

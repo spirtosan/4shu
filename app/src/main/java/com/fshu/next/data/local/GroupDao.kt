@@ -9,6 +9,9 @@ interface GroupDao {
     @Query("SELECT * FROM `groups` ORDER BY createdAt DESC")
     fun getAllGroups(): LiveData<List<Group>>
 
+    @Query("SELECT * FROM `groups` ORDER BY createdAt DESC")
+    suspend fun getAllGroupsDirect(): List<Group>
+
     @Query("SELECT * FROM `groups` WHERE groupId = :groupId")
     suspend fun getById(groupId: String): Group?
 

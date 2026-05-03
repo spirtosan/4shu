@@ -179,21 +179,25 @@ object EcdhHelper {
         null
     }
 
-    private fun groupNonce(messageId: String): ByteArray =
-        MessageDigest.getInstance("SHA-256").digest(messageId.toByteArray(Charsets.UTF_8)).copyOf(NONCE_BYTES)
-
-    fun encryptGroupMessage(groupKey: ByteArray, messageId: String, plaintext: String): String {
+    /** Returns Pair(base64(nonce || ciphertext), base64(nonce)). Nonce is random 12 bytes prepended to ciphertext. */
+    fun encryptGroupMessage(groupKey: ByteArray, plaintext: String): Pair<String, String> {
+        val nonce  = ByteArray(NONCE_BYTES).also { SecureRandom().nextBytes(it) }
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-        cipher.init(Cipher.ENCRYPT_MODE, SecretKeySpec(groupKey, "AES"), GCMParameterSpec(GCM_TAG_BITS, groupNonce(messageId)))
-        return Base64.encodeToString(cipher.doFinal(plaintext.toByteArray(Charsets.UTF_8)), Base64.NO_WRAP)
+        cipher.init(Cipher.ENCRYPT_MODE, SecretKeySpec(groupKey, "AES"), GCMParameterSpec(GCM_TAG_BITS, nonce))
+        val blob = nonce + cipher.doFinal(plaintext.toByteArray(Charsets.UTF_8))
+        return Pair(Base64.encodeToString(blob, Base64.NO_WRAP), Base64.encodeToString(nonce, Base64.NO_WRAP))
     }
 
-    fun decryptGroupMessage(groupKey: ByteArray, messageId: String, ciphertext: String): String? = try {
+    /** Decodes base64(nonce || ciphertext), extracts nonce from first 12 bytes, decrypts remainder. */
+    fun decryptGroupMessage(groupKey: ByteArray, ciphertext: String): String? = try {
+        val bytes  = Base64.decode(ciphertext, Base64.NO_WRAP)
+        val nonce  = bytes.copyOf(NONCE_BYTES)
+        val ct     = bytes.copyOfRange(NONCE_BYTES, bytes.size)
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-        cipher.init(Cipher.DECRYPT_MODE, SecretKeySpec(groupKey, "AES"), GCMParameterSpec(GCM_TAG_BITS, groupNonce(messageId)))
-        cipher.doFinal(Base64.decode(ciphertext, Base64.NO_WRAP)).toString(Charsets.UTF_8)
+        cipher.init(Cipher.DECRYPT_MODE, SecretKeySpec(groupKey, "AES"), GCMParameterSpec(GCM_TAG_BITS, nonce))
+        cipher.doFinal(ct).toString(Charsets.UTF_8)
     } catch (e: Exception) {
-        Log.w(TAG, "decryptGroupMessage msgId=$messageId: ${e.message}")
+        Log.w(TAG, "decryptGroupMessage: ${e.message}")
         null
     }
 

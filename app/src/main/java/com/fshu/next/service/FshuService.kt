@@ -1356,7 +1356,7 @@ class FshuService : Service() {
         val groupKeyHex = group?.groupKey ?: ""
         val content     = if (groupKeyHex.isNotEmpty()) {
             val key = with(EcdhHelper) { groupKeyHex.fromHex() }
-            CryptoHelper.decryptGroupMessage(key, serverMsgId, rawContent) ?: rawContent
+            CryptoHelper.decryptGroupMessage(key, rawContent) ?: rawContent
         } else rawContent
 
         db.messageDao().insert(
@@ -1416,6 +1416,14 @@ class FshuService : Service() {
             }
         } catch (_: Exception) {}
 
+        val intent = Intent(this, com.fshu.next.ui.chat.ChatActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra(com.fshu.next.ui.chat.ChatActivity.EXTRA_GROUP_ID, groupId)
+        }
+        val pi = PendingIntent.getActivity(
+            this, groupId.hashCode().and(Int.MAX_VALUE), intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
         val notif = NotificationCompat.Builder(this, CHANNEL_MESSAGES)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle("$groupName · $from")
@@ -1423,6 +1431,7 @@ class FshuService : Service() {
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
             .setAutoCancel(true)
+            .setContentIntent(pi)
             .build()
         getSystemService(NotificationManager::class.java)
             .notify(groupId.hashCode().and(Int.MAX_VALUE), notif)

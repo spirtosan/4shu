@@ -15,6 +15,7 @@ import com.fshu.next.data.local.AppDatabase
 import com.fshu.next.data.model.Message
 import com.fshu.next.data.remote.WebSocketClient
 import com.fshu.next.util.CryptoHelper
+import com.fshu.next.util.EcdhHelper
 import com.fshu.next.util.LocationHelper
 import com.fshu.next.util.Prefs
 import kotlinx.coroutines.Dispatchers
@@ -34,6 +35,32 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
 
     fun getMessages(peer: String): LiveData<List<Message>> =
         db.messageDao().getConversation(me, peer)
+
+    fun getGroupMessages(groupId: String): LiveData<List<Message>> =
+        db.messageDao().getGroupMessages(groupId)
+
+    fun sendGroupText(groupId: String, content: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val group = db.groupDao().getById(groupId) ?: return@launch
+            val groupKeyHex = group.groupKey
+            val tempId = UUID.randomUUID().toString()
+            val ts = System.currentTimeMillis()
+            val wireContent = if (groupKeyHex.isNotEmpty()) {
+                val key = with(EcdhHelper) { groupKeyHex.fromHex() }
+                val (encrypted, _) = CryptoHelper.encryptGroupMessage(key, content)
+                encrypted
+            } else content
+            db.messageDao().insert(
+                Message(from = me, to = "", content = content, type = "text",
+                    timestamp = ts, isSent = true, status = "SENDING",
+                    tempId = tempId, groupId = groupId)
+            )
+            WebSocketClient.send(mapOf(
+                "type" to "group-message", "from" to me, "groupId" to groupId,
+                "content" to wireContent, "messageId" to tempId, "timestamp" to ts
+            ))
+        }
+    }
 
     fun getMe(): String = me
 

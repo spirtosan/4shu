@@ -125,6 +125,9 @@ interface MessageDao {
     @Query("SELECT * FROM messages WHERE groupId = :groupId ORDER BY timestamp ASC")
     fun getGroupMessages(groupId: String): LiveData<List<Message>>
 
+    @Query("SELECT * FROM messages WHERE groupId = :groupId ORDER BY timestamp DESC LIMIT 1")
+    suspend fun getLastGroupMessage(groupId: String): Message?
+
     @Insert
     suspend fun insertGroupMessage(message: Message): Long
 

@@ -60,6 +60,7 @@ import java.util.UUID
 class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private val users = mutableListOf<User>()
+    private val groupItems = mutableListOf<User>()
     private lateinit var adapter: UserAdapter
     private var pendingEmergencyLocationUser: User? = null
     private var enrichJob: kotlinx.coroutines.Job? = null
@@ -117,9 +118,15 @@ class MainActivity : AppCompatActivity() {
         adapter = UserAdapter(
             users,
             onClick = { user ->
-                startActivity(Intent(this, ChatActivity::class.java).apply {
-                    putExtra(ChatActivity.EXTRA_PEER, user.username)
-                })
+                if (user.isGroup) {
+                    startActivity(Intent(this, ChatActivity::class.java).apply {
+                        putExtra(ChatActivity.EXTRA_GROUP_ID, user.groupId)
+                    })
+                } else {
+                    startActivity(Intent(this, ChatActivity::class.java).apply {
+                        putExtra(ChatActivity.EXTRA_PEER, user.username)
+                    })
+                }
             },
             onCall = { user ->
                 startActivity(Intent(this, CallActivity::class.java).apply {
@@ -220,6 +227,8 @@ class MainActivity : AppCompatActivity() {
                 vh: androidx.recyclerview.widget.RecyclerView.ViewHolder,
                 target: androidx.recyclerview.widget.RecyclerView.ViewHolder
             ): Boolean {
+                val gc = groupItems.size
+                if (vh.bindingAdapterPosition < gc || target.bindingAdapterPosition < gc) return false
                 adapter.moveItem(vh.bindingAdapterPosition, target.bindingAdapterPosition)
                 return true
             }
@@ -233,6 +242,15 @@ class MainActivity : AppCompatActivity() {
             }
         }
         androidx.recyclerview.widget.ItemTouchHelper(dragCallback).attachToRecyclerView(binding.rvUsers)
+
+        // Observe group list from Room — groups appear at the top of the list
+        AppDatabase.getInstance(this).groupDao().getAllGroups().observe(this) { groups ->
+            groupItems.clear()
+            groupItems.addAll(groups.map { g ->
+                User(username = g.groupId, nickname = g.name, isGroup = true, groupId = g.groupId)
+            })
+            lifecycleScope.launch { enrichGroupItems() }
+        }
 
         startService(Intent(this, FshuService::class.java))
 
@@ -265,6 +283,10 @@ class MainActivity : AppCompatActivity() {
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
+            R.id.action_new_group -> {
+                showNewGroupDialog()
+                true
+            }
             R.id.action_settings -> {
                 startActivity(Intent(this, SettingsActivity::class.java))
                 true
@@ -463,6 +485,95 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
 
+    private fun showNewGroupDialog() {
+        val dp = resources.displayMetrics.density
+        val p16 = (16 * dp).toInt()
+        val p8 = (8 * dp).toInt()
+
+        val nameEdit = android.widget.EditText(this).apply {
+            hint = "Group name"
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or
+                android.text.InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
+            filters = arrayOf(android.text.InputFilter.LengthFilter(64))
+        }
+
+        val contacts = users.filter { !it.isGroup }
+        val labels = contacts.map { u ->
+            Prefs.getContactNickname(this, u.username).ifEmpty { u.displayName }
+        }
+        val checked = BooleanArray(contacts.size) { false }
+
+        val memberList = android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+        }
+        contacts.forEachIndexed { i, _ ->
+            memberList.addView(android.widget.CheckBox(this).apply {
+                text = labels[i]
+                setPadding(p8, p8, p8, p8)
+                setOnCheckedChangeListener { _, isChecked -> checked[i] = isChecked }
+            })
+        }
+
+        val scroll = android.widget.ScrollView(this).apply {
+            minimumHeight = (200 * dp).toInt()
+            addView(memberList)
+        }
+
+        val container = android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            setPadding(p16, p8, p16, p8)
+            addView(nameEdit)
+            addView(scroll)
+        }
+
+        AlertDialog.Builder(this)
+            .setTitle("New group")
+            .setView(container)
+            .setPositiveButton("Create") { _, _ ->
+                val groupName = nameEdit.text.toString().trim()
+                if (groupName.isEmpty()) {
+                    Toast.makeText(this, "Group name required", Toast.LENGTH_SHORT).show()
+                    return@setPositiveButton
+                }
+                val selected = contacts.filterIndexed { i, _ -> checked[i] }
+                if (selected.isEmpty()) {
+                    Toast.makeText(this, "Select at least one member", Toast.LENGTH_SHORT).show()
+                    return@setPositiveButton
+                }
+                createGroup(groupName, selected.map { it.username })
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun createGroup(name: String, memberUsernames: List<String>) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            val me = Prefs.getUsername(this@MainActivity)
+            val myPriv = Prefs.getEcPrivateKey(this@MainActivity)
+            val groupKey = com.fshu.next.util.CryptoHelper.generateGroupKey()
+            val groupId = java.util.UUID.randomUUID().toString()
+            val allMembers = (memberUsernames + me).distinct()
+            val members = allMembers.map { uname ->
+                val pubHex = Prefs.getPeerPublicKey(this@MainActivity, uname)
+                    .ifEmpty { Prefs.getEcPublicKey(this@MainActivity).takeIf { uname == me } ?: "" }
+                val encKey = if (pubHex.isNotEmpty())
+                    com.fshu.next.util.CryptoHelper.encryptGroupKeyForMember(groupKey, pubHex, myPriv)
+                else ""
+                mapOf("username" to uname, "encryptedKey" to encKey)
+            }
+            WebSocketClient.send(mapOf(
+                "type" to "group-create",
+                "groupId" to groupId,
+                "name" to name,
+                "groupType" to "group",
+                "members" to members
+            ))
+            withContext(Dispatchers.Main) {
+                Toast.makeText(this@MainActivity, "Group \"$name\" created", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
     private fun applyBackground() {
         BackgroundHelper.apply(
             rootView     = binding.root,
@@ -493,8 +604,12 @@ class MainActivity : AppCompatActivity() {
         super.onResume()
         applyBackground()
         // Refresh last-message previews whenever the user returns to this screen.
-        if (users.isNotEmpty()) {
-            launchEnrich(users.toList())
+        val contacts = users.filter { !it.isGroup }
+        if (contacts.isNotEmpty()) {
+            launchEnrich(contacts)
+        }
+        if (groupItems.isNotEmpty()) {
+            lifecycleScope.launch { enrichGroupItems() }
         }
     }
 
@@ -528,7 +643,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun saveUserOrder() {
-        Prefs.setUserOrder(this, users.map { it.username })
+        Prefs.setUserOrder(this, users.filter { !it.isGroup }.map { it.username })
     }
 
     private fun handleMessage(json: JsonObject) {
@@ -564,7 +679,9 @@ class MainActivity : AppCompatActivity() {
             "users-update" -> {
                 val arr = json.getAsJsonArray("onlineUsers") ?: return
                 val onlineSet = arr.map { it.asString }.toSet()
-                val updated = users.map { it.copy(online = it.username in onlineSet) }
+                val updated = users.map { u ->
+                    if (u.isGroup) u else u.copy(online = u.username in onlineSet)
+                }
                 users.clear()
                 users.addAll(updated)
                 adapter.notifyDataSetChanged()
@@ -619,6 +736,34 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private suspend fun enrichGroupItems() {
+        val db = AppDatabase.getInstance(this)
+        val enriched = withContext(Dispatchers.IO) {
+            db.groupDao().getAllGroupsDirect().map { g ->
+                val last = db.messageDao().getLastGroupMessage(g.groupId)
+                val preview = when (last?.type) {
+                    "file"  -> "\uD83D\uDCCE ${last.filename ?: last.content}"
+                    "voice" -> "\uD83C\uDF99\uFE0F Voice message"
+                    else    -> last?.content
+                }
+                User(username = g.groupId, nickname = g.name, isGroup = true, groupId = g.groupId,
+                     lastMessage = preview, lastMessageTime = last?.timestamp)
+            }
+        }
+        runOnUiThread {
+            groupItems.clear()
+            groupItems.addAll(enriched)
+            rebuildCombinedList()
+        }
+    }
+
+    private fun rebuildCombinedList() {
+        val combined = groupItems + users.filter { !it.isGroup }
+        users.clear()
+        users.addAll(combined)
+        adapter.notifyDataSetChanged()
+    }
+
     private suspend fun enrichWithLastMessages(list: List<User>) {
         val me = Prefs.getUsername(this)
         val db = AppDatabase.getInstance(this)
@@ -638,13 +783,15 @@ class MainActivity : AppCompatActivity() {
         runOnUiThread {
             // Preserve online status that may have been updated by a pong while DB was loading.
             data class OnlineState(val online: Boolean, val lastSeen: Long?)
-            val stateMap = users.associate { it.username to OnlineState(it.online, it.lastSeen) }
+            val stateMap = users.filter { !it.isGroup }.associate { it.username to OnlineState(it.online, it.lastSeen) }
             val merged = enriched.map { u ->
                 val s = stateMap[u.username]
                 u.copy(online = s?.online ?: u.online, lastSeen = s?.lastSeen ?: u.lastSeen)
             }
+            // Rebuild: groups first, then sorted contacts
+            val contacts = applyUserOrder(merged)
             users.clear()
-            users.addAll(applyUserOrder(merged))
+            users.addAll(groupItems + contacts)
             adapter.notifyDataSetChanged()
         }
     }

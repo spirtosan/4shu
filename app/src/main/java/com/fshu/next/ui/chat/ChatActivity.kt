@@ -5,6 +5,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.ContentValues
 import android.content.Context
+import android.content.DialogInterface
 import android.content.Intent
 import android.content.IntentFilter
 import android.graphics.Bitmap
@@ -28,6 +29,7 @@ import android.view.MenuItem
 import android.view.View
 import android.widget.Button
 import android.widget.EditText
+import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -62,12 +64,15 @@ import java.util.Locale
 class ChatActivity : AppCompatActivity() {
     companion object {
         const val EXTRA_PEER = "peer"
+        const val EXTRA_GROUP_ID = "group_id"
         @Volatile var isActive = false
         @Volatile var currentPeer = ""
     }
 
     private lateinit var binding: ActivityChatBinding
     private lateinit var peer: String
+    private var groupId: String? = null
+    private var isGroupChat = false
     private val vm: ChatViewModel by viewModels()
     private val adapter = ChatAdapter()
 
@@ -89,7 +94,7 @@ class ChatActivity : AppCompatActivity() {
     // Send read receipts when the screen turns on while this chat is in the foreground.
     private val screenOnReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
-            if (intent.action == Intent.ACTION_SCREEN_ON) {
+            if (intent.action == Intent.ACTION_SCREEN_ON && !isGroupChat) {
                 vm.sendReadReceipts(peer)
             }
         }
@@ -100,14 +105,23 @@ class ChatActivity : AppCompatActivity() {
         binding = ActivityChatBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        peer = intent.getStringExtra(EXTRA_PEER) ?: run { finish(); return }
+        groupId = intent.getStringExtra(EXTRA_GROUP_ID)
+        isGroupChat = groupId != null
+        peer = if (isGroupChat) groupId!! else
+            (intent.getStringExtra(EXTRA_PEER) ?: run { finish(); return })
         voiceRecorder = VoiceRecorder(this)
 
         val toolbar = findViewById<androidx.appcompat.widget.Toolbar>(R.id.toolbar)
         setSupportActionBar(toolbar)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
-        title = getNickname(peer) ?: peer
-        loadPeerAvatar()
+        if (isGroupChat) {
+            adapter.isGroupChat = true
+            title = peer
+            loadGroupInfo()
+        } else {
+            title = getNickname(peer) ?: peer
+            loadPeerAvatar()
+        }
 
         supportFragmentManager.setFragmentResultListener(BackgroundBottomSheet.RESULT_KEY, this) { _, _ ->
             applyBackground()
@@ -131,7 +145,7 @@ class ChatActivity : AppCompatActivity() {
         adapter.onSelectionChanged = { count, singleMsg ->
             if (count == 0) {
                 binding.selectionBar.visibility = View.GONE
-                title = getNickname(peer) ?: peer
+                if (!isGroupChat) title = getNickname(peer) ?: peer
             } else {
                 binding.selectionBar.visibility = View.VISIBLE
                 binding.tvSelectionCount.text = "$count selected"
@@ -350,21 +364,37 @@ class ChatActivity : AppCompatActivity() {
         binding.btnCancelReply.setOnClickListener { clearReply() }
 
         // Room LiveData updates the list whenever FshuService persists an incoming message/file
-        vm.getMessages(peer).observe(this) { msgs ->
-            adapter.submitList(msgs) {
-                if (msgs.isNotEmpty()) binding.rvMessages.scrollToPosition(msgs.size - 1)
+        if (isGroupChat) {
+            vm.getGroupMessages(peer).observe(this) { msgs ->
+                adapter.submitList(msgs) {
+                    if (msgs.isNotEmpty()) binding.rvMessages.scrollToPosition(msgs.size - 1)
+                }
+            }
+        } else {
+            vm.getMessages(peer).observe(this) { msgs ->
+                adapter.submitList(msgs) {
+                    if (msgs.isNotEmpty()) binding.rvMessages.scrollToPosition(msgs.size - 1)
+                }
             }
         }
 
         binding.btnSend.setOnClickListener {
             val text = binding.etMessage.text.toString().trim()
             if (text.isNotBlank()) {
-                vm.sendText(peer, text, pendingReplyId, pendingReplySender, pendingReplyContent)
+                if (isGroupChat) {
+                    vm.sendGroupText(peer, text)
+                } else {
+                    vm.sendText(peer, text, pendingReplyId, pendingReplySender, pendingReplyContent)
+                }
                 binding.etMessage.text?.clear()
                 clearReply()
             }
         }
 
+        if (isGroupChat) {
+            binding.btnAttach.isEnabled = false
+            binding.btnMic.isEnabled = false
+        }
         binding.btnAttach.setOnClickListener { pickFile.launch("*/*") }
 
         binding.btnMic.setOnTouchListener { _, event ->
@@ -447,6 +477,34 @@ class ChatActivity : AppCompatActivity() {
                             typingHideHandler.postDelayed(typingHideRunnable, 5000L)
                         }
                     }
+                    "group-removed" -> {
+                        val removedId = json.get("groupId")?.asString
+                        if (removedId == groupId) runOnUiThread {
+                            val reason = json.get("reason")?.asString
+                            when (reason) {
+                                "kicked" -> AlertDialog.Builder(this@ChatActivity)
+                                    .setTitle("Removed from group")
+                                    .setMessage("You were removed from this group by an admin.")
+                                    .setPositiveButton("OK") { _, _ -> finish() }
+                                    .setCancelable(false)
+                                    .show()
+                                "deleted" -> AlertDialog.Builder(this@ChatActivity)
+                                    .setTitle("Group deleted")
+                                    .setMessage("This group was deleted.")
+                                    .setPositiveButton("OK") { _, _ -> finish() }
+                                    .setCancelable(false)
+                                    .show()
+                                else -> {
+                                    Toast.makeText(this@ChatActivity, "You left the group", Toast.LENGTH_SHORT).show()
+                                    finish()
+                                }
+                            }
+                        }
+                    }
+                    "group-state" -> {
+                        val stateId = json.get("groupId")?.asString
+                        if (stateId == groupId) runOnUiThread { loadGroupInfo() }
+                    }
                 }
             }
         }
@@ -521,12 +579,12 @@ class ChatActivity : AppCompatActivity() {
         currentPeer = peer
         applyBackground()
         refreshNicknameMap()
-        // Refresh title in case nickname was updated while in background
-        title = getNickname(peer) ?: peer
-        // Only send read receipts when the screen is interactive (not on the lock screen).
-        val pm = getSystemService(PowerManager::class.java)
-        if (pm.isInteractive) {
-            vm.sendReadReceipts(peer)
+        if (!isGroupChat) {
+            title = getNickname(peer) ?: peer
+            val pm = getSystemService(PowerManager::class.java)
+            if (pm.isInteractive) {
+                vm.sendReadReceipts(peer)
+            }
         }
         registerReceiver(screenOnReceiver, IntentFilter(Intent.ACTION_SCREEN_ON))
     }
@@ -543,9 +601,22 @@ class ChatActivity : AppCompatActivity() {
         return true
     }
 
+    override fun onPrepareOptionsMenu(menu: Menu): Boolean {
+        menu.findItem(R.id.action_call)?.isVisible = !isGroupChat
+        menu.findItem(R.id.action_video_call)?.isVisible = !isGroupChat
+        menu.findItem(R.id.action_group_info)?.isVisible = isGroupChat
+        menu.findItem(R.id.action_export)?.isVisible = !isGroupChat
+        menu.findItem(R.id.action_new_todo)?.isVisible = !isGroupChat
+        menu.findItem(R.id.action_share_location)?.isVisible = !isGroupChat
+        menu.findItem(R.id.action_request_location)?.isVisible = !isGroupChat
+        menu.findItem(R.id.action_load_history)?.isVisible = !isGroupChat
+        return super.onPrepareOptionsMenu(menu)
+    }
+
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         when (item.itemId) {
             android.R.id.home -> { finish(); return true }
+            R.id.action_group_info -> { showGroupInfo(); return true }
             R.id.action_call -> {
                 startActivity(Intent(this, CallActivity::class.java).apply {
                     putExtra(CallActivity.EXTRA_PEER, peer)
@@ -827,6 +898,175 @@ class ChatActivity : AppCompatActivity() {
             }
             null
         } catch (e: Exception) { null }
+    }
+
+    private fun loadGroupInfo() {
+        val gid = groupId ?: return
+        lifecycleScope.launch(Dispatchers.IO) {
+            val db = com.fshu.next.data.local.AppDatabase.getInstance(this@ChatActivity)
+            val group = db.groupDao().getById(gid) ?: return@launch
+            val members = db.groupMemberDao().getMembersOf(gid)
+            runOnUiThread {
+                title = group.name
+                supportActionBar?.subtitle = "${members.size} members"
+            }
+        }
+    }
+
+    private fun showGroupInfo() {
+        val gid = groupId ?: return
+        lifecycleScope.launch(Dispatchers.IO) {
+            val db = com.fshu.next.data.local.AppDatabase.getInstance(this@ChatActivity)
+            val group = db.groupDao().getById(gid) ?: return@launch
+            val members = db.groupMemberDao().getMembersOf(gid)
+            val me = Prefs.getUsername(this@ChatActivity)
+            val myRole = members.find { it.username == me }?.role ?: "member"
+            val isOwnerOrAdmin = myRole == "owner" || myRole == "admin"
+
+            runOnUiThread {
+                val dp = resources.displayMetrics.density
+                val p16 = (16 * dp).toInt()
+                val p8  = (8  * dp).toInt()
+
+                val root = LinearLayout(this@ChatActivity).apply {
+                    orientation = LinearLayout.VERTICAL
+                    setPadding(p16, p8, p16, p8)
+                }
+
+                root.addView(TextView(this@ChatActivity).apply {
+                    text = "${members.size} member${if (members.size != 1) "s" else ""}"
+                    textSize = 13f
+                    setTypeface(null, android.graphics.Typeface.BOLD)
+                    setPadding(0, 0, 0, p8)
+                })
+
+                val memberList = LinearLayout(this@ChatActivity).apply {
+                    orientation = LinearLayout.VERTICAL
+                }
+
+                val sorted = members.sortedWith(
+                    compareBy({ when (it.role) { "owner" -> 0; "admin" -> 1; else -> 2 } }, { it.username })
+                )
+                for (m in sorted) {
+                    val nick = Prefs.getContactNickname(this@ChatActivity, m.username).ifEmpty { m.username }
+                    val roleIcon = when (m.role) { "owner" -> " 👑"; "admin" -> " ⭐"; else -> "" }
+
+                    val row = LinearLayout(this@ChatActivity).apply {
+                        orientation = LinearLayout.HORIZONTAL
+                        gravity = Gravity.CENTER_VERTICAL
+                        setPadding(0, p8 / 2, 0, p8 / 2)
+                    }
+                    row.addView(TextView(this@ChatActivity).apply {
+                        text = "$nick$roleIcon"
+                        textSize = 14f
+                        layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                    })
+                    if (isOwnerOrAdmin && m.role != "owner" && m.username != me) {
+                        row.addView(Button(this@ChatActivity).apply {
+                            text = "Remove"
+                            textSize = 12f
+                            setTextColor(Color.parseColor("#E53935"))
+                            background = null
+                            minHeight = 0
+                            minimumHeight = 0
+                            setOnClickListener {
+                                AlertDialog.Builder(this@ChatActivity)
+                                    .setTitle("Remove $nick?")
+                                    .setPositiveButton("Remove") { _, _ ->
+                                        com.fshu.next.data.remote.WebSocketClient.send(mapOf(
+                                            "type" to "group-kick",
+                                            "groupId" to gid,
+                                            "username" to m.username
+                                        ))
+                                    }
+                                    .setNegativeButton("Cancel", null)
+                                    .show()
+                            }
+                        })
+                    }
+                    memberList.addView(row)
+                }
+
+                root.addView(ScrollView(this@ChatActivity).apply {
+                    addView(memberList)
+                    layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT, (220 * dp).toInt()
+                    )
+                })
+
+                val dialog = AlertDialog.Builder(this@ChatActivity)
+                    .setTitle(group.name)
+                    .setView(root)
+                    .setNegativeButton("Close", null)
+                    .create()
+
+                if (isOwnerOrAdmin) {
+                    dialog.setButton(DialogInterface.BUTTON_NEUTRAL, "Add member") { _, _ ->
+                        showAddMemberDialog(gid, members.map { it.username })
+                    }
+                }
+
+                if (myRole == "owner") {
+                    dialog.setButton(DialogInterface.BUTTON_POSITIVE, "Delete group") { _, _ ->
+                        AlertDialog.Builder(this@ChatActivity)
+                            .setTitle("Delete \"${group.name}\"?")
+                            .setMessage("This will delete the group for all members.")
+                            .setPositiveButton("Delete") { _, _ ->
+                                com.fshu.next.data.remote.WebSocketClient.send(mapOf(
+                                    "type" to "group-delete",
+                                    "groupId" to gid
+                                ))
+                            }
+                            .setNegativeButton("Cancel", null)
+                            .show()
+                    }
+                } else {
+                    dialog.setButton(DialogInterface.BUTTON_POSITIVE, "Leave group") { _, _ ->
+                        AlertDialog.Builder(this@ChatActivity)
+                            .setTitle("Leave \"${group.name}\"?")
+                            .setPositiveButton("Leave") { _, _ ->
+                                com.fshu.next.data.remote.WebSocketClient.send(mapOf(
+                                    "type" to "group-leave",
+                                    "groupId" to gid
+                                ))
+                            }
+                            .setNegativeButton("Cancel", null)
+                            .show()
+                    }
+                }
+
+                dialog.show()
+                dialog.getButton(DialogInterface.BUTTON_POSITIVE)
+                    ?.setTextColor(Color.parseColor("#E53935"))
+            }
+        }
+    }
+
+    private fun showAddMemberDialog(groupId: String, existingUsernames: List<String>) {
+        val edit = EditText(this).apply {
+            hint = "Username to add"
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+        }
+        val pad = (16 * resources.displayMetrics.density).toInt()
+        val wrap = FrameLayout(this).apply {
+            setPadding(pad, pad / 2, pad, 0)
+            addView(edit)
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Add member")
+            .setView(wrap)
+            .setPositiveButton("Add") { _, _ ->
+                val target = edit.text.toString().trim()
+                if (target.isNotEmpty() && target !in existingUsernames) {
+                    com.fshu.next.data.remote.WebSocketClient.send(mapOf(
+                        "type" to "group-invite",
+                        "groupId" to groupId,
+                        "username" to target
+                    ))
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
     }
 
     private fun exportConversation() {

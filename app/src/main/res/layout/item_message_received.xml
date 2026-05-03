@@ -18,6 +18,16 @@
         android:paddingBottom="6dp"
         android:minWidth="200dp">
 
+        <!-- Sender name — shown only in group chats -->
+        <TextView
+            android:id="@+id/tv_sender"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="2dp"
+            android:visibility="gone" />
+
         <!-- Reply quote — visible only when this message quotes another -->
         <LinearLayout
             android:id="@+id/reply_quote"
