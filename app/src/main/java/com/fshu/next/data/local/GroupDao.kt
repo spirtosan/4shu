@@ -23,4 +23,10 @@ interface GroupDao {
 
     @Query("UPDATE `groups` SET groupKey = :key WHERE groupId = :groupId")
     suspend fun updateGroupKey(groupId: String, key: String)
+
+    @Query("UPDATE `groups` SET avatarPath = :path WHERE groupId = :groupId")
+    suspend fun updateAvatar(groupId: String, path: String)
+
+    @Query("UPDATE `groups` SET personalAvatar = :path WHERE groupId = :groupId")
+    suspend fun updatePersonalAvatar(groupId: String, path: String)
 }

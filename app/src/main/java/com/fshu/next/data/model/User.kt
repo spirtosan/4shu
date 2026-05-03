@@ -9,6 +9,8 @@ data class User(
     val nickname: String? = null,
     val isGroup: Boolean = false,
     val groupId: String? = null,
+    val avatarPath: String? = null,
+    val personalAvatar: String? = null,
 ) {
     /** Display name — nickname if set, otherwise username. */
     val displayName: String get() = if (!nickname.isNullOrBlank()) nickname else username

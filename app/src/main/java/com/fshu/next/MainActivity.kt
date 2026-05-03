@@ -700,6 +700,20 @@ class MainActivity : AppCompatActivity() {
                     Log.e("MainActivity", "avatar-update handler failed", e)
                 }
             }
+            "group-avatar-update" -> {
+                val gid = json.get("groupId")?.asString ?: return
+                val idx = users.indexOfFirst { it.isGroup && it.groupId == gid }
+                if (idx >= 0) {
+                    lifecycleScope.launch(Dispatchers.IO) {
+                        val db = AppDatabase.getInstance(this@MainActivity)
+                        val group = db.groupDao().getById(gid) ?: return@launch
+                        runOnUiThread {
+                            users[idx] = users[idx].copy(avatarPath = group.avatarPath)
+                            adapter.notifyItemChanged(idx)
+                        }
+                    }
+                }
+            }
             "message", "file", "list", "location", "location-request", "location-response" -> {
                 val from = json.get("from")?.asString ?: return
                 val to = json.get("to")?.asString ?: return
@@ -747,7 +761,8 @@ class MainActivity : AppCompatActivity() {
                     else    -> last?.content
                 }
                 User(username = g.groupId, nickname = g.name, isGroup = true, groupId = g.groupId,
-                     lastMessage = preview, lastMessageTime = last?.timestamp)
+                     lastMessage = preview, lastMessageTime = last?.timestamp,
+                     avatarPath = g.avatarPath, personalAvatar = g.personalAvatar)
             }
         }
         runOnUiThread {

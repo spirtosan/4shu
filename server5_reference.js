@@ -555,6 +555,8 @@ function sendGroupState(ws, groupId, forUsername) {
     const members = stmt.getGroupMembers.all(groupId);
     const myMembership = members.find(m => m.username === forUsername);
     if (!myMembership) return;
+    const avatarFile = path.join(AVATARS_DIR, `group_${groupId}.jpg`);
+    const avatarData = fs.existsSync(avatarFile) ? fs.readFileSync(avatarFile).toString('base64') : null;
     send(ws, {
         type:              'group-state',
         groupId:           group.group_id,
@@ -563,6 +565,7 @@ function sendGroupState(ws, groupId, forUsername) {
         owner:             group.owner,
         members:           members.map(m => ({ username: m.username, role: m.role, joinedAt: m.joined_at })),
         encryptedGroupKey: myMembership.encrypted_group_key || null,
+        avatarData,
     });
 }
 
@@ -571,6 +574,8 @@ function broadcastGroupState(groupId) {
     if (!group) return;
     const members = stmt.getGroupMembers.all(groupId);
     const memberList = members.map(m => ({ username: m.username, role: m.role, joinedAt: m.joined_at }));
+    const avatarFile = path.join(AVATARS_DIR, `group_${groupId}.jpg`);
+    const avatarData = fs.existsSync(avatarFile) ? fs.readFileSync(avatarFile).toString('base64') : null;
     for (const m of members) {
         const state = {
             type:              'group-state',
@@ -580,6 +585,7 @@ function broadcastGroupState(groupId) {
             owner:             group.owner,
             members:           memberList,
             encryptedGroupKey: m.encrypted_group_key || null,
+            avatarData,
         };
         if (isOnline(m.username)) {
             sendToAll(m.username, state);
@@ -1238,6 +1244,27 @@ wss.on('connection', (ws, req) => {
                 break;
             }
 
+            case 'group-avatar-upload': {
+                const { groupId: gaGroupId, data: gaData } = msg;
+                if (typeof gaGroupId !== 'string' || typeof gaData !== 'string' || gaData.length > 400_000) break;
+                const gaGroup = stmt.getGroup.get(gaGroupId);
+                if (!gaGroup) break;
+                const gaMembers = stmt.getGroupMembers.all(gaGroupId);
+                const gaMyMem = gaMembers.find(m => m.username === username);
+                if (!gaMyMem || (gaMyMem.role !== 'owner' && gaMyMem.role !== 'admin')) break;
+                try {
+                    fs.writeFileSync(path.join(AVATARS_DIR, `group_${gaGroupId}.jpg`), Buffer.from(gaData, 'base64'));
+                    const packet = { type: 'group-avatar', groupId: gaGroupId, data: gaData };
+                    for (const m of gaMembers) {
+                        if (isOnline(m.username)) sendToAll(m.username, packet);
+                        else enqueue(m.username, packet);
+                    }
+                } catch (e) {
+                    console.error('group-avatar-upload error', e);
+                }
+                break;
+            }
+
             case 'peer-test-request': {
                 const { testId, to: target } = msg;
                 if (!testId || !target) break;
@@ -1592,6 +1619,8 @@ wss.on('connection', (ws, req) => {
                 const members = stmt.getGroupMembers.all(groupId);
                 const myMem = members.find(m => m.username === username);
                 if (!myMem) { send(ws, { type: 'group-error', groupId, reason: 'not-a-member' }); break; }
+                const infoAvatarFile = path.join(AVATARS_DIR, `group_${groupId}.jpg`);
+                const infoAvatarData = fs.existsSync(infoAvatarFile) ? fs.readFileSync(infoAvatarFile).toString('base64') : null;
                 send(ws, {
                     type:              'group-state',
                     groupId:           group.group_id,
@@ -1600,7 +1629,31 @@ wss.on('connection', (ws, req) => {
                     owner:             group.owner,
                     members:           members.map(m => ({ username: m.username, role: m.role, joinedAt: m.joined_at })),
                     encryptedGroupKey: myMem.encrypted_group_key || null,
+                    avatarData:        infoAvatarData,
                 });
+                break;
+            }
+
+            case 'group-history-request': {
+                const { groupId, since } = msg;
+                if (!groupId) break;
+                const members = stmt.getGroupMembers.all(groupId);
+                if (!members.find(m => m.username === username)) {
+                    send(ws, { type: 'group-error', groupId, reason: 'not-a-member' }); break;
+                }
+                const maxMs  = config.maxHistoryRequestDays * 24 * 60 * 60 * 1000;
+                const sinceTs = Math.max(since || 0, Date.now() - maxMs);
+                const rows   = stmt.getGroupHistory.all(groupId, sinceTs);
+                const messages = rows.map(r => ({
+                    messageId: r.message_id,
+                    from:      r.from_user,
+                    groupId:   r.group_id,
+                    content:   r.content,
+                    timestamp: r.timestamp,
+                    type:      r.type,
+                }));
+                send(ws, { type: 'group-history-response', groupId, messages });
+                console.log(`  group-history-request: ${groupId} by ${username}, ${messages.length} message(s) since ${sinceTs}`);
                 break;
             }
 

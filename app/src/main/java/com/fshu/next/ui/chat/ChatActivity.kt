@@ -9,11 +9,14 @@ import android.content.DialogInterface
 import android.content.Intent
 import android.content.IntentFilter
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Typeface
 import android.os.Build
+import android.util.Base64
+import java.io.ByteArrayOutputStream
 import android.os.Bundle
 import android.os.Environment
 import android.os.Handler
@@ -86,6 +89,61 @@ class ChatActivity : AppCompatActivity() {
     private var pendingReplyContent: String? = null
 
     private lateinit var voiceRecorder: VoiceRecorder
+    private var pendingGroupAvatarGroupId: String? = null
+
+    private val pickGroupAvatarLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        uri ?: return@registerForActivityResult
+        val gid = pendingGroupAvatarGroupId ?: return@registerForActivityResult
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val stream = contentResolver.openInputStream(uri) ?: return@launch
+                val original = BitmapFactory.decodeStream(stream)
+                stream.close()
+                val side = minOf(original.width, original.height)
+                val cropped = Bitmap.createBitmap(original, (original.width - side) / 2, (original.height - side) / 2, side, side)
+                val scaled = Bitmap.createScaledBitmap(cropped, 256, 256, true)
+                val baos = ByteArrayOutputStream()
+                scaled.compress(Bitmap.CompressFormat.JPEG, 82, baos)
+                val b64 = Base64.encodeToString(baos.toByteArray(), Base64.NO_WRAP)
+                com.fshu.next.data.remote.WebSocketClient.send(mapOf("type" to "group-avatar-upload", "groupId" to gid, "data" to b64))
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@ChatActivity, "Group photo updated", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@ChatActivity, "Failed to upload photo", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    private val pickPersonalAvatarLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        uri ?: return@registerForActivityResult
+        val gid = pendingGroupAvatarGroupId ?: return@registerForActivityResult
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val stream = contentResolver.openInputStream(uri) ?: return@launch
+                val original = BitmapFactory.decodeStream(stream)
+                stream.close()
+                val side = minOf(original.width, original.height)
+                val cropped = Bitmap.createBitmap(original, (original.width - side) / 2, (original.height - side) / 2, side, side)
+                val scaled = Bitmap.createScaledBitmap(cropped, 256, 256, true)
+                val baos = ByteArrayOutputStream()
+                scaled.compress(Bitmap.CompressFormat.JPEG, 82, baos)
+                val dir = File(filesDir, "avatars").also { it.mkdirs() }
+                val file = File(dir, "personal_$gid.jpg")
+                file.writeBytes(baos.toByteArray())
+                val db = com.fshu.next.data.local.AppDatabase.getInstance(this@ChatActivity)
+                db.groupDao().updatePersonalAvatar(gid, file.absolutePath)
+                val group = db.groupDao().getById(gid) ?: return@launch
+                runOnUiThread { loadGroupAvatarInto(group, binding.toolbarAvatar, (36 * resources.displayMetrics.density).toInt()) }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@ChatActivity, "Failed to set personal photo", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
 
     private val pickFile = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         uri?.let { vm.sendFile(peer, it, contentResolver) }
@@ -505,6 +563,17 @@ class ChatActivity : AppCompatActivity() {
                         val stateId = json.get("groupId")?.asString
                         if (stateId == groupId) runOnUiThread { loadGroupInfo() }
                     }
+                    "group-avatar-update" -> {
+                        val updatedId = json.get("groupId")?.asString
+                        if (updatedId == groupId) {
+                            lifecycleScope.launch(Dispatchers.IO) {
+                                val db = com.fshu.next.data.local.AppDatabase.getInstance(this@ChatActivity)
+                                val group = db.groupDao().getById(groupId!!) ?: return@launch
+                                val sizePx = (36 * resources.displayMetrics.density).toInt()
+                                runOnUiThread { loadGroupAvatarInto(group, binding.toolbarAvatar, sizePx) }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -906,9 +975,44 @@ class ChatActivity : AppCompatActivity() {
             val db = com.fshu.next.data.local.AppDatabase.getInstance(this@ChatActivity)
             val group = db.groupDao().getById(gid) ?: return@launch
             val members = db.groupMemberDao().getMembersOf(gid)
+            val sizePx = (36 * resources.displayMetrics.density).toInt()
             runOnUiThread {
                 title = group.name
                 supportActionBar?.subtitle = "${members.size} members"
+                loadGroupAvatarInto(group, binding.toolbarAvatar, sizePx)
+            }
+        }
+    }
+
+    private fun loadGroupAvatarInto(group: com.fshu.next.data.model.Group, iv: android.widget.ImageView, sizePx: Int) {
+        val personalFile = group.personalAvatar?.let { File(it) }?.takeIf { it.exists() }
+        val groupFile = group.avatarPath?.let { File(it) }?.takeIf { it.exists() }
+        when {
+            personalFile != null -> iv.load(personalFile) { transformations(CircleCropTransformation()) }
+            groupFile != null -> iv.load(groupFile) { transformations(CircleCropTransformation()) }
+            else -> {
+                val letter = group.name.firstOrNull()?.uppercaseChar()?.toString() ?: "G"
+                val colorIdx = group.groupId.hashCode().let { if (it < 0) -it else it } % 10
+                val color = when (colorIdx) {
+                    0 -> getColor(R.color.avatar_1); 1 -> getColor(R.color.avatar_2)
+                    2 -> getColor(R.color.avatar_3); 3 -> getColor(R.color.avatar_4)
+                    4 -> getColor(R.color.avatar_5); 5 -> getColor(R.color.avatar_6)
+                    6 -> getColor(R.color.avatar_7); 7 -> getColor(R.color.avatar_8)
+                    8 -> getColor(R.color.avatar_9); else -> getColor(R.color.avatar_10)
+                }
+                val bmp = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
+                val canvas = Canvas(bmp)
+                Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = color }.also {
+                    canvas.drawCircle(sizePx / 2f, sizePx / 2f, sizePx / 2f, it)
+                }
+                Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    this.color = Color.WHITE; textSize = sizePx * 0.42f
+                    textAlign = Paint.Align.CENTER; typeface = Typeface.DEFAULT_BOLD
+                }.also {
+                    val yPos = sizePx / 2f - (it.descent() + it.ascent()) / 2f
+                    canvas.drawText(letter, sizePx / 2f, yPos, it)
+                }
+                iv.setImageBitmap(bmp)
             }
         }
     }
@@ -932,6 +1036,49 @@ class ChatActivity : AppCompatActivity() {
                     orientation = LinearLayout.VERTICAL
                     setPadding(p16, p8, p16, p8)
                 }
+
+                // Avatar section
+                val avatarSizePx = (72 * dp).toInt()
+                val dialogAvatarIv = android.widget.ImageView(this@ChatActivity).apply {
+                    layoutParams = android.widget.LinearLayout.LayoutParams(avatarSizePx, avatarSizePx).also {
+                        it.gravity = android.view.Gravity.CENTER_HORIZONTAL
+                    }
+                }
+                loadGroupAvatarInto(group, dialogAvatarIv, avatarSizePx)
+
+                val avatarContainer = LinearLayout(this@ChatActivity).apply {
+                    orientation = LinearLayout.VERTICAL
+                    gravity = android.view.Gravity.CENTER_HORIZONTAL
+                    layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
+                    ).also { it.bottomMargin = p8 }
+                    addView(dialogAvatarIv)
+                    if (isOwnerOrAdmin) {
+                        addView(TextView(this@ChatActivity).apply {
+                            text = "Change group photo"
+                            textSize = 13f
+                            setTextColor(0xFFE8711A.toInt())
+                            gravity = android.view.Gravity.CENTER
+                            setPadding(0, (4 * dp).toInt(), 0, (2 * dp).toInt())
+                            setOnClickListener {
+                                pendingGroupAvatarGroupId = gid
+                                pickGroupAvatarLauncher.launch("image/*")
+                            }
+                        })
+                    }
+                    addView(TextView(this@ChatActivity).apply {
+                        text = "Set my photo for this group"
+                        textSize = 13f
+                        setTextColor(0xFF2196F3.toInt())
+                        gravity = android.view.Gravity.CENTER
+                        setPadding(0, (2 * dp).toInt(), 0, 0)
+                        setOnClickListener {
+                            pendingGroupAvatarGroupId = gid
+                            pickPersonalAvatarLauncher.launch("image/*")
+                        }
+                    })
+                }
+                root.addView(avatarContainer)
 
                 root.addView(TextView(this@ChatActivity).apply {
                     text = "${members.size} member${if (members.size != 1) "s" else ""}"

@@ -74,6 +74,8 @@ app/src/main/java/com/fshu/
 | `emergency-location` | both | `from`, `to`, `lat`, `lon`, `accuracy`, `timestamp`, `callId` — sent by caller alongside emergency call; server stores in emergency_locations.json, forwards/queues |
 | `location-request` | both | `from`, `to`, `requestId` (UUID) — silent location request; server forwards/queues; receiver shows "Share my location" button |
 | `location-response` | both | `from`, `to`, `requestId`, `lat`, `lon`, `accuracy`, `timestamp` — reply to location-request; server stores and forwards |
+| `group-avatar-upload` | client→server | `groupId`, `data` (base64 JPEG ≤300KB) — owner/admin sets group avatar; server saves as `group_{groupId}.jpg`, broadcasts `group-avatar` to all members |
+| `group-avatar` | server→client | `groupId`, `data` (base64 JPEG) — group avatar pushed to all members after upload or queued for offline members |
 
 **WebRTC:** `io.getstream:stream-webrtc-android` (`org.webrtc.*`). Audio-only, UNIFIED_PLAN, Google STUN. `WebRTCManager` is instantiated per-call inside `CallViewModel` and disposed in `onCleared()`.
 

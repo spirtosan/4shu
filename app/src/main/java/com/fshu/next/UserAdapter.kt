@@ -46,11 +46,23 @@ class UserAdapter(
         val sizePx = (48 * ctx.resources.displayMetrics.density).toInt()
 
         if (user.isGroup) {
-            // Group item: letter avatar, no online dot, no call actions
-            val letter = user.displayName.firstOrNull()?.uppercaseChar()?.toString() ?: "G"
-            holder.binding.ivAvatar.load(
-                createLetterBitmap(letter, avatarColor(user.displayName, ctx), sizePx)
-            )
+            // Group item: personalAvatar → avatarPath → letter fallback, no online dot
+            val personalFile = user.personalAvatar?.let { File(it) }?.takeIf { it.exists() }
+            val groupFile = user.avatarPath?.let { File(it) }?.takeIf { it.exists() }
+            when {
+                personalFile != null -> holder.binding.ivAvatar.load(personalFile) {
+                    transformations(CircleCropTransformation()); crossfade(true)
+                }
+                groupFile != null -> holder.binding.ivAvatar.load(groupFile) {
+                    transformations(CircleCropTransformation()); crossfade(true)
+                }
+                else -> {
+                    val letter = user.displayName.firstOrNull()?.uppercaseChar()?.toString() ?: "G"
+                    holder.binding.ivAvatar.load(
+                        createLetterBitmap(letter, avatarColor(user.displayName, ctx), sizePx)
+                    )
+                }
+            }
             holder.binding.viewOnlineDot.visibility = android.view.View.INVISIBLE
             holder.binding.tvUsername.text = user.displayName
             holder.binding.tvHandle.visibility = android.view.View.GONE

@@ -367,6 +367,17 @@ class FshuService : Service() {
                         ))
                     }
 
+                    // Request missed group messages since the last stored message per group.
+                    val groups = db.groupDao().getAllGroupsDirect()
+                    for (group in groups) {
+                        val since = db.messageDao().getLastGroupMessage(group.groupId)?.timestamp ?: continue
+                        WebSocketClient.send(mapOf(
+                            "type"    to "group-history-request",
+                            "groupId" to group.groupId,
+                            "since"   to since
+                        ))
+                    }
+
                     // Request all lists we may have missed while offline.
                     val versions = db.messageDao().getAllLists()
                         .filter { it.listId != null && it.listVersion != null }
@@ -445,6 +456,8 @@ class FshuService : Service() {
             "group-removed"           -> handleGroupRemoved(json)
             "group-delivery-update"   -> handleGroupDeliveryUpdate(json)
             "group-key-update"        -> handleGroupKeyUpdate(json)
+            "group-history-response"  -> handleGroupHistoryResponse(json)
+            "group-avatar"            -> handleGroupAvatar(json)
             "group-error"             -> MessageBus.emit(json)
             "ack"                     -> handleAck(json)
             "delivered"               -> handleDelivered(json)
@@ -1311,8 +1324,22 @@ class FshuService : Service() {
         db.groupDao().upsert(Group(
             groupId = groupId, name = name, owner = owner, groupType = groupType,
             createdAt = createdAt, encryptedGroupKey = encKey,
-            groupKey = existing?.groupKey ?: ""
+            groupKey = existing?.groupKey ?: "",
+            avatarPath = existing?.avatarPath,
+            personalAvatar = existing?.personalAvatar
         ))
+
+        val avatarDataB64 = json.get("avatarData")?.takeIf { !it.isJsonNull }?.asString
+        if (!avatarDataB64.isNullOrEmpty()) {
+            try {
+                val dir = File(applicationContext.filesDir, "avatars").also { it.mkdirs() }
+                val file = File(dir, "group_$groupId.jpg")
+                file.writeBytes(android.util.Base64.decode(avatarDataB64, android.util.Base64.DEFAULT))
+                db.groupDao().updateAvatar(groupId, file.absolutePath)
+            } catch (e: Exception) {
+                Log.e("FshuService", "group-state avatar save failed", e)
+            }
+        }
 
         if (encKey.isNotEmpty()) {
             val me       = Prefs.getUsername(this)
@@ -1431,6 +1458,67 @@ class FshuService : Service() {
     private suspend fun handleGroupKeyUpdate(json: JsonObject) {
         val groupId = json.get("groupId")?.asString ?: return
         WebSocketClient.send(mapOf("type" to "group-info-request", "groupId" to groupId))
+    }
+
+    private suspend fun handleGroupHistoryResponse(json: JsonObject) {
+        val groupId    = json.get("groupId")?.asString ?: return
+        val messagesEl = json.getAsJsonArray("messages") ?: return
+        val me         = Prefs.getUsername(this)
+        val groupKeyHex = db.groupDao().getById(groupId)?.groupKey ?: ""
+        var inserted = 0
+
+        for (el in messagesEl) {
+            try {
+                val obj         = el.asJsonObject
+                val serverMsgId = obj.get("messageId")?.takeIf { !it.isJsonNull }?.asString ?: continue
+                val from        = obj.get("from")?.asString ?: continue
+                val rawContent  = obj.get("content")?.asString ?: continue
+                val ts          = obj.get("timestamp")?.asDouble?.toLong() ?: continue
+
+                if (db.messageDao().getByTempId(serverMsgId) != null) continue
+
+                val content = if (groupKeyHex.isNotEmpty()) {
+                    val key = with(EcdhHelper) { groupKeyHex.fromHex() }
+                    CryptoHelper.decryptGroupMessage(key, rawContent) ?: rawContent
+                } else rawContent
+
+                db.messageDao().insert(
+                    Message(
+                        from = from, to = "", content = content, type = "text",
+                        timestamp = ts, isSent = from == me, status = "READ",
+                        tempId = serverMsgId, groupId = groupId
+                    )
+                )
+                inserted++
+            } catch (e: Exception) {
+                Log.e("FshuService", "Failed to persist group history message", e)
+            }
+        }
+
+        val event = com.google.gson.JsonObject().apply {
+            addProperty("type", "history-loaded")
+            addProperty("peer", groupId)
+            addProperty("count", inserted)
+        }
+        MessageBus.tryEmit(event)
+    }
+
+    private suspend fun handleGroupAvatar(json: JsonObject) {
+        val groupId = json.get("groupId")?.asString ?: return
+        val data    = json.get("data")?.asString ?: return
+        try {
+            val dir  = File(applicationContext.filesDir, "avatars").also { it.mkdirs() }
+            val file = File(dir, "group_$groupId.jpg")
+            file.writeBytes(android.util.Base64.decode(data, android.util.Base64.DEFAULT))
+            db.groupDao().updateAvatar(groupId, file.absolutePath)
+            val evt = com.google.gson.JsonObject().apply {
+                addProperty("type", "group-avatar-update")
+                addProperty("groupId", groupId)
+            }
+            MessageBus.emit(evt)
+        } catch (e: Exception) {
+            Log.e("FshuService", "group-avatar save failed", e)
+        }
     }
 
     private fun notifyGroupMessage(groupId: String, groupName: String, from: String, content: String) {
