@@ -978,6 +978,34 @@ class ChatActivity : AppCompatActivity() {
                                             "groupId" to gid,
                                             "username" to m.username
                                         ))
+                                        val kickedUsername = m.username
+                                        lifecycleScope.launch(Dispatchers.IO) {
+                                            val myPriv = Prefs.getEcPrivateKey(this@ChatActivity)
+                                            val newKey = com.fshu.next.util.CryptoHelper.generateGroupKey()
+                                            val remaining = db.groupMemberDao().getMembersOf(gid)
+                                                .filter { it.username != kickedUsername }
+                                            val keys = remaining.mapNotNull { member ->
+                                                val pubHex = if (member.username == me)
+                                                    Prefs.getEcPublicKey(this@ChatActivity)
+                                                else
+                                                    Prefs.getPeerPublicKey(this@ChatActivity, member.username)
+                                                if (pubHex.isEmpty()) return@mapNotNull null
+                                                mapOf(
+                                                    "username"     to member.username,
+                                                    "encryptedKey" to com.fshu.next.util.CryptoHelper.encryptGroupKeyForMember(newKey, pubHex, myPriv)
+                                                )
+                                            }
+                                            if (keys.isNotEmpty()) {
+                                                com.fshu.next.data.remote.WebSocketClient.send(mapOf(
+                                                    "type"    to "group-key-rotate",
+                                                    "groupId" to gid,
+                                                    "keys"    to keys
+                                                ))
+                                                db.groupDao().updateGroupKey(
+                                                    gid, with(com.fshu.next.util.EcdhHelper) { newKey.toHex() }
+                                                )
+                                            }
+                                        }
                                     }
                                     .setNegativeButton("Cancel", null)
                                     .show()
@@ -1057,11 +1085,28 @@ class ChatActivity : AppCompatActivity() {
             .setView(wrap)
             .setPositiveButton("Add") { _, _ ->
                 val target = edit.text.toString().trim()
-                if (target.isNotEmpty() && target !in existingUsernames) {
+                if (target.isEmpty() || target in existingUsernames) return@setPositiveButton
+                lifecycleScope.launch(Dispatchers.IO) {
+                    val db = com.fshu.next.data.local.AppDatabase.getInstance(this@ChatActivity)
+                    val group = db.groupDao().getById(groupId)
+                    val groupKeyHex = group?.groupKey ?: ""
+                    if (groupKeyHex.isEmpty()) {
+                        runOnUiThread { Toast.makeText(this@ChatActivity, "Group key not available", Toast.LENGTH_SHORT).show() }
+                        return@launch
+                    }
+                    val memberPubKey = Prefs.getPeerPublicKey(this@ChatActivity, target)
+                    if (memberPubKey.isEmpty()) {
+                        runOnUiThread { Toast.makeText(this@ChatActivity, "Cannot invite: public key not found for $target", Toast.LENGTH_SHORT).show() }
+                        return@launch
+                    }
+                    val groupKeyBytes = with(com.fshu.next.util.EcdhHelper) { groupKeyHex.fromHex() }
+                    val myPriv = Prefs.getEcPrivateKey(this@ChatActivity)
+                    val encryptedKey = com.fshu.next.util.CryptoHelper.encryptGroupKeyForMember(groupKeyBytes, memberPubKey, myPriv)
                     com.fshu.next.data.remote.WebSocketClient.send(mapOf(
-                        "type" to "group-invite",
-                        "groupId" to groupId,
-                        "username" to target
+                        "type"         to "group-invite",
+                        "groupId"      to groupId,
+                        "username"     to target,
+                        "encryptedKey" to encryptedKey
                     ))
                 }
             }
