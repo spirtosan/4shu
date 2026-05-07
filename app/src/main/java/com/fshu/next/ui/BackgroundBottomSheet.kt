@@ -113,7 +113,7 @@ class BackgroundBottomSheet : BottomSheetDialogFragment() {
                 }
                 holder.binding.vPreview.background = bg
                 holder.binding.tvCustomPlus.visibility = View.VISIBLE
-                holder.binding.tvName.text = "Custom"
+                holder.binding.tvName.text = getString(R.string.bg_custom)
             } else {
                 val opt = BackgroundHelper.gradients[position]
                 val bg = GradientDrawable(opt.orientation, opt.colors).apply { cornerRadius = 16f }

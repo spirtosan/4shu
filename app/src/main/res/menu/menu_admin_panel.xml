@@ -4,7 +4,7 @@
 
     <item
         android:id="@+id/action_server_info"
-        android:title="Server info"
+        android:title="@string/menu_server_info"
         app:showAsAction="never" />
 
 </menu>

@@ -25,7 +25,7 @@
             android:id="@+id/tvAdminBadge"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="ADMIN"
+            android:text="@string/item_admin_badge"
             android:textSize="11sp"
             android:textColor="#FFFFFF"
             android:background="#FF5722"
@@ -48,7 +48,7 @@
             android:paddingTop="2dp"
             android:paddingBottom="2dp"
             android:layout_marginStart="4dp"
-            android:text="contact" />
+            android:text="@string/item_trust_default" />
     </LinearLayout>
 
     <TextView
@@ -68,7 +68,7 @@
             android:id="@+id/btnResetPassword"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Reset password"
+            android:text="@string/btn_reset_password"
             style="@style/Widget.MaterialComponents.Button.TextButton"
             android:layout_marginEnd="8dp" />
 
@@ -76,14 +76,14 @@
             android:id="@+id/btnSetTrust"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Trust"
+            android:text="@string/btn_trust"
             style="@style/Widget.MaterialComponents.Button.TextButton" />
 
         <Button
             android:id="@+id/btnRemoveUser"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Remove"
+            android:text="@string/btn_remove"
             style="@style/Widget.MaterialComponents.Button.TextButton"
             android:textColor="#F44336" />
     </LinearLayout>

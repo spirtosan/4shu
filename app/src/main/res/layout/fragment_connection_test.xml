@@ -11,7 +11,7 @@
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Connection Test"
+        android:text="@string/title_connection_test"
         android:textSize="18sp"
         android:textStyle="bold"
         android:textColor="?android:textColorPrimary"
@@ -41,7 +41,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="WebSocket"
+            android:text="@string/label_websocket"
             android:textSize="15sp"
             android:textStyle="bold"
             android:textColor="?android:textColorPrimary" />
@@ -69,7 +69,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="DNS"
+            android:text="@string/label_dns"
             android:textSize="15sp"
             android:textStyle="bold"
             android:textColor="?android:textColorPrimary" />
@@ -97,7 +97,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="TURN relay"
+            android:text="@string/label_turn_relay"
             android:textSize="15sp"
             android:textStyle="bold"
             android:textColor="?android:textColorPrimary" />
@@ -126,7 +126,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="Peer"
+            android:text="@string/label_peer"
             android:textSize="15sp"
             android:textStyle="bold"
             android:textColor="?android:textColorPrimary" />

@@ -19,6 +19,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import com.google.gson.JsonParser
+import com.fshu.next.R
 import com.fshu.next.data.remote.WebSocketClient
 import com.fshu.next.databinding.ActivitySettingsBinding
 import com.fshu.next.service.FshuService
@@ -35,7 +36,7 @@ class SettingsActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         supportActionBar?.apply {
-            title = "Settings"
+            title = getString(R.string.menu_settings)
             setDisplayHomeAsUpEnabled(true)
         }
 
@@ -50,15 +51,15 @@ class SettingsActivity : AppCompatActivity() {
             val pad = (16 * resources.displayMetrics.density).toInt()
             val wrap = FrameLayout(this).apply { setPadding(pad, 0, pad, 0); addView(et) }
             AlertDialog.Builder(this)
-                .setTitle("Device name")
+                .setTitle(getString(R.string.dialog_device_name_title))
                 .setView(wrap)
-                .setPositiveButton("Save") { _, _ ->
+                .setPositiveButton(getString(R.string.btn_save)) { _, _ ->
                     val name = et.text.toString().trim().ifEmpty { Build.MODEL }
                     Prefs.setDeviceName(this, name)
                     binding.tvDeviceName.text = name
                     WebSocketClient.deviceName = name
                 }
-                .setNegativeButton("Cancel", null)
+                .setNegativeButton(getString(R.string.btn_cancel), null)
                 .show()
         }
 
@@ -74,30 +75,30 @@ class SettingsActivity : AppCompatActivity() {
             val pad = (16 * resources.displayMetrics.density).toInt()
             val wrap = FrameLayout(this).apply { setPadding(pad, 0, pad, 0); addView(et) }
             AlertDialog.Builder(this)
-                .setTitle("Server URL")
+                .setTitle(getString(R.string.dialog_server_url_title))
                 .setView(wrap)
-                .setPositiveButton("Save") { _, _ ->
+                .setPositiveButton(getString(R.string.btn_save)) { _, _ ->
                     val url = et.text.toString().trim()
                     if (!url.startsWith("wss://") && !url.startsWith("ws://")) {
-                        Toast.makeText(this, "URL must start with wss:// or ws://", Toast.LENGTH_LONG).show()
+                        Toast.makeText(this, getString(R.string.toast_url_invalid), Toast.LENGTH_LONG).show()
                         return@setPositiveButton
                     }
                     Prefs.setServerUrl(this, url)
                     binding.tvServerUrl.text = url
-                    Toast.makeText(this, "Server URL updated — reconnecting", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, getString(R.string.toast_server_url_updated), Toast.LENGTH_SHORT).show()
                     startService(Intent(this, FshuService::class.java).apply {
                         action = FshuService.ACTION_RECONNECT
                     })
                 }
-                .setNeutralButton("Reset") { _, _ ->
+                .setNeutralButton(getString(R.string.btn_reset_to_default)) { _, _ ->
                     Prefs.setServerUrl(this, defaultUrl)
                     binding.tvServerUrl.text = defaultUrl
-                    Toast.makeText(this, "Reset to default — reconnecting", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, getString(R.string.toast_reset_to_default_reconnecting), Toast.LENGTH_SHORT).show()
                     startService(Intent(this, FshuService::class.java).apply {
                         action = FshuService.ACTION_RECONNECT
                     })
                 }
-                .setNegativeButton("Cancel", null)
+                .setNegativeButton(getString(R.string.btn_cancel), null)
                 .show()
         }
 
@@ -107,13 +108,13 @@ class SettingsActivity : AppCompatActivity() {
             val currentlyEnabled = Prefs.getLocationSharingEnabled(this)
             if (!currentlyEnabled) {
                 AlertDialog.Builder(this)
-                    .setTitle("Enable location sharing?")
-                    .setMessage("When enabled, Fshu will automatically reply with your current GPS position whenever someone requests your location.\n\nYou can disable this at any time from Settings.")
-                    .setPositiveButton("Enable") { _, _ ->
+                    .setTitle(getString(R.string.dialog_enable_location_title))
+                    .setMessage(getString(R.string.dialog_enable_location_message))
+                    .setPositiveButton(getString(R.string.btn_enable)) { _, _ ->
                         Prefs.setLocationSharingEnabled(this, true)
                         binding.switchLocationSharing.isChecked = true
                     }
-                    .setNegativeButton("Cancel", null)
+                    .setNegativeButton(getString(R.string.btn_cancel), null)
                     .show()
             } else {
                 Prefs.setLocationSharingEnabled(this, false)
@@ -133,13 +134,13 @@ class SettingsActivity : AppCompatActivity() {
                 if (token.isNotEmpty() && WebSocketClient.isConnected) {
                     WebSocketClient.send(mapOf("type" to "fcm-token", "token" to token))
                 }
-                Toast.makeText(this, "Push wake-up enabled", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, getString(R.string.toast_push_enabled), Toast.LENGTH_SHORT).show()
             } else {
                 // Clear token on server
                 if (WebSocketClient.isConnected) {
                     WebSocketClient.send(mapOf("type" to "fcm-token", "token" to ""))
                 }
-                Toast.makeText(this, "Push wake-up disabled", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, getString(R.string.toast_push_disabled), Toast.LENGTH_SHORT).show()
             }
         }
 
@@ -149,7 +150,7 @@ class SettingsActivity : AppCompatActivity() {
             val enabled = !Prefs.getAppLockEnabled(this)
             Prefs.setAppLockEnabled(this, enabled)
             binding.switchAppLock.isChecked = enabled
-            Toast.makeText(this, if (enabled) "App lock enabled" else "App lock disabled", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, if (enabled) getString(R.string.toast_app_lock_enabled) else getString(R.string.toast_app_lock_disabled), Toast.LENGTH_SHORT).show()
         }
 
         // History sync
@@ -167,27 +168,32 @@ class SettingsActivity : AppCompatActivity() {
             pInfo.longVersionCode
         else
             @Suppress("DEPRECATION") pInfo.versionCode.toLong()
-        binding.tvAppVersion.text = "Fshu v$versionName (build $versionCode)"
+        binding.tvAppVersion.text = getString(R.string.app_version_format, versionName, versionCode.toString())
     }
 
     private fun showGlobalHistoryDialog() {
-        val options = arrayOf("Last 7 days", "Last 30 days", "Last 90 days", "Custom...")
+        val options = arrayOf(
+            getString(R.string.history_option_7_days),
+            getString(R.string.history_option_30_days),
+            getString(R.string.history_option_90_days),
+            getString(R.string.history_option_custom)
+        )
         AlertDialog.Builder(this)
-            .setTitle("Sync all chat history")
+            .setTitle(getString(R.string.dialog_sync_history_title))
             .setItems(options) { _, which ->
                 val days = when (which) { 0 -> 7; 1 -> 30; 2 -> 90; else -> null }
                 if (days != null) syncHistoryForAllPeers(days)
                 else {
-                    val et = EditText(this).apply { inputType = InputType.TYPE_CLASS_NUMBER; hint = "Days (1–90)" }
+                    val et = EditText(this).apply { inputType = InputType.TYPE_CLASS_NUMBER; hint = getString(R.string.hint_days) }
                     val pad = (16 * resources.displayMetrics.density).toInt()
                     val wrap = FrameLayout(this).apply { setPadding(pad, 0, pad, 0); addView(et) }
                     AlertDialog.Builder(this)
-                        .setTitle("Custom period")
+                        .setTitle(getString(R.string.dialog_custom_period_title))
                         .setView(wrap)
-                        .setPositiveButton("Sync") { _, _ ->
+                        .setPositiveButton(getString(R.string.btn_sync)) { _, _ ->
                             syncHistoryForAllPeers(et.text.toString().toIntOrNull()?.coerceIn(1, 90) ?: 30)
                         }
-                        .setNegativeButton("Cancel", null).show()
+                        .setNegativeButton(getString(R.string.btn_cancel), null).show()
                 }
             }
             .show()
@@ -201,12 +207,12 @@ class SettingsActivity : AppCompatActivity() {
                 .mapNotNull { it.asJsonObject.get("username")?.asString }
                 .filter { it != me && !it.startsWith("_") }
         } catch (e: Exception) { emptyList() }
-        if (peers.isEmpty()) { Toast.makeText(this, "No known peers", Toast.LENGTH_SHORT).show(); return }
-        Toast.makeText(this, "Syncing history…", Toast.LENGTH_SHORT).show()
+        if (peers.isEmpty()) { Toast.makeText(this, getString(R.string.toast_no_known_peers), Toast.LENGTH_SHORT).show(); return }
+        Toast.makeText(this, getString(R.string.toast_syncing_history), Toast.LENGTH_SHORT).show()
         for (peer in peers) {
             WebSocketClient.send(mapOf("type" to "history-request", "from" to me, "to" to peer, "since" to since, "days" to days))
         }
-        Toast.makeText(this, "History requests sent", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, getString(R.string.toast_history_requests_sent), Toast.LENGTH_SHORT).show()
     }
 
     override fun onResume() {

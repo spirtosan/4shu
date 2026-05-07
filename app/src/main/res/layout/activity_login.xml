@@ -28,7 +28,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="16dp"
-            android:hint="Username">
+            android:hint="@string/hint_username">
 
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/et_username"
@@ -43,7 +43,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="24dp"
-            android:hint="Password"
+            android:hint="@string/hint_password"
             app:endIconMode="password_toggle">
 
             <com.google.android.material.textfield.TextInputEditText
@@ -59,7 +59,7 @@
             android:id="@+id/btn_join"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Connect" />
+            android:text="@string/btn_connect" />
 
         <ProgressBar
             android:id="@+id/pb_loading"
@@ -84,7 +84,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:hint="Server URL (wss://…)"
+            android:hint="@string/hint_server_url"
             android:visibility="visible">
 
             <com.google.android.material.textfield.TextInputEditText

@@ -357,7 +357,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
             val location = LocationHelper.getCurrentLocation(getApplication())
             if (location == null) {
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(getApplication(), "Could not get location — check GPS", Toast.LENGTH_LONG).show()
+                    Toast.makeText(getApplication(), getApplication<android.app.Application>().getString(com.fshu.next.R.string.toast_location_error), Toast.LENGTH_LONG).show()
                 }
                 return@launch
             }

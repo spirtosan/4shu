@@ -42,7 +42,7 @@
         android:id="@+id/btn_skip"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Skip"
+        android:text="@string/btn_skip"
         style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
 
 </LinearLayout>

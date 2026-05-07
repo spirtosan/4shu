@@ -71,7 +71,7 @@ class MainActivity : AppCompatActivity() {
         if (granted) {
             pendingEmergencyLocationUser?.let { showEmergencyLocationDialog(it) }
         } else {
-            Toast.makeText(this, "Location permission required for this feature", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, getString(R.string.toast_location_permission_required), Toast.LENGTH_SHORT).show()
         }
         pendingEmergencyLocationUser = null
     }
@@ -100,7 +100,7 @@ class MainActivity : AppCompatActivity() {
                 withContext(kotlinx.coroutines.Dispatchers.Main) { loadMyAvatar() }
             } catch (e: Exception) {
                 withContext(kotlinx.coroutines.Dispatchers.Main) {
-                    Toast.makeText(this@MainActivity, "Failed to upload avatar", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@MainActivity, getString(R.string.toast_avatar_upload_failed), Toast.LENGTH_SHORT).show()
                 }
             }
         }
@@ -147,16 +147,16 @@ class MainActivity : AppCompatActivity() {
             },
             onEmergencyCall = { user ->
                 AlertDialog.Builder(this)
-                    .setTitle("Emergency call")
-                    .setMessage("Send emergency call to ${user.username}?\nThis will override silent mode on their device.")
-                    .setPositiveButton("Send Emergency") { _, _ ->
+                    .setTitle(getString(R.string.dialog_emergency_call_title))
+                    .setMessage(getString(R.string.dialog_emergency_call_message, user.username))
+                    .setPositiveButton(getString(R.string.btn_send_emergency)) { _, _ ->
                         startActivity(Intent(this, CallActivity::class.java).apply {
                             putExtra(CallActivity.EXTRA_PEER, user.username)
                             putExtra(CallActivity.EXTRA_IS_CALLER, true)
                             putExtra(CallActivity.EXTRA_IS_EMERGENCY, true)
                         })
                     }
-                    .setNegativeButton("Cancel", null)
+                    .setNegativeButton(getString(R.string.btn_cancel), null)
                     .show()
             },
             onEmergencyWithLocation = { user ->
@@ -188,7 +188,7 @@ class MainActivity : AppCompatActivity() {
                 val current = Prefs.getContactNickname(this, user.username)
                 val et = android.widget.EditText(this).apply {
                     setText(current)
-                    hint = "Nickname for ${user.username} (leave empty to clear)"
+                    hint = getString(R.string.hint_nickname_for_contact, user.username)
                     inputType = android.text.InputType.TYPE_CLASS_TEXT or
                         android.text.InputType.TYPE_TEXT_FLAG_CAP_WORDS
                     filters = arrayOf(android.text.InputFilter.LengthFilter(30))
@@ -199,9 +199,9 @@ class MainActivity : AppCompatActivity() {
                     addView(et)
                 }
                 AlertDialog.Builder(this)
-                    .setTitle("Nickname for ${user.username}")
+                    .setTitle(getString(R.string.dialog_nickname_for_title, user.username))
                     .setView(wrap)
-                    .setPositiveButton("Save") { _, _ ->
+                    .setPositiveButton(getString(R.string.btn_save)) { _, _ ->
                         val nick = et.text.toString().trim()
                         Prefs.setContactNickname(this, user.username, nick)
                         WebSocketClient.send(mapOf(
@@ -211,7 +211,7 @@ class MainActivity : AppCompatActivity() {
                         ))
                         adapter.notifyDataSetChanged()
                     }
-                    .setNegativeButton("Cancel", null)
+                    .setNegativeButton(getString(R.string.btn_cancel), null)
                     .show()
             }
         )
@@ -296,7 +296,7 @@ class MainActivity : AppCompatActivity() {
                 true
             }
             R.id.action_reconnect -> {
-                Toast.makeText(this, "Reconnecting…", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, getString(R.string.toast_reconnecting), Toast.LENGTH_SHORT).show()
                 val intent = Intent(this, FshuService::class.java).apply {
                     action = FshuService.ACTION_RECONNECT
                 }
@@ -310,13 +310,13 @@ class MainActivity : AppCompatActivity() {
                     when {
                         result == null ->
                             Toast.makeText(this@MainActivity,
-                                "No response", Toast.LENGTH_SHORT).show()
+                                getString(R.string.toast_no_response), Toast.LENGTH_SHORT).show()
                         result.get("connected")?.asBoolean == true ->
                             Toast.makeText(this@MainActivity,
-                                "Connected ✓", Toast.LENGTH_SHORT).show()
+                                getString(R.string.toast_connected), Toast.LENGTH_SHORT).show()
                         else ->
                             Toast.makeText(this@MainActivity,
-                                "Failed ✗", Toast.LENGTH_SHORT).show()
+                                getString(R.string.toast_failed), Toast.LENGTH_SHORT).show()
                     }
                 }
                 true
@@ -330,7 +330,7 @@ class MainActivity : AppCompatActivity() {
                 val current = Prefs.getMyNickname(this)
                 val et = android.widget.EditText(this).apply {
                     setText(current)
-                    hint = "Your nickname (max 20 chars)"
+                    hint = getString(R.string.hint_your_nickname)
                     inputType = android.text.InputType.TYPE_CLASS_TEXT or
                         android.text.InputType.TYPE_TEXT_FLAG_CAP_WORDS
                     filters = arrayOf(android.text.InputFilter.LengthFilter(20))
@@ -341,10 +341,10 @@ class MainActivity : AppCompatActivity() {
                     addView(et)
                 }
                 androidx.appcompat.app.AlertDialog.Builder(this)
-                    .setTitle("Set my nickname")
-                    .setMessage("This will be visible to everyone. Leave empty to use your username.")
+                    .setTitle(getString(R.string.dialog_set_nickname_title))
+                    .setMessage(getString(R.string.dialog_set_nickname_message))
                     .setView(wrap)
-                    .setPositiveButton("Save") { _, _ ->
+                    .setPositiveButton(getString(R.string.btn_save)) { _, _ ->
                         val nickname = et.text.toString().trim()
                         Prefs.setMyNickname(this, nickname)
                         if (WebSocketClient.isConnected) {
@@ -354,10 +354,11 @@ class MainActivity : AppCompatActivity() {
                             ))
                         }
                         Toast.makeText(this,
-                            if (nickname.isEmpty()) "Nickname cleared" else "Nickname set to \"$nickname\"",
+                            if (nickname.isEmpty()) getString(R.string.toast_nickname_cleared)
+                            else getString(R.string.toast_nickname_set, nickname),
                             Toast.LENGTH_SHORT).show()
                     }
-                    .setNegativeButton("Cancel", null)
+                    .setNegativeButton(getString(R.string.btn_cancel), null)
                     .show()
                 true
             }
@@ -368,7 +369,7 @@ class MainActivity : AppCompatActivity() {
             R.id.action_crash_log -> {
                 val crashes = CrashHandler.getAllCrashes(this)
                 if (crashes.isEmpty()) {
-                    Toast.makeText(this, "No crash logs found", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, getString(R.string.toast_no_crash_logs), Toast.LENGTH_SHORT).show()
                 } else {
                     val fullLog = crashes.joinToString("\n\n")
                     val tv = android.widget.TextView(this).apply {
@@ -381,21 +382,21 @@ class MainActivity : AppCompatActivity() {
                         addView(tv)
                     }
                     androidx.appcompat.app.AlertDialog.Builder(this)
-                        .setTitle("Crash logs (${crashes.size})")
+                        .setTitle(getString(R.string.dialog_crash_logs_title, crashes.size))
                         .setView(scroll)
-                        .setPositiveButton("Copy all") { _, _ ->
+                        .setPositiveButton(getString(R.string.btn_copy_all)) { _, _ ->
                             val clipboard = getSystemService(
                                 android.content.ClipboardManager::class.java)
                             clipboard.setPrimaryClip(
                                 android.content.ClipData.newPlainText("crash log", fullLog))
-                            Toast.makeText(this, "Copied to clipboard",
+                            Toast.makeText(this, getString(R.string.toast_copied_to_clipboard),
                                 Toast.LENGTH_SHORT).show()
                         }
-                        .setNeutralButton("Clear") { _, _ ->
+                        .setNeutralButton(getString(R.string.btn_clear)) { _, _ ->
                             CrashHandler.clearCrashes(this)
-                            Toast.makeText(this, "Logs cleared", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(this, getString(R.string.toast_logs_cleared), Toast.LENGTH_SHORT).show()
                         }
-                        .setNegativeButton("Close", null)
+                        .setNegativeButton(getString(R.string.btn_close), null)
                         .show()
                 }
                 true
@@ -453,9 +454,9 @@ class MainActivity : AppCompatActivity() {
 
     private fun showEmergencyLocationDialog(user: User) {
         AlertDialog.Builder(this)
-            .setTitle("Emergency call + location")
-            .setMessage("This will call ${user.username} AND immediately share your current location.\nOnly use in genuine emergencies.")
-            .setPositiveButton("Send Emergency") { _, _ ->
+            .setTitle(getString(R.string.dialog_emergency_location_title))
+            .setMessage(getString(R.string.dialog_emergency_location_message, user.username))
+            .setPositiveButton(getString(R.string.btn_send_emergency)) { _, _ ->
                 startActivity(Intent(this, CallActivity::class.java).apply {
                     putExtra(CallActivity.EXTRA_PEER, user.username)
                     putExtra(CallActivity.EXTRA_IS_CALLER, true)
@@ -481,7 +482,7 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
             }
-            .setNegativeButton("Cancel", null)
+            .setNegativeButton(getString(R.string.btn_cancel), null)
             .show()
     }
 
@@ -491,7 +492,7 @@ class MainActivity : AppCompatActivity() {
         val p8 = (8 * dp).toInt()
 
         val nameEdit = android.widget.EditText(this).apply {
-            hint = "Group name"
+            hint = getString(R.string.hint_group_name)
             inputType = android.text.InputType.TYPE_CLASS_TEXT or
                 android.text.InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
             filters = arrayOf(android.text.InputFilter.LengthFilter(64))
@@ -527,22 +528,22 @@ class MainActivity : AppCompatActivity() {
         }
 
         AlertDialog.Builder(this)
-            .setTitle("New group")
+            .setTitle(getString(R.string.dialog_new_group_title))
             .setView(container)
-            .setPositiveButton("Create") { _, _ ->
+            .setPositiveButton(getString(R.string.btn_create)) { _, _ ->
                 val groupName = nameEdit.text.toString().trim()
                 if (groupName.isEmpty()) {
-                    Toast.makeText(this, "Group name required", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, getString(R.string.toast_group_name_required), Toast.LENGTH_SHORT).show()
                     return@setPositiveButton
                 }
                 val selected = contacts.filterIndexed { i, _ -> checked[i] }
                 if (selected.isEmpty()) {
-                    Toast.makeText(this, "Select at least one member", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, getString(R.string.toast_select_at_least_one_member), Toast.LENGTH_SHORT).show()
                     return@setPositiveButton
                 }
                 createGroup(groupName, selected.map { it.username })
             }
-            .setNegativeButton("Cancel", null)
+            .setNegativeButton(getString(R.string.btn_cancel), null)
             .show()
     }
 
@@ -569,7 +570,7 @@ class MainActivity : AppCompatActivity() {
                 "members" to members
             ))
             withContext(Dispatchers.Main) {
-                Toast.makeText(this@MainActivity, "Group \"$name\" created", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@MainActivity, getString(R.string.toast_group_created, name), Toast.LENGTH_SHORT).show()
             }
         }
     }

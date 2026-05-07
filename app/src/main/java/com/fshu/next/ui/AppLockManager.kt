@@ -6,6 +6,7 @@ import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
+import com.fshu.next.R
 import com.fshu.next.util.Prefs
 
 object AppLockManager {
@@ -54,8 +55,8 @@ object AppLockManager {
 
         val promptInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             BiometricPrompt.PromptInfo.Builder()
-                .setTitle("4shu")
-                .setSubtitle("Unlock to continue")
+                .setTitle(activity.getString(R.string.app_lock_title))
+                .setSubtitle(activity.getString(R.string.label_unlock_to_continue))
                 .setAllowedAuthenticators(
                     BiometricManager.Authenticators.BIOMETRIC_STRONG or
                     BiometricManager.Authenticators.DEVICE_CREDENTIAL
@@ -63,9 +64,9 @@ object AppLockManager {
                 .build()
         } else {
             BiometricPrompt.PromptInfo.Builder()
-                .setTitle("4shu")
-                .setSubtitle("Unlock to continue")
-                .setNegativeButtonText("Cancel")
+                .setTitle(activity.getString(R.string.app_lock_title))
+                .setSubtitle(activity.getString(R.string.label_unlock_to_continue))
+                .setNegativeButtonText(activity.getString(R.string.btn_cancel))
                 .build()
         }
         prompt.authenticate(promptInfo)

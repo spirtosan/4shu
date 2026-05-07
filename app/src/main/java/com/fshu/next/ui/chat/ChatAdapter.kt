@@ -329,9 +329,9 @@ class ChatAdapter : ListAdapter<Message, RecyclerView.ViewHolder>(DIFF) {
                 val hasCoords = json?.has("lat") == true
                 val shared = json?.get("shared")?.asBoolean ?: false
                 if (shared || hasCoords) {
-                    holder.b.tvContent.text = "\uD83D\uDCCD Location shared automatically"
+                    holder.b.tvContent.text = holder.b.tvContent.context.getString(com.fshu.next.R.string.label_location_shared_auto)
                 } else {
-                    holder.b.tvContent.text = "\uD83D\uDCCD ${msg.from} requested your location"
+                    holder.b.tvContent.text = holder.b.tvContent.context.getString(com.fshu.next.R.string.label_location_requested_by, msg.from)
                 }
                 if (hasCoords && json != null) {
                     holder.b.tvCoords.visibility = View.VISIBLE
@@ -504,7 +504,7 @@ class ChatAdapter : ListAdapter<Message, RecyclerView.ViewHolder>(DIFF) {
 
     private fun openFile(view: View, msg: Message) {
         val uriStr = msg.localUri ?: run {
-            Toast.makeText(view.context, "File not available", Toast.LENGTH_SHORT).show()
+            Toast.makeText(view.context, view.context.getString(com.fshu.next.R.string.toast_file_not_available), Toast.LENGTH_SHORT).show()
             return
         }
         try {
@@ -516,9 +516,9 @@ class ChatAdapter : ListAdapter<Message, RecyclerView.ViewHolder>(DIFF) {
             }
             view.context.startActivity(intent)
         } catch (e: ActivityNotFoundException) {
-            Toast.makeText(view.context, "No app found to open this file", Toast.LENGTH_SHORT).show()
+            Toast.makeText(view.context, view.context.getString(com.fshu.next.R.string.toast_no_app_to_open_file), Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
-            Toast.makeText(view.context, "File no longer available", Toast.LENGTH_SHORT).show()
+            Toast.makeText(view.context, view.context.getString(com.fshu.next.R.string.toast_file_no_longer_available), Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -572,17 +572,17 @@ class ChatAdapter : ListAdapter<Message, RecyclerView.ViewHolder>(DIFF) {
             val lon = json.get("lon")?.asDouble ?: 0.0
             val accuracy = json.get("accuracy")?.asFloat ?: 0f
             val mapsUrl = json.get("mapsUrl")?.asString ?: LocationHelper.buildMapsUrl(lat, lon)
-            tvCoords.text = "\uD83D\uDCCD ${LocationHelper.formatCoordinates(lat, lon)}"
-            tvAccuracy.text = "\u00B1%.0fm".format(accuracy)
+            tvCoords.text = tvCoords.context.getString(com.fshu.next.R.string.label_location_coords, LocationHelper.formatCoordinates(lat, lon))
+            tvAccuracy.text = tvAccuracy.context.getString(com.fshu.next.R.string.location_accuracy_format, accuracy)
             btnMaps.setOnClickListener { view ->
                 try {
                     view.context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(mapsUrl)))
                 } catch (e: ActivityNotFoundException) {
-                    Toast.makeText(view.context, "Maps not available", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(view.context, view.context.getString(com.fshu.next.R.string.toast_maps_not_available), Toast.LENGTH_SHORT).show()
                 }
             }
         } catch (e: Exception) {
-            tvCoords.text = "\uD83D\uDCCD Location"
+            tvCoords.text = tvCoords.context.getString(com.fshu.next.R.string.label_location_fallback)
             tvAccuracy.text = ""
         }
     }
@@ -656,7 +656,7 @@ class ChatAdapter : ListAdapter<Message, RecyclerView.ViewHolder>(DIFF) {
 
         playBtn.setOnClickListener {
             val uri = msg.localUri ?: run {
-                Toast.makeText(it.context, "Downloading…", Toast.LENGTH_SHORT).show()
+                Toast.makeText(it.context, it.context.getString(com.fshu.next.R.string.toast_downloading), Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
             if (activeMsgId == msg.id) {
@@ -713,7 +713,7 @@ class ChatAdapter : ListAdapter<Message, RecyclerView.ViewHolder>(DIFF) {
             scheduleProgressUpdate()
         } catch (e: Exception) {
             android.util.Log.e("ChatAdapter", "Voice playback failed", e)
-            Toast.makeText(playBtn.context, "Cannot play voice message", Toast.LENGTH_SHORT).show()
+            Toast.makeText(playBtn.context, playBtn.context.getString(com.fshu.next.R.string.toast_cannot_play_voice), Toast.LENGTH_SHORT).show()
             activeMsgId = -1L
         }
     }

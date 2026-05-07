@@ -1,4 +1,303 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+
+    <!-- App -->
     <string name="app_name">4shu β</string>
+    <string name="app_lock_title">4shu</string>
+    <string name="app_version_format">Fshu v%1$s (build %2$s)</string>
+
+    <!-- Common buttons -->
+    <string name="btn_ok">OK</string>
+    <string name="btn_cancel">Cancel</string>
+    <string name="btn_save">Save</string>
+    <string name="btn_close">Close</string>
+    <string name="btn_delete">Delete</string>
+    <string name="btn_remove">Remove</string>
+    <string name="btn_add">Add</string>
+    <string name="btn_create">Create</string>
+    <string name="btn_enable">Enable</string>
+    <string name="btn_clear">Clear</string>
+    <string name="btn_leave">Leave</string>
+    <string name="btn_set">Set</string>
+    <string name="btn_reset">Reset</string>
+    <string name="btn_change">Change</string>
+    <string name="btn_sync">Sync</string>
+    <string name="btn_load">Load</string>
+    <string name="btn_skip">Skip</string>
+    <string name="btn_copy_all">Copy all</string>
+    <string name="btn_connect">Connect</string>
+    <string name="btn_send_emergency">Send Emergency</string>
+    <string name="btn_add_member">Add member</string>
+    <string name="btn_delete_group">Delete group</string>
+    <string name="btn_leave_group">Leave group</string>
+    <string name="btn_reset_to_default">Reset to default</string>
+    <string name="btn_add_item">+ Add item</string>
+    <string name="btn_row_delete">×</string>
+
+    <!-- Common status -->
+    <string name="toast_done">Done</string>
+    <string name="toast_error">Error</string>
+    <string name="toast_no_response">No response</string>
+    <string name="label_loading">Loading…</string>
+
+    <!-- Login -->
+    <string name="hint_username">Username</string>
+    <string name="hint_password">Password</string>
+    <string name="hint_server_url">Server URL (wss://…)</string>
+
+    <!-- Main / Contact list -->
+    <string name="toast_location_permission_required">Location permission required for this feature</string>
+    <string name="toast_avatar_upload_failed">Failed to upload avatar</string>
+    <string name="toast_reconnecting">Reconnecting…</string>
+    <string name="toast_connected">Connected ✓</string>
+    <string name="toast_failed">Failed ✗</string>
+    <string name="dialog_emergency_call_title">Emergency call</string>
+    <string name="dialog_emergency_call_message">Send emergency call to %s?\nThis will override silent mode on their device.</string>
+    <string name="dialog_emergency_location_title">Emergency call + location</string>
+    <string name="dialog_emergency_location_message">This will call %s AND immediately share your current location.\nOnly use in genuine emergencies.</string>
+    <string name="dialog_set_nickname_title">Set my nickname</string>
+    <string name="dialog_set_nickname_message">This will be visible to everyone. Leave empty to use your username.</string>
+    <string name="dialog_nickname_for_title">Nickname for %s</string>
+    <string name="hint_your_nickname">Your nickname (max 20 chars)</string>
+    <string name="hint_nickname_for_contact">Nickname for %s (leave empty to clear)</string>
+    <string name="toast_nickname_cleared">Nickname cleared</string>
+    <string name="toast_nickname_set">Nickname set to \"%s\"</string>
+    <string name="toast_no_crash_logs">No crash logs found</string>
+    <string name="dialog_crash_logs_title">Crash logs (%d)</string>
+    <string name="toast_copied_to_clipboard">Copied to clipboard</string>
+    <string name="toast_logs_cleared">Logs cleared</string>
+    <string name="dialog_new_group_title">New group</string>
+    <string name="hint_group_name">Group name</string>
+    <string name="toast_group_name_required">Group name required</string>
+    <string name="toast_select_at_least_one_member">Select at least one member</string>
+    <string name="toast_group_created">Group \"%s\" created</string>
+
+    <!-- Chat -->
+    <string name="hint_message">Message</string>
+    <string name="label_0_selected">0 selected</string>
+    <string name="label_n_selected">%d selected</string>
+    <string name="label_voice_recording">🎤 0:00</string>
+    <string name="typing_indicator">typing…</string>
+    <plurals name="group_members_subtitle">
+        <item quantity="one">1 member</item>
+        <item quantity="other">%d members</item>
+    </plurals>
+    <string name="toast_group_photo_updated">Group photo updated</string>
+    <string name="toast_failed_to_upload_photo">Failed to upload photo</string>
+    <string name="toast_failed_to_set_personal_photo">Failed to set personal photo</string>
+    <string name="toast_image_copied">Image copied</string>
+    <string name="toast_filename_copied">Filename copied</string>
+    <string name="toast_copied">Copied</string>
+    <string name="toast_list_copied">List copied as text</string>
+    <string name="toast_location_link_copied">Location link copied</string>
+    <string name="toast_hold_longer_to_record">Hold longer to record</string>
+    <string name="toast_mic_permission_granted">Microphone permission granted. Hold mic to record.</string>
+    <string name="toast_nothing_to_export">Nothing to export</string>
+    <string name="toast_export_failed">Export failed</string>
+
+    <plurals name="toast_messages_copied">
+        <item quantity="one">1 message copied</item>
+        <item quantity="other">%d messages copied</item>
+    </plurals>
+
+    <plurals name="toast_loaded_messages">
+        <item quantity="one">Loaded 1 message</item>
+        <item quantity="other">Loaded %d messages</item>
+    </plurals>
+
+    <!-- Chat — edit / react / delete -->
+    <string name="dialog_edit_message_title">Edit message</string>
+    <string name="dialog_react_title">React</string>
+    <string name="dialog_delete_message_title">Delete message?</string>
+    <string name="delete_option_for_everyone">Delete for everyone</string>
+    <string name="delete_option_for_me">Delete for me only</string>
+
+    <plurals name="dialog_delete_messages_title">
+        <item quantity="one">Delete 1 message?</item>
+        <item quantity="other">Delete %d messages?</item>
+    </plurals>
+
+    <plurals name="dialog_delete_messages_body">
+        <item quantity="one">This will delete the selected message from your device only.</item>
+        <item quantity="other">This will delete the selected messages from your device only.</item>
+    </plurals>
+
+    <!-- Chat — history -->
+    <string name="dialog_load_history_title">Load history</string>
+    <string name="history_option_7_days">Last 7 days</string>
+    <string name="history_option_30_days">Last 30 days</string>
+    <string name="history_option_90_days">Last 90 days</string>
+    <string name="history_option_custom">Custom…</string>
+    <string name="dialog_custom_period_title">Custom period</string>
+    <string name="hint_days">Days (1–90)</string>
+
+    <!-- Chat — todo list -->
+    <string name="label_todo_list">☑ Todo list</string>
+    <string name="dialog_new_todo_title">New todo list</string>
+    <string name="dialog_edit_todo_title">Edit todo list</string>
+
+    <!-- Chat — group events -->
+    <string name="dialog_removed_from_group_title">Removed from group</string>
+    <string name="dialog_removed_from_group_message">You were removed from this group by an admin.</string>
+    <string name="dialog_group_deleted_title">Group deleted</string>
+    <string name="dialog_group_deleted_message">This group was deleted.</string>
+    <string name="toast_you_left_group">You left the group</string>
+
+    <!-- Chat — group info dialog -->
+    <string name="dialog_remove_member_title">Remove %s?</string>
+    <string name="dialog_delete_group_title">Delete \"%s\"?</string>
+    <string name="dialog_delete_group_message">This will delete the group for all members.</string>
+    <string name="dialog_leave_group_title">Leave \"%s\"?</string>
+    <string name="dialog_add_member_title">Add member</string>
+    <string name="hint_username_to_add">Username to add</string>
+    <string name="toast_group_key_not_available">Group key not available</string>
+    <string name="toast_cannot_invite_no_key">Cannot invite: public key not found for %s</string>
+
+    <!-- Location bubbles -->
+    <string name="label_location_shared_auto">📍 Location shared automatically</string>
+    <string name="label_location_requested_by">📍 %s requested your location</string>
+    <string name="label_location_coords">📍 %s</string>
+    <string name="label_location_fallback">📍 Location</string>
+    <string name="location_accuracy_format">±%.0fm</string>
+    <string name="btn_open_in_maps">Open in Maps</string>
+
+    <!-- Call -->
+    <string name="label_emergency_call_banner">🚨 EMERGENCY CALL</string>
+    <string name="btn_silence">Silence</string>
+    <string name="btn_decline">Decline</string>
+    <string name="btn_accept">Accept</string>
+
+    <!-- Settings -->
+    <string name="label_server_url">Server URL</string>
+    <string name="label_device_name">Device name</string>
+    <string name="label_location_sharing">📍 Location sharing</string>
+    <string name="desc_location_sharing">Auto-respond to location requests from family contacts only.</string>
+    <string name="label_push_fcm">🔔 Push wake-up (FCM)</string>
+    <string name="desc_push_fcm">Uses Google Firebase to wake the app when a message or call arrives while Fshu is not running. Disable for maximum privacy.</string>
+    <string name="label_app_lock">🔒 App lock</string>
+    <string name="desc_app_lock">Require biometric or device PIN to open the app.</string>
+    <string name="label_unlock_to_continue">Unlock to continue</string>
+    <string name="btn_change_password">Change password</string>
+    <string name="label_history">History</string>
+    <string name="label_sync_all_history">Sync all chat history</string>
+    <string name="desc_sync_all_history">Download missing messages from the server for all conversations.</string>
+    <string name="label_permissions">Permissions</string>
+    <string name="dialog_device_name_title">Device name</string>
+    <string name="dialog_server_url_title">Server URL</string>
+    <string name="toast_url_invalid">URL must start with wss:// or ws://</string>
+    <string name="toast_server_url_updated">Server URL updated — reconnecting</string>
+    <string name="toast_reset_to_default_reconnecting">Reset to default — reconnecting</string>
+    <string name="dialog_enable_location_title">Enable location sharing?</string>
+    <string name="dialog_enable_location_message">When enabled, Fshu will automatically reply with your current GPS position whenever someone requests your location.\n\nYou can disable this at any time from Settings.</string>
+    <string name="toast_push_enabled">Push wake-up enabled</string>
+    <string name="toast_push_disabled">Push wake-up disabled</string>
+    <string name="toast_app_lock_enabled">App lock enabled</string>
+    <string name="toast_app_lock_disabled">App lock disabled</string>
+    <string name="dialog_sync_history_title">Sync all chat history</string>
+    <string name="toast_no_known_peers">No known peers</string>
+    <string name="toast_syncing_history">Syncing history…</string>
+    <string name="toast_history_requests_sent">History requests sent</string>
+
+    <!-- Admin Panel -->
+    <string name="title_admin_panel">Admin Panel</string>
+    <string name="label_access_denied">Access denied</string>
+    <string name="dialog_server_info_title">Server info</string>
+    <string name="label_no_response_server">No response from server</string>
+    <string name="label_invalid_response">Invalid response</string>
+    <string name="toast_no_response_from_server">No response from server</string>
+    <string name="dialog_add_user_title">Add user</string>
+    <string name="toast_username_password_required">Username and password required</string>
+    <string name="dialog_reset_password_title">Reset password for %s</string>
+    <string name="toast_password_required">Password required</string>
+    <string name="dialog_remove_user_title">Remove user</string>
+    <string name="dialog_remove_user_message">Remove %s? This cannot be undone.</string>
+    <string name="dialog_trust_level_title">Trust level for %s</string>
+    <string name="item_admin_badge">ADMIN</string>
+    <string name="item_trust_default">contact</string>
+    <string name="btn_reset_password">Reset password</string>
+    <string name="btn_trust">Trust</string>
+
+    <!-- Change Password -->
+    <string name="dialog_change_password_title">Change password</string>
+    <string name="toast_all_fields_required">All fields required</string>
+    <string name="toast_passwords_dont_match">Passwords don\'t match</string>
+    <string name="toast_password_changed">Password changed</string>
+    <string name="hint_current_password">Current password</string>
+    <string name="hint_new_password">New password</string>
+    <string name="hint_confirm_new_password">Confirm new password</string>
+
+    <!-- Connection Test -->
+    <string name="title_connection_test">Connection Test</string>
+    <string name="label_websocket">WebSocket</string>
+    <string name="label_dns">DNS</string>
+    <string name="label_turn_relay">TURN relay</string>
+    <string name="label_peer">Peer</string>
+
+    <!-- Background Picker -->
+    <string name="title_background">Background</string>
+    <string name="bg_custom">Custom</string>
+
+    <!-- Misc / Errors -->
+    <string name="toast_file_not_available">File not available</string>
+    <string name="toast_no_app_to_open_file">No app found to open this file</string>
+    <string name="toast_file_no_longer_available">File no longer available</string>
+    <string name="toast_maps_not_available">Maps not available</string>
+    <string name="toast_downloading">Downloading…</string>
+    <string name="toast_cannot_play_voice">Cannot play voice message</string>
+    <string name="toast_location_error">Could not get location — check GPS</string>
+
+    <!-- Menu items -->
+    <string name="menu_server_info">Server info</string>
+    <string name="menu_voice_call">Voice call</string>
+    <string name="menu_video_call">Video call</string>
+    <string name="menu_group_info">Group info</string>
+    <string name="menu_export_conversation">Export conversation</string>
+    <string name="menu_change_background">Change background</string>
+    <string name="menu_new_todo_list">New todo list</string>
+    <string name="menu_share_location">📍 Share my location</string>
+    <string name="menu_request_location">📍 Request location</string>
+    <string name="menu_load_history">📜 Load history</string>
+    <string name="menu_new_group">New group</string>
+    <string name="menu_admin_panel">Admin panel</string>
+    <string name="menu_reconnect">Reconnect</string>
+    <string name="menu_settings">Settings</string>
+    <string name="menu_set_my_nickname">Set my nickname</string>
+    <string name="menu_set_my_avatar">Set my avatar</string>
+    <string name="menu_view_crash_log">View crash log</string>
+    <string name="menu_test_connection">Test connection</string>
+    <string name="menu_emergency_call">🚨 Emergency call</string>
+    <string name="menu_emergency_call_location">🆘 Emergency call + location</string>
+    <string name="menu_set_nickname">Set nickname</string>
+
+    <!-- Chat — group info photo buttons -->
+    <string name="group_info_change_photo">Change group photo</string>
+    <string name="group_info_set_personal_photo">Set my photo for this group</string>
+
+    <!-- Notifications -->
+    <string name="notif_group_update">Group update</string>
+    <string name="notif_connected">Connected</string>
+    <string name="notif_channel_service">4shu</string>
+    <string name="notif_channel_messages">Messages</string>
+    <string name="notif_channel_messages_desc">Incoming message notifications</string>
+    <string name="notif_channel_calls">Calls</string>
+
+    <!-- Connection Test Sheet -->
+    <string name="connection_test_testing_with">Testing with %s</string>
+    <string name="connection_test_peer_label">Server → %s</string>
+
+    <!-- Permission Setup -->
+    <string name="permission_step_indicator">Step %1$d of %2$d</string>
+    <string name="permission_notifications">Notifications</string>
+    <string name="permission_microphone">Microphone</string>
+    <string name="permission_camera">Camera</string>
+    <string name="permission_location">Location sharing (optional)</string>
+    <string name="permission_auto_location">Auto-share location</string>
+    <string name="permission_push">Push wake-up (optional)</string>
+    <string name="permission_battery">Battery Optimization</string>
+    <string name="permission_overlay">Display Over Other Apps</string>
+    <string name="permission_fullscreen">Full Screen Calls</string>
+
+    <!-- Admin Panel — server info format -->
+    <string name="admin_server_info_format">Disk:\n%1$s\n\nFiles: %2$d (%3$s)\nHistory files: %4$d</string>
+
 </resources>

@@ -84,7 +84,7 @@ class ConnectionTestSheet : BottomSheetDialogFragment() {
     ): View = inflater.inflate(R.layout.fragment_connection_test, container, false)
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        view.findViewById<TextView>(R.id.tvCtSubtitle).text = "Testing with $peer"
+        view.findViewById<TextView>(R.id.tvCtSubtitle).text = getString(R.string.connection_test_testing_with, peer)
 
         dotWs      = view.findViewById(R.id.dotWs)
         tvWs       = view.findViewById(R.id.tvWs)
@@ -94,7 +94,7 @@ class ConnectionTestSheet : BottomSheetDialogFragment() {
         tvTurn     = view.findViewById(R.id.tvTurn)
         dotPeer    = view.findViewById(R.id.dotPeer)
         tvPeer     = view.findViewById(R.id.tvPeer)
-        view.findViewById<TextView>(R.id.tvPeerLabel).text = "Server → $peer"
+        view.findViewById<TextView>(R.id.tvPeerLabel).text = getString(R.string.connection_test_peer_label, peer)
         btnRunTest = view.findViewById(R.id.btnRunTest)
         tvOverall  = view.findViewById(R.id.tvOverall)
 

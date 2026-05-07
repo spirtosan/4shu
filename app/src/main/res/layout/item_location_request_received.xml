@@ -49,7 +49,7 @@
             android:id="@+id/btn_maps"
             android:layout_width="wrap_content"
             android:layout_height="36dp"
-            android:text="Open in Maps"
+            android:text="@string/btn_open_in_maps"
             android:textSize="12sp"
             android:layout_marginTop="6dp"
             android:visibility="gone"

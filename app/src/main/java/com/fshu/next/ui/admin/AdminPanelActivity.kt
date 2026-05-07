@@ -81,22 +81,22 @@ class AdminPanelActivity : AppCompatActivity() {
             WebSocketClient.send(mapOf("type" to "admin-server-info"))
             val result = withTimeoutOrNull(5_000) { ch.receive() }
             job.cancel()
-            if (result == null) { Toast.makeText(this@AdminPanelActivity, "No response", Toast.LENGTH_SHORT).show(); return@launch }
-            if (result.get("type")?.asString == "admin-error") { Toast.makeText(this@AdminPanelActivity, result.get("message")?.asString ?: "Error", Toast.LENGTH_SHORT).show(); return@launch }
+            if (result == null) { Toast.makeText(this@AdminPanelActivity, getString(R.string.toast_no_response), Toast.LENGTH_SHORT).show(); return@launch }
+            if (result.get("type")?.asString == "admin-error") { Toast.makeText(this@AdminPanelActivity, result.get("message")?.asString ?: getString(R.string.toast_error), Toast.LENGTH_SHORT).show(); return@launch }
             val disk = result.get("disk")?.asString ?: "N/A"
             val filesCount = result.get("filesCount")?.asInt ?: 0
             val filesMB = result.get("filesMB")?.asString ?: "0 MB"
             val historyCount = result.get("historyCount")?.asInt ?: 0
             androidx.appcompat.app.AlertDialog.Builder(this@AdminPanelActivity)
-                .setTitle("Server info")
-                .setMessage("Disk:\n$disk\n\nFiles: $filesCount ($filesMB)\nHistory files: $historyCount")
-                .setPositiveButton("OK", null)
+                .setTitle(getString(R.string.dialog_server_info_title))
+                .setMessage(getString(R.string.admin_server_info_format, disk, filesCount, filesMB, historyCount))
+                .setPositiveButton(getString(R.string.btn_ok), null)
                 .show()
         }
     }
 
     private fun loadUsers() {
-        binding.tvAdminStatus.text = "Loading…"
+        binding.tvAdminStatus.text = getString(R.string.label_loading)
         binding.tvAdminStatus.visibility = View.VISIBLE
         lifecycleScope.launch {
             val ch = Channel<JsonObject>(1)
@@ -110,15 +110,15 @@ class AdminPanelActivity : AppCompatActivity() {
             val result = withTimeoutOrNull(5_000) { ch.receive() }
             job.cancel()
             if (result == null) {
-                binding.tvAdminStatus.text = "No response from server"
+                binding.tvAdminStatus.text = getString(R.string.label_no_response_server)
                 return@launch
             }
             if (result.get("type")?.asString == "admin-error") {
-                binding.tvAdminStatus.text = result.get("message")?.asString ?: "Access denied"
+                binding.tvAdminStatus.text = result.get("message")?.asString ?: getString(R.string.label_access_denied)
                 return@launch
             }
             val arr = result.getAsJsonArray("users") ?: run {
-                binding.tvAdminStatus.text = "Invalid response"
+                binding.tvAdminStatus.text = getString(R.string.label_invalid_response)
                 return@launch
             }
             val list = arr.map { el ->
@@ -142,18 +142,18 @@ class AdminPanelActivity : AppCompatActivity() {
         val etUsername = view.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.etDialogUsername)
         val etPassword = view.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.etDialogPassword)
         AlertDialog.Builder(this)
-            .setTitle("Add user")
+            .setTitle(getString(R.string.dialog_add_user_title))
             .setView(view)
-            .setPositiveButton("Add") { _, _ ->
+            .setPositiveButton(getString(R.string.btn_add)) { _, _ ->
                 val username = etUsername.text?.toString()?.trim() ?: ""
                 val password = etPassword.text?.toString()?.trim() ?: ""
                 if (username.isBlank() || password.isBlank()) {
-                    Toast.makeText(this, "Username and password required", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, getString(R.string.toast_username_password_required), Toast.LENGTH_SHORT).show()
                     return@setPositiveButton
                 }
                 sendAdminAction(mapOf("type" to "admin-add-user", "username" to username, "password" to password))
             }
-            .setNegativeButton("Cancel", null)
+            .setNegativeButton(getString(R.string.btn_cancel), null)
             .show()
     }
 
@@ -161,28 +161,28 @@ class AdminPanelActivity : AppCompatActivity() {
         val view = layoutInflater.inflate(R.layout.dialog_reset_password, null)
         val etPassword = view.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.etDialogNewPassword)
         AlertDialog.Builder(this)
-            .setTitle("Reset password for ${user.username}")
+            .setTitle(getString(R.string.dialog_reset_password_title, user.username))
             .setView(view)
-            .setPositiveButton("Reset") { _, _ ->
+            .setPositiveButton(getString(R.string.btn_reset)) { _, _ ->
                 val newPass = etPassword.text?.toString()?.trim() ?: ""
                 if (newPass.isBlank()) {
-                    Toast.makeText(this, "Password required", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, getString(R.string.toast_password_required), Toast.LENGTH_SHORT).show()
                     return@setPositiveButton
                 }
                 sendAdminAction(mapOf("type" to "admin-reset-password", "username" to user.username, "newPassword" to newPass))
             }
-            .setNegativeButton("Cancel", null)
+            .setNegativeButton(getString(R.string.btn_cancel), null)
             .show()
     }
 
     private fun showRemoveDialog(user: AdminUser) {
         AlertDialog.Builder(this)
-            .setTitle("Remove user")
-            .setMessage("Remove ${user.username}? This cannot be undone.")
-            .setPositiveButton("Remove") { _, _ ->
+            .setTitle(getString(R.string.dialog_remove_user_title))
+            .setMessage(getString(R.string.dialog_remove_user_message, user.username))
+            .setPositiveButton(getString(R.string.btn_remove)) { _, _ ->
                 sendAdminAction(mapOf("type" to "admin-remove-user", "username" to user.username))
             }
-            .setNegativeButton("Cancel", null)
+            .setNegativeButton(getString(R.string.btn_cancel), null)
             .show()
     }
 
@@ -190,14 +190,14 @@ class AdminPanelActivity : AppCompatActivity() {
         val levels = arrayOf("family", "trusted", "contact", "stranger")
         val current = levels.indexOf(user.trustLevel).takeIf { it >= 0 } ?: 2
         AlertDialog.Builder(this)
-            .setTitle("Trust level for ${user.username}")
+            .setTitle(getString(R.string.dialog_trust_level_title, user.username))
             .setSingleChoiceItems(levels, current, null)
-            .setPositiveButton("Set") { dlg, _ ->
+            .setPositiveButton(getString(R.string.btn_set)) { dlg, _ ->
                 val lv = (dlg as AlertDialog).listView.checkedItemPosition
                 val level = levels.getOrElse(lv) { "contact" }
                 sendAdminAction(mapOf("type" to "admin-set-trust", "username" to user.username, "trustLevel" to level))
             }
-            .setNegativeButton("Cancel", null)
+            .setNegativeButton(getString(R.string.btn_cancel), null)
             .show()
     }
 
@@ -215,11 +215,11 @@ class AdminPanelActivity : AppCompatActivity() {
             job.cancel()
             when {
                 result == null ->
-                    Toast.makeText(this@AdminPanelActivity, "No response from server", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@AdminPanelActivity, getString(R.string.toast_no_response_from_server), Toast.LENGTH_SHORT).show()
                 result.get("type")?.asString == "admin-error" ->
-                    Toast.makeText(this@AdminPanelActivity, result.get("message")?.asString ?: "Error", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@AdminPanelActivity, result.get("message")?.asString ?: getString(R.string.toast_error), Toast.LENGTH_SHORT).show()
                 else -> {
-                    Toast.makeText(this@AdminPanelActivity, result.get("message")?.asString ?: "Done", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@AdminPanelActivity, result.get("message")?.asString ?: getString(R.string.toast_done), Toast.LENGTH_SHORT).show()
                     loadUsers()
                 }
             }

@@ -4,37 +4,37 @@
 
     <item
         android:id="@+id/action_new_group"
-        android:title="New group"
+        android:title="@string/menu_new_group"
         app:showAsAction="never" />
 
     <item
         android:id="@+id/action_change_background"
-        android:title="Change background"
+        android:title="@string/menu_change_background"
         app:showAsAction="never" />
 
     <item
         android:id="@+id/action_admin_panel"
-        android:title="Admin panel"
+        android:title="@string/menu_admin_panel"
         app:showAsAction="never" />
 
     <item
         android:id="@+id/action_reconnect"
-        android:title="Reconnect"
+        android:title="@string/menu_reconnect"
         app:showAsAction="never" />
 
     <item
         android:id="@+id/action_settings"
-        android:title="Settings"
+        android:title="@string/menu_settings"
         app:showAsAction="never" />
 
     <item
         android:id="@+id/action_set_nickname"
-        android:title="Set my nickname"
+        android:title="@string/menu_set_my_nickname"
         app:showAsAction="never" />
 
     <item
         android:id="@+id/action_set_avatar"
-        android:title="Set my avatar"
+        android:title="@string/menu_set_my_avatar"
         app:showAsAction="never" />
 
 
@@ -42,7 +42,7 @@
          To enable: set android:visible="true" and rebuild. -->
     <item
         android:id="@+id/action_crash_log"
-        android:title="View crash log"
+        android:title="@string/menu_view_crash_log"
         android:visible="false"
         app:showAsAction="never" />
 

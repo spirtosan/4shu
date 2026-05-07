@@ -14,7 +14,7 @@
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
             android:background="@color/bg_secondary"
-            app:title="Admin Panel"
+            app:title="@string/title_admin_panel"
             app:titleTextColor="@color/text_primary"
             app:navigationIcon="?attr/homeAsUpIndicator" />
     </com.google.android.material.appbar.AppBarLayout>
@@ -30,7 +30,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:padding="16dp"
-            android:text="Loading…"
+            android:text="@string/label_loading"
             android:textColor="?android:textColorSecondary" />
 
         <androidx.recyclerview.widget.RecyclerView

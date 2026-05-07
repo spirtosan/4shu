@@ -1433,7 +1433,7 @@ class FshuService : Service() {
             )
             val notif = NotificationCompat.Builder(this, CHANNEL_MESSAGES)
                 .setSmallIcon(R.drawable.ic_notification)
-                .setContentTitle("Group update")
+                .setContentTitle(getString(R.string.notif_group_update))
                 .setContentText(notifText)
                 .setAutoCancel(true)
                 .setContentIntent(pi)
@@ -1661,12 +1661,12 @@ class FshuService : Service() {
         nm.deleteNotificationChannel("fshu_messages_v2")
 
         nm.createNotificationChannel(
-            NotificationChannel(CHANNEL_ID, "Fshu", NotificationManager.IMPORTANCE_LOW)
+            NotificationChannel(CHANNEL_ID, getString(R.string.notif_channel_service), NotificationManager.IMPORTANCE_LOW)
         )
         nm.createNotificationChannel(
-            NotificationChannel(CHANNEL_MESSAGES, "Messages",
+            NotificationChannel(CHANNEL_MESSAGES, getString(R.string.notif_channel_messages),
                 NotificationManager.IMPORTANCE_HIGH).apply {
-                description = "Incoming message notifications"
+                description = getString(R.string.notif_channel_messages_desc)
                 enableLights(true)
                 lightColor = android.graphics.Color.parseColor("#E8711A")
                 enableVibration(true)
@@ -1677,7 +1677,7 @@ class FshuService : Service() {
         )
         nm.deleteNotificationChannel("fshu_calls_v2")
         nm.createNotificationChannel(
-            NotificationChannel(CHANNEL_CALLS, "Calls", NotificationManager.IMPORTANCE_MAX).apply {
+            NotificationChannel(CHANNEL_CALLS, getString(R.string.notif_channel_calls), NotificationManager.IMPORTANCE_MAX).apply {
                 setSound(null, null)
                 enableVibration(true)
                 setVibrationPattern(longArrayOf(0, 1000, 1000, 1000, 1000, 1000, 1000))
@@ -1697,8 +1697,8 @@ class FshuService : Service() {
     }
 
     private fun buildForegroundNotification() = NotificationCompat.Builder(this, CHANNEL_ID)
-        .setContentTitle("Fshu")
-        .setContentText("Connected")
+        .setContentTitle(getString(R.string.notif_channel_service))
+        .setContentText(getString(R.string.notif_connected))
         .setSmallIcon(R.drawable.ic_notification)
         .setOngoing(true)
         .build()

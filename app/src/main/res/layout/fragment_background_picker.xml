@@ -11,7 +11,7 @@
         android:layout_height="wrap_content"
         android:layout_marginStart="16dp"
         android:layout_marginBottom="12dp"
-        android:text="Background"
+        android:text="@string/title_background"
         android:textSize="18sp"
         android:textStyle="bold"
         android:textColor="?android:textColorPrimary" />
@@ -31,6 +31,6 @@
         android:layout_height="wrap_content"
         android:layout_marginStart="8dp"
         android:layout_marginTop="8dp"
-        android:text="Reset to default" />
+        android:text="@string/btn_reset_to_default" />
 
 </LinearLayout>

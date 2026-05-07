@@ -3,26 +3,26 @@
 
     <item
         android:id="@+id/action_user_call"
-        android:title="Voice call" />
+        android:title="@string/menu_voice_call" />
 
     <item
         android:id="@+id/action_user_video_call"
-        android:title="Video call" />
+        android:title="@string/menu_video_call" />
 
     <item
         android:id="@+id/action_user_test_connection"
-        android:title="Test connection" />
+        android:title="@string/menu_test_connection" />
 
     <item
         android:id="@+id/action_user_emergency_call"
-        android:title="🚨 Emergency call" />
+        android:title="@string/menu_emergency_call" />
 
     <item
         android:id="@+id/action_user_emergency_location"
-        android:title="🆘 Emergency call + location" />
+        android:title="@string/menu_emergency_call_location" />
 
     <item
         android:id="@+id/action_user_set_nickname"
-        android:title="Set nickname" />
+        android:title="@string/menu_set_nickname" />
 
 </menu>

@@ -55,16 +55,6 @@
         </activity>
 
         <activity
-            android:name=".ui.passphrase.PassphraseActivity"
-            android:exported="false"
-            android:windowSoftInputMode="adjustResize"/>
-
-        <activity
-            android:name=".ui.passphrase.PassphraseSetupActivity"
-            android:exported="false"
-            android:windowSoftInputMode="adjustResize"/>
-
-        <activity
             android:name=".MainActivity"
             android:exported="false"/>
 

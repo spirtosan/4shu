@@ -24,10 +24,10 @@ class ChangePasswordDialog : DialogFragment() {
         val etConfirm = view.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.etConfirmPassword)
 
         val dialog = AlertDialog.Builder(requireContext())
-            .setTitle("Change password")
+            .setTitle(getString(R.string.dialog_change_password_title))
             .setView(view)
-            .setPositiveButton("Change", null)
-            .setNegativeButton("Cancel", null)
+            .setPositiveButton(getString(R.string.btn_change), null)
+            .setNegativeButton(getString(R.string.btn_cancel), null)
             .create()
 
         dialog.setOnShowListener {
@@ -37,9 +37,9 @@ class ChangePasswordDialog : DialogFragment() {
                 val confirm = etConfirm.text?.toString()?.trim() ?: ""
                 when {
                     current.isBlank() || new.isBlank() || confirm.isBlank() ->
-                        Toast.makeText(requireContext(), "All fields required", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(requireContext(), getString(R.string.toast_all_fields_required), Toast.LENGTH_SHORT).show()
                     new != confirm ->
-                        Toast.makeText(requireContext(), "Passwords don't match", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(requireContext(), getString(R.string.toast_passwords_dont_match), Toast.LENGTH_SHORT).show()
                     else -> sendChangePassword(dialog, current, new)
                 }
             }
@@ -70,12 +70,12 @@ class ChangePasswordDialog : DialogFragment() {
             btn.isEnabled = true
             when {
                 result == null ->
-                    Toast.makeText(requireContext(), "No response from server", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(requireContext(), getString(R.string.toast_no_response_from_server), Toast.LENGTH_SHORT).show()
                 result.get("type")?.asString == "change-password-error" ->
-                    Toast.makeText(requireContext(), result.get("message")?.asString ?: "Error", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(requireContext(), result.get("message")?.asString ?: getString(R.string.toast_error), Toast.LENGTH_SHORT).show()
                 else -> {
                     Prefs.setPassword(requireContext(), new)
-                    Toast.makeText(requireContext(), "Password changed", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(requireContext(), getString(R.string.toast_password_changed), Toast.LENGTH_SHORT).show()
                     dialog.dismiss()
                 }
             }

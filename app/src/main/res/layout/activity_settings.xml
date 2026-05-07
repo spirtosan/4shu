@@ -25,7 +25,7 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Server URL"
+                android:text="@string/label_server_url"
                 android:textSize="13sp"
                 android:textColor="@color/text_secondary" />
 
@@ -60,7 +60,7 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Device name"
+                android:text="@string/label_device_name"
                 android:textSize="13sp"
                 android:textColor="@color/text_secondary" />
 
@@ -103,7 +103,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="📍 Location sharing"
+                    android:text="@string/label_location_sharing"
                     android:textSize="16sp"
                     android:textColor="?android:attr/textColorPrimary" />
 
@@ -111,7 +111,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="2dp"
-                    android:text="Auto-respond to location requests from family contacts only."
+                    android:text="@string/desc_location_sharing"
                     android:textSize="13sp"
                     android:textColor="?android:attr/textColorSecondary" />
 
@@ -156,7 +156,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="🔔 Push wake-up (FCM)"
+                    android:text="@string/label_push_fcm"
                     android:textSize="16sp"
                     android:textColor="?android:attr/textColorPrimary" />
 
@@ -164,7 +164,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="2dp"
-                    android:text="Uses Google Firebase to wake the app when a message or call arrives while Fshu is not running. Disable for maximum privacy."
+                    android:text="@string/desc_push_fcm"
                     android:textSize="13sp"
                     android:textColor="?android:attr/textColorSecondary" />
 
@@ -209,7 +209,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="🔒 App lock"
+                    android:text="@string/label_app_lock"
                     android:textSize="16sp"
                     android:textColor="?android:attr/textColorPrimary" />
 
@@ -217,7 +217,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="2dp"
-                    android:text="Require biometric or device PIN to open the app."
+                    android:text="@string/desc_app_lock"
                     android:textSize="13sp"
                     android:textColor="?android:attr/textColorSecondary" />
 
@@ -243,7 +243,7 @@
             android:id="@+id/tvChangePassword"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Change password"
+            android:text="@string/btn_change_password"
             android:textSize="16sp"
             android:textColor="?android:attr/textColorPrimary"
             android:paddingStart="16dp"
@@ -263,7 +263,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="History"
+            android:text="@string/label_history"
             android:textSize="12sp"
             android:textColor="?android:attr/textColorSecondary"
             android:paddingStart="16dp"
@@ -287,7 +287,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Sync all chat history"
+                android:text="@string/label_sync_all_history"
                 android:textSize="16sp"
                 android:textColor="?android:attr/textColorPrimary" />
 
@@ -295,7 +295,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="2dp"
-                android:text="Download missing messages from the server for all conversations."
+                android:text="@string/desc_sync_all_history"
                 android:textSize="13sp"
                 android:textColor="?android:attr/textColorSecondary" />
 
@@ -310,7 +310,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Permissions"
+            android:text="@string/label_permissions"
             android:textSize="12sp"
             android:textColor="?android:attr/textColorSecondary"
             android:paddingStart="16dp"

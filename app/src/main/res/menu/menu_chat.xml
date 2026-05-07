@@ -4,14 +4,14 @@
 
     <item
         android:id="@+id/action_call"
-        android:title="Voice call"
+        android:title="@string/menu_voice_call"
         android:icon="@drawable/ic_call_white"
         android:contentDescription="Voice call"
         app:showAsAction="always" />
 
     <item
         android:id="@+id/action_video_call"
-        android:title="Video call"
+        android:title="@string/menu_video_call"
         android:icon="@drawable/ic_videocam"
         android:contentDescription="Video call"
         app:showAsAction="always" />
@@ -19,37 +19,37 @@
 
     <item
         android:id="@+id/action_group_info"
-        android:title="Group info"
+        android:title="@string/menu_group_info"
         app:showAsAction="never" />
 
     <item
         android:id="@+id/action_export"
-        android:title="Export conversation"
+        android:title="@string/menu_export_conversation"
         app:showAsAction="never" />
 
     <item
         android:id="@+id/action_change_background"
-        android:title="Change background"
+        android:title="@string/menu_change_background"
         app:showAsAction="never" />
 
     <item
         android:id="@+id/action_new_todo"
-        android:title="New todo list"
+        android:title="@string/menu_new_todo_list"
         app:showAsAction="never" />
 
     <item
         android:id="@+id/action_share_location"
-        android:title="📍 Share my location"
+        android:title="@string/menu_share_location"
         app:showAsAction="never" />
 
     <item
         android:id="@+id/action_request_location"
-        android:title="📍 Request location"
+        android:title="@string/menu_request_location"
         app:showAsAction="never" />
 
     <item
         android:id="@+id/action_load_history"
-        android:title="📜 Load history"
+        android:title="@string/menu_load_history"
         app:showAsAction="never" />
 
 </menu>

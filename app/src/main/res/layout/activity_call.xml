@@ -22,7 +22,7 @@
         android:id="@+id/tv_emergency_banner"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:text="\uD83D\uDEA8 EMERGENCY CALL"
+        android:text="@string/label_emergency_call_banner"
         android:textColor="#FFFFFF"
         android:textSize="17sp"
         android:textStyle="bold"
@@ -108,7 +108,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Silence"
+                android:text="@string/btn_silence"
                 android:textColor="#9090B0"
                 android:textSize="12sp"
                 android:layout_marginTop="8dp" />
@@ -133,7 +133,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Decline"
+                android:text="@string/btn_decline"
                 android:textColor="#9090B0"
                 android:textSize="12sp"
                 android:layout_marginTop="8dp" />
@@ -157,7 +157,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Accept"
+                android:text="@string/btn_accept"
                 android:textColor="#9090B0"
                 android:textSize="12sp"
                 android:layout_marginTop="8dp" />

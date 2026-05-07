@@ -107,11 +107,11 @@ class ChatActivity : AppCompatActivity() {
                 val b64 = Base64.encodeToString(baos.toByteArray(), Base64.NO_WRAP)
                 com.fshu.next.data.remote.WebSocketClient.send(mapOf("type" to "group-avatar-upload", "groupId" to gid, "data" to b64))
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(this@ChatActivity, "Group photo updated", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@ChatActivity, getString(R.string.toast_group_photo_updated), Toast.LENGTH_SHORT).show()
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(this@ChatActivity, "Failed to upload photo", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@ChatActivity, getString(R.string.toast_failed_to_upload_photo), Toast.LENGTH_SHORT).show()
                 }
             }
         }
@@ -139,7 +139,7 @@ class ChatActivity : AppCompatActivity() {
                 runOnUiThread { loadGroupAvatarInto(group, binding.toolbarAvatar, (36 * resources.displayMetrics.density).toInt()) }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(this@ChatActivity, "Failed to set personal photo", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@ChatActivity, getString(R.string.toast_failed_to_set_personal_photo), Toast.LENGTH_SHORT).show()
                 }
             }
         }
@@ -206,7 +206,7 @@ class ChatActivity : AppCompatActivity() {
                 if (!isGroupChat) title = getNickname(peer) ?: peer
             } else {
                 binding.selectionBar.visibility = View.VISIBLE
-                binding.tvSelectionCount.text = "$count selected"
+                binding.tvSelectionCount.text = getString(R.string.label_n_selected, count)
                 // Copy available for all selections except location-request
                 val canCopy = adapter.getSelectedMessages()
                     .none { it.type == "location-request" }
@@ -247,20 +247,20 @@ class ChatActivity : AppCompatActivity() {
                                 val uri = android.net.Uri.parse(uriStr)
                                 val clip = ClipData.newUri(contentResolver, msg.filename ?: "image", uri)
                                 cm.setPrimaryClip(clip)
-                                Toast.makeText(this, "Image copied", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(this, getString(R.string.toast_image_copied), Toast.LENGTH_SHORT).show()
                             } catch (e: Exception) {
                                 cm.setPrimaryClip(ClipData.newPlainText("file", msg.filename ?: msg.content))
-                                Toast.makeText(this, "Filename copied", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(this, getString(R.string.toast_filename_copied), Toast.LENGTH_SHORT).show()
                             }
                         } else {
                             cm.setPrimaryClip(ClipData.newPlainText("file", msg.filename ?: msg.content))
-                            Toast.makeText(this, "Copied", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(this, getString(R.string.toast_copied), Toast.LENGTH_SHORT).show()
                         }
                     }
                     "list" -> {
                         val text = formatListForCopy(msg)
                         cm.setPrimaryClip(ClipData.newPlainText("list", text))
-                        Toast.makeText(this, "List copied as text", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this, getString(R.string.toast_list_copied), Toast.LENGTH_SHORT).show()
                     }
                     "location" -> {
                         val mapsUrl = try {
@@ -268,11 +268,11 @@ class ChatActivity : AppCompatActivity() {
                                 .asJsonObject.get("mapsUrl")?.asString ?: msg.content
                         } catch (e: Exception) { msg.content }
                         cm.setPrimaryClip(ClipData.newPlainText("location", mapsUrl))
-                        Toast.makeText(this, "Location link copied", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this, getString(R.string.toast_location_link_copied), Toast.LENGTH_SHORT).show()
                     }
                     else -> {
                         cm.setPrimaryClip(ClipData.newPlainText("message", msg.content))
-                        Toast.makeText(this, "Copied", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this, getString(R.string.toast_copied), Toast.LENGTH_SHORT).show()
                     }
                 }
             } else {
@@ -288,7 +288,7 @@ class ChatActivity : AppCompatActivity() {
                     }
                 }
                 cm.setPrimaryClip(ClipData.newPlainText("messages", text))
-                Toast.makeText(this, "${messages.size} messages copied", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, resources.getQuantityString(R.plurals.toast_messages_copied, messages.size, messages.size), Toast.LENGTH_SHORT).show()
             }
             adapter.clearSelection()
         }
@@ -338,16 +338,16 @@ class ChatActivity : AppCompatActivity() {
                 addView(et)
             }
             AlertDialog.Builder(this)
-                .setTitle("Edit message")
+                .setTitle(getString(R.string.dialog_edit_message_title))
                 .setView(wrap)
-                .setPositiveButton("Save") { _, _ ->
+                .setPositiveButton(getString(R.string.btn_save)) { _, _ ->
                     val newText = et.text.toString().trim()
                     if (newText.isNotBlank() && newText != msg.content) {
                         vm.editMessage(msg, newText, peer)
                     }
                     adapter.clearSelection()
                 }
-                .setNegativeButton("Cancel") { _, _ -> adapter.clearSelection() }
+                .setNegativeButton(getString(R.string.btn_cancel)) { _, _ -> adapter.clearSelection() }
                 .show()
         }
 
@@ -357,14 +357,14 @@ class ChatActivity : AppCompatActivity() {
             val emojis = arrayOf("👍", "👎", "❤️", "😂", "😮", "😢", "😡", "🔥", "👏", "🎉")
             val labels = emojis.map { if (it == myEmoji) "$it ✓" else it }.toTypedArray()
             AlertDialog.Builder(this)
-                .setTitle("React")
+                .setTitle(getString(R.string.dialog_react_title))
                 .setItems(labels) { _, which ->
                     val picked = emojis[which]
                     if (picked == myEmoji) vm.sendReaction(msg, null)
                     else vm.sendReaction(msg, picked)
                     adapter.clearSelection()
                 }
-                .setNegativeButton("Cancel") { _, _ -> adapter.clearSelection() }
+                .setNegativeButton(getString(R.string.btn_cancel)) { _, _ -> adapter.clearSelection() }
                 .show()
         }
 
@@ -377,23 +377,23 @@ class ChatActivity : AppCompatActivity() {
 
             if (canDeleteForAll && single != null) {
                 AlertDialog.Builder(this)
-                    .setTitle("Delete message?")
-                    .setItems(arrayOf("Delete for everyone", "Delete for me only")) { _, which ->
+                    .setTitle(getString(R.string.dialog_delete_message_title))
+                    .setItems(arrayOf(getString(R.string.delete_option_for_everyone), getString(R.string.delete_option_for_me))) { _, which ->
                         if (which == 0) vm.deleteForEveryone(single)
                         else vm.deleteMessages(ids)
                         adapter.clearSelection()
                     }
-                    .setNegativeButton("Cancel", null)
+                    .setNegativeButton(getString(R.string.btn_cancel), null)
                     .show()
             } else {
                 AlertDialog.Builder(this)
-                    .setTitle("Delete $count message${if (count > 1) "s" else ""}?")
-                    .setMessage("This will delete the selected message${if (count > 1) "s" else ""} from your device only.")
-                    .setPositiveButton("Delete") { _, _ ->
+                    .setTitle(resources.getQuantityString(R.plurals.dialog_delete_messages_title, count, count))
+                    .setMessage(resources.getQuantityString(R.plurals.dialog_delete_messages_body, count))
+                    .setPositiveButton(getString(R.string.btn_delete)) { _, _ ->
                         vm.deleteMessages(ids)
                         adapter.clearSelection()
                     }
-                    .setNegativeButton("Cancel", null)
+                    .setNegativeButton(getString(R.string.btn_cancel), null)
                     .show()
             }
         }
@@ -413,7 +413,7 @@ class ChatActivity : AppCompatActivity() {
                             Triple(id, text, obj.get("done")?.asBoolean ?: false)
                         }
                 } catch (e: Exception) { emptyList() }
-                showTodoDialog(current, "Edit todo list") { items, deletedIds ->
+                showTodoDialog(current, getString(R.string.dialog_edit_todo_title)) { items, deletedIds ->
                     vm.editList(msg, items.map { (id, text, _) -> Pair(id, text) }, deletedIds, peer)
                 }
             }
@@ -481,12 +481,12 @@ class ChatActivity : AppCompatActivity() {
                 android.view.MotionEvent.ACTION_CANCEL -> {
                     binding.etMessage.visibility = View.VISIBLE
                     binding.tvRecordingState.visibility = View.GONE
-                    binding.tvRecordingState.text = "🎤 0:00"
+                    binding.tvRecordingState.text = getString(R.string.label_voice_recording)
                     val result = voiceRecorder.stop()
                     if (result != null && result.durationSecs >= 1) {
                         vm.sendVoice(peer, result.file, result.waveform, result.durationSecs)
                     } else if (result != null) {
-                        Toast.makeText(this, "Hold longer to record", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this, getString(R.string.toast_hold_longer_to_record), Toast.LENGTH_SHORT).show()
                     }
                     true
                 }
@@ -518,7 +518,7 @@ class ChatActivity : AppCompatActivity() {
                         if (peer == this@ChatActivity.peer) {
                             val count = json.get("count")?.asInt ?: 0
                             if (count > 0) runOnUiThread {
-                                Toast.makeText(this@ChatActivity, "Loaded $count message(s)", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(this@ChatActivity, resources.getQuantityString(R.plurals.toast_loaded_messages, count, count), Toast.LENGTH_SHORT).show()
                                 binding.rvMessages.scrollToPosition(0)
                             }
                         }
@@ -530,7 +530,7 @@ class ChatActivity : AppCompatActivity() {
                     "typing" -> {
                         val from = json.get("from")?.asString
                         if (from == peer) runOnUiThread {
-                            supportActionBar?.subtitle = "typing..."
+                            supportActionBar?.subtitle = getString(R.string.typing_indicator)
                             typingHideHandler.removeCallbacks(typingHideRunnable)
                             typingHideHandler.postDelayed(typingHideRunnable, 5000L)
                         }
@@ -541,19 +541,19 @@ class ChatActivity : AppCompatActivity() {
                             val reason = json.get("reason")?.asString
                             when (reason) {
                                 "kicked" -> AlertDialog.Builder(this@ChatActivity)
-                                    .setTitle("Removed from group")
-                                    .setMessage("You were removed from this group by an admin.")
-                                    .setPositiveButton("OK") { _, _ -> finish() }
+                                    .setTitle(getString(R.string.dialog_removed_from_group_title))
+                                    .setMessage(getString(R.string.dialog_removed_from_group_message))
+                                    .setPositiveButton(getString(R.string.btn_ok)) { _, _ -> finish() }
                                     .setCancelable(false)
                                     .show()
                                 "deleted" -> AlertDialog.Builder(this@ChatActivity)
-                                    .setTitle("Group deleted")
-                                    .setMessage("This group was deleted.")
-                                    .setPositiveButton("OK") { _, _ -> finish() }
+                                    .setTitle(getString(R.string.dialog_group_deleted_title))
+                                    .setMessage(getString(R.string.dialog_group_deleted_message))
+                                    .setPositiveButton(getString(R.string.btn_ok)) { _, _ -> finish() }
                                     .setCancelable(false)
                                     .show()
                                 else -> {
-                                    Toast.makeText(this@ChatActivity, "You left the group", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(this@ChatActivity, getString(R.string.toast_you_left_group), Toast.LENGTH_SHORT).show()
                                     finish()
                                 }
                             }
@@ -711,7 +711,7 @@ class ChatActivity : AppCompatActivity() {
                 return true
             }
             R.id.action_new_todo -> {
-                showTodoDialog(emptyList(), "New todo list") { items, _ ->
+                showTodoDialog(emptyList(), getString(R.string.dialog_new_todo_title)) { items, _ ->
                     vm.createList(peer, items.map { (id, text, _) -> Pair(id, text) })
                 }
                 return true
@@ -800,7 +800,7 @@ class ChatActivity : AppCompatActivity() {
         }
 
         val addBtn = Button(this).apply {
-            this.text = "+ Add item"
+            this.text = getString(R.string.btn_add_item)
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
@@ -832,7 +832,7 @@ class ChatActivity : AppCompatActivity() {
         AlertDialog.Builder(this)
             .setTitle(title)
             .setView(scroll)
-            .setPositiveButton("Save") { _, _ ->
+            .setPositiveButton(getString(R.string.btn_save)) { _, _ ->
                 val items = committedRows.mapNotNull { row ->
                     val text = (row.getChildAt(0) as? TextView)?.text?.toString()?.trim()
                         ?.takeIf { it.isNotEmpty() } ?: return@mapNotNull null
@@ -848,7 +848,7 @@ class ChatActivity : AppCompatActivity() {
                 }
                 if (items.isNotEmpty()) onSave(items, deletedIds)
             }
-            .setNegativeButton("Cancel", null)
+            .setNegativeButton(getString(R.string.btn_cancel), null)
             .show()
     }
 
@@ -861,7 +861,7 @@ class ChatActivity : AppCompatActivity() {
         if (requestCode == 101 &&
             grantResults.isNotEmpty() &&
             grantResults[0] == android.content.pm.PackageManager.PERMISSION_GRANTED) {
-            Toast.makeText(this, "Microphone permission granted. Hold mic to record.", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, getString(R.string.toast_mic_permission_granted), Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -876,9 +876,9 @@ class ChatActivity : AppCompatActivity() {
     }
 
     private fun showHistoryDialog() {
-        val options = arrayOf("Last 7 days", "Last 30 days", "Last 90 days", "Custom...")
+        val options = arrayOf(getString(R.string.history_option_7_days), getString(R.string.history_option_30_days), getString(R.string.history_option_90_days), getString(R.string.history_option_custom))
         AlertDialog.Builder(this)
-            .setTitle("Load history")
+            .setTitle(getString(R.string.dialog_load_history_title))
             .setItems(options) { _, which ->
                 when (which) {
                     0 -> vm.requestHistory(peer, 7)
@@ -887,7 +887,7 @@ class ChatActivity : AppCompatActivity() {
                     3 -> {
                         val et = EditText(this).apply {
                             inputType = InputType.TYPE_CLASS_NUMBER
-                            hint = "Days (1–90)"
+                            hint = getString(R.string.hint_days)
                         }
                         val pad = (16 * resources.displayMetrics.density).toInt()
                         val wrap = android.widget.FrameLayout(this).apply {
@@ -895,13 +895,13 @@ class ChatActivity : AppCompatActivity() {
                             addView(et)
                         }
                         AlertDialog.Builder(this)
-                            .setTitle("Custom period")
+                            .setTitle(getString(R.string.dialog_custom_period_title))
                             .setView(wrap)
-                            .setPositiveButton("Load") { _, _ ->
+                            .setPositiveButton(getString(R.string.btn_load)) { _, _ ->
                                 val days = et.text.toString().toIntOrNull()?.coerceIn(1, 90) ?: 7
                                 vm.requestHistory(peer, days)
                             }
-                            .setNegativeButton("Cancel", null)
+                            .setNegativeButton(getString(R.string.btn_cancel), null)
                             .show()
                     }
                 }
@@ -978,7 +978,7 @@ class ChatActivity : AppCompatActivity() {
             val sizePx = (36 * resources.displayMetrics.density).toInt()
             runOnUiThread {
                 title = group.name
-                supportActionBar?.subtitle = "${members.size} members"
+                supportActionBar?.subtitle = resources.getQuantityString(R.plurals.group_members_subtitle, members.size, members.size)
                 loadGroupAvatarInto(group, binding.toolbarAvatar, sizePx)
             }
         }
@@ -1055,7 +1055,7 @@ class ChatActivity : AppCompatActivity() {
                     addView(dialogAvatarIv)
                     if (isOwnerOrAdmin) {
                         addView(TextView(this@ChatActivity).apply {
-                            text = "Change group photo"
+                            text = getString(R.string.group_info_change_photo)
                             textSize = 13f
                             setTextColor(0xFFE8711A.toInt())
                             gravity = android.view.Gravity.CENTER
@@ -1067,7 +1067,7 @@ class ChatActivity : AppCompatActivity() {
                         })
                     }
                     addView(TextView(this@ChatActivity).apply {
-                        text = "Set my photo for this group"
+                        text = getString(R.string.group_info_set_personal_photo)
                         textSize = 13f
                         setTextColor(0xFF2196F3.toInt())
                         gravity = android.view.Gravity.CENTER
@@ -1081,7 +1081,7 @@ class ChatActivity : AppCompatActivity() {
                 root.addView(avatarContainer)
 
                 root.addView(TextView(this@ChatActivity).apply {
-                    text = "${members.size} member${if (members.size != 1) "s" else ""}"
+                    text = resources.getQuantityString(R.plurals.group_members_subtitle, members.size, members.size)
                     textSize = 13f
                     setTypeface(null, android.graphics.Typeface.BOLD)
                     setPadding(0, 0, 0, p8)
@@ -1110,7 +1110,7 @@ class ChatActivity : AppCompatActivity() {
                     })
                     if (isOwnerOrAdmin && m.role != "owner" && m.username != me) {
                         row.addView(Button(this@ChatActivity).apply {
-                            text = "Remove"
+                            text = getString(R.string.btn_remove)
                             textSize = 12f
                             setTextColor(Color.parseColor("#E53935"))
                             background = null
@@ -1118,8 +1118,8 @@ class ChatActivity : AppCompatActivity() {
                             minimumHeight = 0
                             setOnClickListener {
                                 AlertDialog.Builder(this@ChatActivity)
-                                    .setTitle("Remove $nick?")
-                                    .setPositiveButton("Remove") { _, _ ->
+                                    .setTitle(getString(R.string.dialog_remove_member_title, nick))
+                                    .setPositiveButton(getString(R.string.btn_remove)) { _, _ ->
                                         com.fshu.next.data.remote.WebSocketClient.send(mapOf(
                                             "type" to "group-kick",
                                             "groupId" to gid,
@@ -1154,7 +1154,7 @@ class ChatActivity : AppCompatActivity() {
                                             }
                                         }
                                     }
-                                    .setNegativeButton("Cancel", null)
+                                    .setNegativeButton(getString(R.string.btn_cancel), null)
                                     .show()
                             }
                         })
@@ -1172,40 +1172,40 @@ class ChatActivity : AppCompatActivity() {
                 val dialog = AlertDialog.Builder(this@ChatActivity)
                     .setTitle(group.name)
                     .setView(root)
-                    .setNegativeButton("Close", null)
+                    .setNegativeButton(getString(R.string.btn_close), null)
                     .create()
 
                 if (isOwnerOrAdmin) {
-                    dialog.setButton(DialogInterface.BUTTON_NEUTRAL, "Add member") { _, _ ->
+                    dialog.setButton(DialogInterface.BUTTON_NEUTRAL, getString(R.string.btn_add_member)) { _, _ ->
                         showAddMemberDialog(gid, members.map { it.username })
                     }
                 }
 
                 if (myRole == "owner") {
-                    dialog.setButton(DialogInterface.BUTTON_POSITIVE, "Delete group") { _, _ ->
+                    dialog.setButton(DialogInterface.BUTTON_POSITIVE, getString(R.string.btn_delete_group)) { _, _ ->
                         AlertDialog.Builder(this@ChatActivity)
-                            .setTitle("Delete \"${group.name}\"?")
-                            .setMessage("This will delete the group for all members.")
-                            .setPositiveButton("Delete") { _, _ ->
+                            .setTitle(getString(R.string.dialog_delete_group_title, group.name))
+                            .setMessage(getString(R.string.dialog_delete_group_message))
+                            .setPositiveButton(getString(R.string.btn_delete)) { _, _ ->
                                 com.fshu.next.data.remote.WebSocketClient.send(mapOf(
                                     "type" to "group-delete",
                                     "groupId" to gid
                                 ))
                             }
-                            .setNegativeButton("Cancel", null)
+                            .setNegativeButton(getString(R.string.btn_cancel), null)
                             .show()
                     }
                 } else {
-                    dialog.setButton(DialogInterface.BUTTON_POSITIVE, "Leave group") { _, _ ->
+                    dialog.setButton(DialogInterface.BUTTON_POSITIVE, getString(R.string.btn_leave_group)) { _, _ ->
                         AlertDialog.Builder(this@ChatActivity)
-                            .setTitle("Leave \"${group.name}\"?")
-                            .setPositiveButton("Leave") { _, _ ->
+                            .setTitle(getString(R.string.dialog_leave_group_title, group.name))
+                            .setPositiveButton(getString(R.string.btn_leave)) { _, _ ->
                                 com.fshu.next.data.remote.WebSocketClient.send(mapOf(
                                     "type" to "group-leave",
                                     "groupId" to gid
                                 ))
                             }
-                            .setNegativeButton("Cancel", null)
+                            .setNegativeButton(getString(R.string.btn_cancel), null)
                             .show()
                     }
                 }
@@ -1219,7 +1219,7 @@ class ChatActivity : AppCompatActivity() {
 
     private fun showAddMemberDialog(groupId: String, existingUsernames: List<String>) {
         val edit = EditText(this).apply {
-            hint = "Username to add"
+            hint = getString(R.string.hint_username_to_add)
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
         }
         val pad = (16 * resources.displayMetrics.density).toInt()
@@ -1228,9 +1228,9 @@ class ChatActivity : AppCompatActivity() {
             addView(edit)
         }
         AlertDialog.Builder(this)
-            .setTitle("Add member")
+            .setTitle(getString(R.string.dialog_add_member_title))
             .setView(wrap)
-            .setPositiveButton("Add") { _, _ ->
+            .setPositiveButton(getString(R.string.btn_add)) { _, _ ->
                 val target = edit.text.toString().trim()
                 if (target.isEmpty() || target in existingUsernames) return@setPositiveButton
                 lifecycleScope.launch(Dispatchers.IO) {
@@ -1238,12 +1238,12 @@ class ChatActivity : AppCompatActivity() {
                     val group = db.groupDao().getById(groupId)
                     val groupKeyHex = group?.groupKey ?: ""
                     if (groupKeyHex.isEmpty()) {
-                        runOnUiThread { Toast.makeText(this@ChatActivity, "Group key not available", Toast.LENGTH_SHORT).show() }
+                        runOnUiThread { Toast.makeText(this@ChatActivity, getString(R.string.toast_group_key_not_available), Toast.LENGTH_SHORT).show() }
                         return@launch
                     }
                     val memberPubKey = Prefs.getPeerPublicKey(this@ChatActivity, target)
                     if (memberPubKey.isEmpty()) {
-                        runOnUiThread { Toast.makeText(this@ChatActivity, "Cannot invite: public key not found for $target", Toast.LENGTH_SHORT).show() }
+                        runOnUiThread { Toast.makeText(this@ChatActivity, getString(R.string.toast_cannot_invite_no_key, target), Toast.LENGTH_SHORT).show() }
                         return@launch
                     }
                     val groupKeyBytes = with(com.fshu.next.util.EcdhHelper) { groupKeyHex.fromHex() }
@@ -1257,14 +1257,14 @@ class ChatActivity : AppCompatActivity() {
                     ))
                 }
             }
-            .setNegativeButton("Cancel", null)
+            .setNegativeButton(getString(R.string.btn_cancel), null)
             .show()
     }
 
     private fun exportConversation() {
         val messages = adapter.currentList
         if (messages.isEmpty()) {
-            Toast.makeText(this, "Nothing to export", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, getString(R.string.toast_nothing_to_export), Toast.LENGTH_SHORT).show()
             return
         }
         val me = Prefs.getUsername(this)
@@ -1319,7 +1319,7 @@ class ChatActivity : AppCompatActivity() {
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(this@ChatActivity, "Export failed", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@ChatActivity, getString(R.string.toast_export_failed), Toast.LENGTH_SHORT).show()
                 }
             }
         }
