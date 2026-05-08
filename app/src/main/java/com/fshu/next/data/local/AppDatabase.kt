@@ -6,17 +6,23 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import com.fshu.next.data.local.dao.BlockDao
+import com.fshu.next.data.local.dao.ContactDao
+import com.fshu.next.data.local.entities.Block
+import com.fshu.next.data.local.entities.Contact
 import com.fshu.next.data.model.Group
 import com.fshu.next.data.model.GroupMember
 import com.fshu.next.data.model.Message
 import com.fshu.next.data.model.PeerKey
 
-@Database(entities = [Message::class, PeerKey::class, Group::class, GroupMember::class], version = 14, exportSchema = false)
+@Database(entities = [Message::class, PeerKey::class, Group::class, GroupMember::class, Contact::class, Block::class], version = 15, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun messageDao(): MessageDao
     abstract fun peerKeyDao(): PeerKeyDao
     abstract fun groupDao(): GroupDao
     abstract fun groupMemberDao(): GroupMemberDao
+    abstract fun contactDao(): ContactDao
+    abstract fun blockDao(): BlockDao
 
     companion object {
         @Volatile private var INSTANCE: AppDatabase? = null
@@ -138,6 +144,39 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        // v15: contacts + blocks tables; profile fields on users
+        private val MIGRATION_14_15 = object : Migration(14, 15) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                try { db.execSQL("ALTER TABLE users ADD COLUMN email TEXT") } catch (_: Exception) {}
+                try { db.execSQL("ALTER TABLE users ADD COLUMN phone TEXT") } catch (_: Exception) {}
+                try { db.execSQL("ALTER TABLE users ADD COLUMN bio TEXT") } catch (_: Exception) {}
+                try { db.execSQL("ALTER TABLE users ADD COLUMN discoverable INTEGER DEFAULT 1") } catch (_: Exception) {}
+                try { db.execSQL("ALTER TABLE users ADD COLUMN show_avatar INTEGER DEFAULT 1") } catch (_: Exception) {}
+                try { db.execSQL("ALTER TABLE users ADD COLUMN show_nickname INTEGER DEFAULT 1") } catch (_: Exception) {}
+                try { db.execSQL("ALTER TABLE users ADD COLUMN email_searchable INTEGER DEFAULT 1") } catch (_: Exception) {}
+                try { db.execSQL("ALTER TABLE users ADD COLUMN phone_searchable INTEGER DEFAULT 1") } catch (_: Exception) {}
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS contacts (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        owner TEXT NOT NULL,
+                        contact TEXT NOT NULL,
+                        status TEXT NOT NULL,
+                        createdAt INTEGER NOT NULL,
+                        updatedAt INTEGER NOT NULL,
+                        expiresAt INTEGER NOT NULL
+                    )
+                """.trimIndent())
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS blocks (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        owner TEXT NOT NULL,
+                        blocked TEXT NOT NULL,
+                        createdAt INTEGER NOT NULL
+                    )
+                """.trimIndent())
+            }
+        }
+
         fun getInstance(context: Context): AppDatabase =
             INSTANCE ?: synchronized(this) {
                 INSTANCE ?: Room.databaseBuilder(
@@ -148,7 +187,7 @@ abstract class AppDatabase : RoomDatabase() {
                     MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5,
                     MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9,
                     MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13,
-                    MIGRATION_13_14
+                    MIGRATION_13_14, MIGRATION_14_15
                 ).build().also { INSTANCE = it }
             }
     }

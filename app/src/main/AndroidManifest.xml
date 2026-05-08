@@ -59,6 +59,27 @@
             android:exported="false"/>
 
         <activity
+            android:name=".ui.search.SearchActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize"/>
+
+        <activity
+            android:name=".ui.search.UserProfileActivity"
+            android:exported="false"/>
+
+        <activity
+            android:name=".ui.contacts.RequestsActivity"
+            android:exported="false"/>
+
+        <activity
+            android:name=".ui.settings.PrivacySettingsActivity"
+            android:exported="false"/>
+
+        <activity
+            android:name=".ui.settings.BlockListActivity"
+            android:exported="false"/>
+
+        <activity
             android:name=".ui.settings.SettingsActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustResize"/>

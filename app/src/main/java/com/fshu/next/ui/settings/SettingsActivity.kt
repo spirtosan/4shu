@@ -3,6 +3,7 @@ package com.fshu.next.ui.settings
 import android.Manifest
 import android.content.ClipData
 import android.content.ClipboardManager
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -34,6 +35,7 @@ import com.fshu.next.databinding.ActivitySettingsBinding
 import com.fshu.next.databinding.ItemDeviceBinding
 import com.fshu.next.service.FshuService
 import com.fshu.next.ui.admin.ChangePasswordDialog
+import com.fshu.next.ui.contacts.RequestsActivity
 import com.fshu.next.ui.login.LoginActivity
 import com.fshu.next.util.MessageBus
 import com.fshu.next.util.Prefs
@@ -254,6 +256,21 @@ class SettingsActivity : AppCompatActivity() {
                 .show()
         }
 
+        // Contact Requests
+        binding.rowContactRequests.setOnClickListener {
+            startActivity(Intent(this, RequestsActivity::class.java))
+        }
+
+        // Privacy Settings
+        binding.rowPrivacySettings.setOnClickListener {
+            startActivity(Intent(this, PrivacySettingsActivity::class.java))
+        }
+
+        // Blocked Users
+        binding.rowBlockedUsers.setOnClickListener {
+            startActivity(Intent(this, BlockListActivity::class.java))
+        }
+
         // History sync
         binding.rowSyncHistory.setOnClickListener { showGlobalHistoryDialog() }
 
@@ -400,6 +417,24 @@ class SettingsActivity : AppCompatActivity() {
         super.onResume()
         refreshPermissions()
         refreshDevices()
+        refreshRequestsBadge()
+    }
+
+    private fun refreshRequestsBadge() {
+        lifecycleScope.launch {
+            val ch = kotlinx.coroutines.channels.Channel<JsonObject>(1)
+            val job = launch {
+                MessageBus.events.collect {
+                    if (it.get("type")?.asString == "contact-list") ch.trySend(it)
+                }
+            }
+            WebSocketClient.send(mapOf("type" to "contact-list"))
+            val result = withTimeoutOrNull(5_000) { ch.receive() }
+            job.cancel()
+            val count = result?.getAsJsonArray("pendingReceived")?.size() ?: 0
+            binding.tvRequestsBadge.visibility = if (count > 0) View.VISIBLE else View.GONE
+            binding.tvRequestsBadge.text = if (count > 9) "9+" else count.toString()
+        }
     }
 
     private fun refreshDevices() {

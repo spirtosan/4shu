@@ -43,6 +43,7 @@ import com.fshu.next.ui.admin.ChangePasswordDialog
 import com.fshu.next.ui.call.CallActivity
 import com.fshu.next.ui.chat.ChatActivity
 import com.fshu.next.ui.login.LoginActivity
+import com.fshu.next.ui.search.SearchActivity
 import com.fshu.next.ui.settings.SettingsActivity
 import com.fshu.next.util.CrashHandler
 import com.fshu.next.util.CryptoHelper
@@ -283,6 +284,10 @@ class MainActivity : AppCompatActivity() {
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
+            R.id.action_find_people -> {
+                startActivity(Intent(this, SearchActivity::class.java))
+                true
+            }
             R.id.action_new_group -> {
                 showNewGroupDialog()
                 true
@@ -604,6 +609,9 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         applyBackground()
+        if (WebSocketClient.isConnected) {
+            WebSocketClient.send(mapOf("type" to "contact-list"))
+        }
         // Refresh last-message previews whenever the user returns to this screen.
         val contacts = users.filter { !it.isGroup }
         if (contacts.isNotEmpty()) {
@@ -713,6 +721,19 @@ class MainActivity : AppCompatActivity() {
                             adapter.notifyItemChanged(idx)
                         }
                     }
+                }
+            }
+            "contact-list" -> {
+                val count = json.getAsJsonArray("pendingReceived")?.size() ?: 0
+                runOnUiThread {
+                    binding.tvRequestsBadge.visibility = if (count > 0) android.view.View.VISIBLE else android.view.View.GONE
+                    binding.tvRequestsBadge.text = if (count > 9) "9+" else count.toString()
+                }
+            }
+            "contact-accepted" -> {
+                val from = json.get("from")?.asString ?: return
+                runOnUiThread {
+                    Toast.makeText(this, "$from accepted your request", Toast.LENGTH_SHORT).show()
                 }
             }
             "message", "file", "list", "location", "location-request", "location-response" -> {

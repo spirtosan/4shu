@@ -246,6 +246,9 @@
     <string name="toast_cannot_play_voice">Не може да се възпроизведе гласово съобщение</string>
     <string name="toast_location_error">Не може да се получи местоположение — провери GPS</string>
 
+    <!-- Find People / Search -->
+    <string name="menu_find_people">Намери хора</string>
+
     <!-- Menu items -->
     <string name="menu_server_info">Информация за сървъра</string>
     <string name="menu_voice_call">Гласово повикване</string>
@@ -299,5 +302,38 @@
 
     <!-- Admin Panel — server info format -->
     <string name="admin_server_info_format">Диск:\n%1$s\n\nФайлове: %2$d (%3$s)\nИсторически файлове: %4$d</string>
+
+    <!-- Contacts / Requests -->
+    <string name="label_contact_requests">Заявки за контакт</string>
+    <string name="title_contact_requests">Заявки за контакт</string>
+    <string name="label_received">Получени</string>
+    <string name="label_sent">Изпратени</string>
+    <string name="label_no_pending_requests">Няма чакащи заявки</string>
+    <string name="btn_cancel_request">Отмени</string>
+    <string name="toast_request_accepted">Заявката е приета</string>
+    <string name="toast_request_declined">Заявката е отхвърлена</string>
+    <string name="toast_request_cancelled">Заявката е отменена</string>
+
+    <!-- Privacy Settings -->
+    <string name="label_privacy_settings">Настройки за поверителност</string>
+    <string name="title_privacy_settings">Настройки за поверителност</string>
+    <string name="label_discoverable">Видим за търсене</string>
+    <string name="desc_discoverable">Позволи на всеки да ви намери по потребителско име.</string>
+    <string name="label_show_avatar">Показвай аватар на непознати</string>
+    <string name="desc_show_avatar">Показвай профилна снимка на потребители извън контактите ви.</string>
+    <string name="label_show_nickname">Показвай псевдоним на непознати</string>
+    <string name="desc_show_nickname">Показвай псевдонима ви на потребители извън контактите ви.</string>
+    <string name="label_email_searchable">Търсене по имейл</string>
+    <string name="desc_email_searchable">Позволи намиране на профила ви по имейл адрес.</string>
+    <string name="label_phone_searchable">Търсене по телефон</string>
+    <string name="desc_phone_searchable">Позволи намиране на профила ви по телефонен номер.</string>
+    <string name="toast_privacy_saved">Настройките за поверителност са запазени</string>
+
+    <!-- Block List -->
+    <string name="label_blocked_users">Блокирани потребители</string>
+    <string name="title_blocked_users">Блокирани потребители</string>
+    <string name="label_no_blocked_users">Няма блокирани потребители</string>
+    <string name="btn_unblock">Деблокирай</string>
+    <string name="toast_unblocked">%s е деблокиран</string>
 
 </resources>

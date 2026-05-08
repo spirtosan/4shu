@@ -246,6 +246,9 @@
     <string name="toast_cannot_play_voice">Cannot play voice message</string>
     <string name="toast_location_error">Could not get location — check GPS</string>
 
+    <!-- Find People / Search -->
+    <string name="menu_find_people">Find People</string>
+
     <!-- Menu items -->
     <string name="menu_server_info">Server info</string>
     <string name="menu_voice_call">Voice call</string>
@@ -296,6 +299,39 @@
     <string name="permission_battery">Battery Optimization</string>
     <string name="permission_overlay">Display Over Other Apps</string>
     <string name="permission_fullscreen">Full Screen Calls</string>
+
+    <!-- Contacts / Requests -->
+    <string name="label_contact_requests">Contact Requests</string>
+    <string name="title_contact_requests">Contact Requests</string>
+    <string name="label_received">Received</string>
+    <string name="label_sent">Sent</string>
+    <string name="label_no_pending_requests">No pending requests</string>
+    <string name="btn_cancel_request">Cancel</string>
+    <string name="toast_request_accepted">Request accepted</string>
+    <string name="toast_request_declined">Request declined</string>
+    <string name="toast_request_cancelled">Request cancelled</string>
+
+    <!-- Privacy Settings -->
+    <string name="label_privacy_settings">Privacy Settings</string>
+    <string name="title_privacy_settings">Privacy Settings</string>
+    <string name="label_discoverable">Discoverable</string>
+    <string name="desc_discoverable">Allow anyone to find you by username search.</string>
+    <string name="label_show_avatar">Show avatar to non-contacts</string>
+    <string name="desc_show_avatar">Show your profile photo to users outside your contacts.</string>
+    <string name="label_show_nickname">Show nickname to non-contacts</string>
+    <string name="desc_show_nickname">Show your nickname to users outside your contacts.</string>
+    <string name="label_email_searchable">Email searchable</string>
+    <string name="desc_email_searchable">Allow finding your account by email address.</string>
+    <string name="label_phone_searchable">Phone searchable</string>
+    <string name="desc_phone_searchable">Allow finding your account by phone number.</string>
+    <string name="toast_privacy_saved">Privacy settings saved</string>
+
+    <!-- Block List -->
+    <string name="label_blocked_users">Blocked Users</string>
+    <string name="title_blocked_users">Blocked Users</string>
+    <string name="label_no_blocked_users">No blocked users</string>
+    <string name="btn_unblock">Unblock</string>
+    <string name="toast_unblocked">%s unblocked</string>
 
     <!-- Admin Panel — server info format -->
     <string name="admin_server_info_format">Disk:\n%1$s\n\nFiles: %2$d (%3$s)\nHistory files: %4$d</string>
