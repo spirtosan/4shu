@@ -11,7 +11,10 @@ import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
 import android.text.InputType
+import android.view.LayoutInflater
 import android.view.MenuItem
+import android.view.View
+import android.view.ViewGroup
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.LinearLayout
@@ -21,11 +24,14 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import com.fshu.next.R
 import com.fshu.next.data.remote.WebSocketClient
 import com.fshu.next.databinding.ActivitySettingsBinding
+import com.fshu.next.databinding.ItemDeviceBinding
 import com.fshu.next.service.FshuService
 import com.fshu.next.ui.admin.ChangePasswordDialog
 import com.fshu.next.ui.login.LoginActivity
@@ -34,10 +40,42 @@ import com.fshu.next.util.Prefs
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class SettingsActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivitySettingsBinding
+
+    data class DeviceItem(val deviceId: String, val deviceName: String?, val lastSeen: Long, val isCurrent: Boolean)
+
+    private val deviceItems = mutableListOf<DeviceItem>()
+    private lateinit var deviceAdapter: DeviceAdapter
+
+    inner class DeviceAdapter(
+        private val items: List<DeviceItem>,
+        private val onRemove: (DeviceItem) -> Unit
+    ) : RecyclerView.Adapter<DeviceAdapter.VH>() {
+        inner class VH(val b: ItemDeviceBinding) : RecyclerView.ViewHolder(b.root)
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) =
+            VH(ItemDeviceBinding.inflate(LayoutInflater.from(parent.context), parent, false))
+        override fun getItemCount() = items.size
+        override fun onBindViewHolder(holder: VH, position: Int) {
+            val item = items[position]
+            val sdf = SimpleDateFormat("MMM d, HH:mm", Locale.getDefault())
+            holder.b.tvDeviceItemName.text = if (item.isCurrent)
+                "⭐ ${item.deviceName ?: item.deviceId.take(8)}"
+            else
+                item.deviceName ?: item.deviceId.take(8)
+            holder.b.tvDeviceItemLastSeen.text = if (item.lastSeen > 0)
+                sdf.format(Date(item.lastSeen))
+            else
+                "Never seen"
+            holder.b.btnRemoveDevice.visibility = if (item.isCurrent) View.GONE else View.VISIBLE
+            holder.b.btnRemoveDevice.setOnClickListener { onRemove(item) }
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -160,6 +198,60 @@ class SettingsActivity : AppCompatActivity() {
             Prefs.setAppLockEnabled(this, enabled)
             binding.switchAppLock.isChecked = enabled
             Toast.makeText(this, if (enabled) getString(R.string.toast_app_lock_enabled) else getString(R.string.toast_app_lock_disabled), Toast.LENGTH_SHORT).show()
+        }
+
+        // Devices
+        deviceAdapter = DeviceAdapter(deviceItems) { item ->
+            lifecycleScope.launch {
+                val ch = Channel<JsonObject>(1)
+                val job = launch {
+                    MessageBus.events.collect {
+                        if (it.get("type")?.asString == "device-list") ch.trySend(it)
+                    }
+                }
+                WebSocketClient.send(mapOf("type" to "device-remove", "deviceId" to item.deviceId))
+                val result = withTimeoutOrNull(5_000) { ch.receive() }
+                job.cancel()
+                result?.let { updateDeviceList(it) }
+            }
+        }
+        binding.rvDevices.apply {
+            layoutManager = LinearLayoutManager(this@SettingsActivity)
+            adapter = deviceAdapter
+            isNestedScrollingEnabled = false
+        }
+
+        binding.btnRenameDevice.setOnClickListener {
+            val currentName = Prefs.getDeviceName(this).ifEmpty { Build.MODEL }
+            val et = EditText(this).apply {
+                inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_WORDS
+                setText(currentName)
+                setSelection(text.length)
+            }
+            val pad = (16 * resources.displayMetrics.density).toInt()
+            val wrap = FrameLayout(this).apply { setPadding(pad, 0, pad, 0); addView(et) }
+            AlertDialog.Builder(this)
+                .setTitle("Rename this device")
+                .setView(wrap)
+                .setPositiveButton("Save") { _, _ ->
+                    val newName = et.text.toString().trim().ifEmpty { Build.MODEL }
+                    Prefs.setDeviceName(this, newName)
+                    WebSocketClient.deviceName = newName
+                    lifecycleScope.launch {
+                        val ch = Channel<JsonObject>(1)
+                        val job = launch {
+                            MessageBus.events.collect {
+                                if (it.get("type")?.asString == "device-list") ch.trySend(it)
+                            }
+                        }
+                        WebSocketClient.send(mapOf("type" to "device-rename", "deviceName" to newName))
+                        val result = withTimeoutOrNull(5_000) { ch.receive() }
+                        job.cancel()
+                        result?.let { updateDeviceList(it) }
+                    }
+                }
+                .setNegativeButton("Cancel", null)
+                .show()
         }
 
         // History sync
@@ -307,6 +399,44 @@ class SettingsActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         refreshPermissions()
+        refreshDevices()
+    }
+
+    private fun refreshDevices() {
+        lifecycleScope.launch {
+            val ch = Channel<JsonObject>(1)
+            val job = launch {
+                MessageBus.events.collect {
+                    if (it.get("type")?.asString == "device-list") ch.trySend(it)
+                }
+            }
+            WebSocketClient.send(mapOf("type" to "device-list"))
+            val result = withTimeoutOrNull(5_000) { ch.receive() }
+            job.cancel()
+            result?.let { updateDeviceList(it) }
+        }
+    }
+
+    private fun updateDeviceList(json: JsonObject) {
+        val currentDeviceId = json.get("currentDeviceId")?.asString ?: ""
+        val arr = json.getAsJsonArray("devices") ?: return
+        deviceItems.clear()
+        for (el in arr) {
+            val obj = el.asJsonObject
+            val did = obj.get("device_id")?.asString ?: continue
+            deviceItems.add(DeviceItem(
+                deviceId   = did,
+                deviceName = obj.get("device_name")?.takeIf { !it.isJsonNull }?.asString,
+                lastSeen   = obj.get("last_seen")?.asLong ?: 0L,
+                isCurrent  = did == currentDeviceId
+            ))
+        }
+        deviceItems.sortWith(compareByDescending<DeviceItem> { it.isCurrent }.thenByDescending { it.lastSeen })
+        deviceAdapter.notifyDataSetChanged()
+        val current = deviceItems.find { it.isCurrent }
+        val name = current?.deviceName?.takeIf { it.isNotEmpty() }
+            ?: Prefs.getDeviceName(this).ifEmpty { Build.MODEL }
+        binding.tvCurrentDevice.text = "This device: $name"
     }
 
     private fun refreshPermissions() {

@@ -343,6 +343,49 @@
             android:textSize="13sp"
             android:textColor="?android:attr/textColorSecondary" />
 
+        <!-- Devices section -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="?attr/dividerHorizontal" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Devices"
+            android:textSize="12sp"
+            android:textColor="?android:attr/textColorSecondary"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:paddingTop="14dp"
+            android:paddingBottom="6dp" />
+
+        <TextView
+            android:id="@+id/tvCurrentDevice"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="14sp"
+            android:textColor="?android:attr/textColorPrimary"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:paddingBottom="6dp" />
+
+        <Button
+            android:id="@+id/btnRenameDevice"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:layout_marginEnd="16dp"
+            android:layout_marginBottom="4dp"
+            android:text="Rename this device" />
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rvDevices"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="4dp" />
+
         <!-- Danger zone divider -->
         <View
             android:layout_width="match_parent"
