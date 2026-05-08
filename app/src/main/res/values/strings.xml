@@ -300,6 +300,24 @@
     <string name="permission_overlay">Display Over Other Apps</string>
     <string name="permission_fullscreen">Full Screen Calls</string>
 
+    <!-- Favorites -->
+    <string name="label_favorites">Favorites</string>
+    <string name="label_other_contacts">Other contacts</string>
+
+    <!-- My Profile -->
+    <string name="label_my_profile">My Profile</string>
+    <string name="desc_my_profile">Edit your name, bio and contact info</string>
+    <string name="label_display_name">Display Name</string>
+    <string name="hint_display_name">Display name (optional)</string>
+    <string name="label_about">About</string>
+    <string name="hint_bio">Bio (optional)</string>
+    <string name="label_contact_info">Contact Info</string>
+    <string name="hint_email_address">Email address (optional)</string>
+    <string name="hint_phone_number">Phone number (optional)</string>
+    <string name="label_tap_to_change_photo">Tap to change photo</string>
+    <string name="btn_save_profile">Save Profile</string>
+    <string name="toast_profile_saved">Profile saved</string>
+
     <!-- Contacts / Requests -->
     <string name="label_contact_requests">Contact Requests</string>
     <string name="title_contact_requests">Contact Requests</string>

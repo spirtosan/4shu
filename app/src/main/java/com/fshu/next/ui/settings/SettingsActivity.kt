@@ -256,6 +256,11 @@ class SettingsActivity : AppCompatActivity() {
                 .show()
         }
 
+        // My Profile
+        binding.rowMyProfile.setOnClickListener {
+            startActivity(Intent(this, MyProfileActivity::class.java))
+        }
+
         // Contact Requests
         binding.rowContactRequests.setOnClickListener {
             startActivity(Intent(this, RequestsActivity::class.java))

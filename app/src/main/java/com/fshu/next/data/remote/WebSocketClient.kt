@@ -176,6 +176,7 @@ object WebSocketClient {
                             val busEvent = JsonObject()
                             busEvent.addProperty("type", "auth-ok")
                             busEvent.addProperty("admin", json.get("admin")?.asBoolean ?: false)
+                            json.get("profile")?.takeIf { !it.isJsonNull }?.let { busEvent.add("profile", it) }
                             handlers.forEach { it(busEvent) }
                             startHeartbeat(webSocket)
                             onConnected()

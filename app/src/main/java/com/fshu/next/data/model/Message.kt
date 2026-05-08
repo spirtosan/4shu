@@ -45,5 +45,7 @@ data class Message(
     // Compact JSON float array of amplitude samples 0..1; null for non-voice messages.
     val voiceWaveform: String? = null,
     // Group ID for group messages; null for 1-1 messages.
-    val groupId: String? = null
+    val groupId: String? = null,
+    // True when message arrived from a non-contact (routed to request inbox).
+    val isRequest: Boolean = false
 )

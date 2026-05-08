@@ -240,6 +240,62 @@ object Prefs {
     fun setPeerTrustLevel(ctx: Context, peer: String, level: String) =
         ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE).edit().putString("trust_$peer", level).apply()
 
+    fun getFavorites(ctx: Context): Set<String> =
+        ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE)
+            .getStringSet("favorites", emptySet()) ?: emptySet()
+
+    fun setFavorites(ctx: Context, favs: Set<String>) =
+        ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE)
+            .edit().putStringSet("favorites", favs).apply()
+
+    fun getMyEmail(ctx: Context): String =
+        ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE).getString("my_email", "") ?: ""
+
+    fun setMyEmail(ctx: Context, value: String) =
+        ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE).edit().putString("my_email", value).apply()
+
+    fun getMyPhone(ctx: Context): String =
+        ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE).getString("my_phone", "") ?: ""
+
+    fun setMyPhone(ctx: Context, value: String) =
+        ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE).edit().putString("my_phone", value).apply()
+
+    fun getMyBio(ctx: Context): String =
+        ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE).getString("my_bio", "") ?: ""
+
+    fun setMyBio(ctx: Context, value: String) =
+        ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE).edit().putString("my_bio", value).apply()
+
+    fun getPrivacyDiscoverable(ctx: Context): Int =
+        ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE).getInt("privacy_discoverable", 1)
+
+    fun setPrivacyDiscoverable(ctx: Context, value: Int) =
+        ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE).edit().putInt("privacy_discoverable", value).apply()
+
+    fun getPrivacyShowAvatar(ctx: Context): Int =
+        ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE).getInt("privacy_show_avatar", 1)
+
+    fun setPrivacyShowAvatar(ctx: Context, value: Int) =
+        ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE).edit().putInt("privacy_show_avatar", value).apply()
+
+    fun getPrivacyShowNickname(ctx: Context): Int =
+        ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE).getInt("privacy_show_nickname", 1)
+
+    fun setPrivacyShowNickname(ctx: Context, value: Int) =
+        ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE).edit().putInt("privacy_show_nickname", value).apply()
+
+    fun getPrivacyEmailSearchable(ctx: Context): Int =
+        ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE).getInt("privacy_email_searchable", 0)
+
+    fun setPrivacyEmailSearchable(ctx: Context, value: Int) =
+        ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE).edit().putInt("privacy_email_searchable", value).apply()
+
+    fun getPrivacyPhoneSearchable(ctx: Context): Int =
+        ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE).getInt("privacy_phone_searchable", 0)
+
+    fun setPrivacyPhoneSearchable(ctx: Context, value: Int) =
+        ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE).edit().putInt("privacy_phone_searchable", value).apply()
+
     fun getDisplayName(ctx: Context, username: String): String {
         val contactNick = getContactNickname(ctx, username)
         if (contactNick.isNotEmpty()) return contactNick

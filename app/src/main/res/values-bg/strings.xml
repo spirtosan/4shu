@@ -303,6 +303,24 @@
     <!-- Admin Panel — server info format -->
     <string name="admin_server_info_format">Диск:\n%1$s\n\nФайлове: %2$d (%3$s)\nИсторически файлове: %4$d</string>
 
+    <!-- Favorites -->
+    <string name="label_favorites">Любими</string>
+    <string name="label_other_contacts">Други контакти</string>
+
+    <!-- My Profile -->
+    <string name="label_my_profile">Моят профил</string>
+    <string name="desc_my_profile">Редактирай името, биото и контактната информация</string>
+    <string name="label_display_name">Показвано име</string>
+    <string name="hint_display_name">Показвано име (по желание)</string>
+    <string name="label_about">За мен</string>
+    <string name="hint_bio">За мен (по желание)</string>
+    <string name="label_contact_info">Контактна информация</string>
+    <string name="hint_email_address">Имейл адрес (по желание)</string>
+    <string name="hint_phone_number">Телефонен номер (по желание)</string>
+    <string name="label_tap_to_change_photo">Докоснете за смяна на снимката</string>
+    <string name="btn_save_profile">Запази профила</string>
+    <string name="toast_profile_saved">Профилът е запазен</string>
+
     <!-- Contacts / Requests -->
     <string name="label_contact_requests">Заявки за контакт</string>
     <string name="title_contact_requests">Заявки за контакт</string>

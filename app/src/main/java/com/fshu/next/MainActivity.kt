@@ -63,6 +63,7 @@ class MainActivity : AppCompatActivity() {
     private val users = mutableListOf<User>()
     private val groupItems = mutableListOf<User>()
     private lateinit var adapter: UserAdapter
+    private var favorites = mutableSetOf<String>()
     private var pendingEmergencyLocationUser: User? = null
     private var enrichJob: kotlinx.coroutines.Job? = null
 
@@ -185,6 +186,7 @@ class MainActivity : AppCompatActivity() {
                     ))
                 }
             },
+            onToggleFavorite = { user -> toggleFavorite(user.username) },
             onSetNickname = { user ->
                 val current = Prefs.getContactNickname(this, user.username)
                 val et = android.widget.EditText(this).apply {
@@ -228,9 +230,15 @@ class MainActivity : AppCompatActivity() {
                 vh: androidx.recyclerview.widget.RecyclerView.ViewHolder,
                 target: androidx.recyclerview.widget.RecyclerView.ViewHolder
             ): Boolean {
-                val gc = groupItems.size
-                if (vh.bindingAdapterPosition < gc || target.bindingAdapterPosition < gc) return false
-                adapter.moveItem(vh.bindingAdapterPosition, target.bindingAdapterPosition)
+                val from = vh.bindingAdapterPosition
+                val to = target.bindingAdapterPosition
+                val fromUser = users.getOrNull(from) ?: return false
+                val toUser = users.getOrNull(to) ?: return false
+                if (fromUser.isGroup || toUser.isGroup) return false
+                if (fromUser.username == UserAdapter.DIVIDER_USERNAME ||
+                    toUser.username == UserAdapter.DIVIDER_USERNAME) return false
+                if (fromUser.isFavorite != toUser.isFavorite) return false
+                adapter.moveItem(from, to)
                 return true
             }
             override fun onSwiped(vh: androidx.recyclerview.widget.RecyclerView.ViewHolder, dir: Int) {}
@@ -254,6 +262,8 @@ class MainActivity : AppCompatActivity() {
         }
 
         startService(Intent(this, FshuService::class.java))
+
+        favorites = Prefs.getFavorites(this).toMutableSet()
 
         // Load cached user list immediately so the list is populated before server update arrives.
         loadCachedUsers()
@@ -652,7 +662,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun saveUserOrder() {
-        Prefs.setUserOrder(this, users.filter { !it.isGroup }.map { it.username })
+        Prefs.setUserOrder(this, users
+            .filter { !it.isGroup && it.username != UserAdapter.DIVIDER_USERNAME }
+            .map { it.username })
     }
 
     private fun handleMessage(json: JsonObject) {
@@ -684,6 +696,12 @@ class MainActivity : AppCompatActivity() {
                 Prefs.setCachedUsers(this, cacheArr.toString())
 
                 launchEnrich(list)
+
+                val pending = json.get("pendingRequests")?.takeIf { !it.isJsonNull }?.asInt ?: 0
+                runOnUiThread {
+                    binding.tvRequestsBadge.visibility = if (pending > 0) android.view.View.VISIBLE else android.view.View.GONE
+                    binding.tvRequestsBadge.text = if (pending > 9) "9+" else pending.toString()
+                }
             }
             "users-update" -> {
                 val arr = json.getAsJsonArray("onlineUsers") ?: return
@@ -795,9 +813,44 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun rebuildCombinedList() {
-        val combined = groupItems + users.filter { !it.isGroup }
+        val contacts = buildContactList(
+            users.filter { !it.isGroup && it.username != UserAdapter.DIVIDER_USERNAME }
+        )
         users.clear()
-        users.addAll(combined)
+        users.addAll(groupItems + contacts)
+        adapter.notifyDataSetChanged()
+    }
+
+    private fun buildContactList(contacts: List<User>): List<User> {
+        val marked = contacts.map { it.copy(isFavorite = it.username in favorites) }
+        val favs = applyUserOrder(marked.filter { it.isFavorite })
+        val others = applyOrderWithTimeFallback(marked.filter { !it.isFavorite })
+        val result = mutableListOf<User>()
+        result.addAll(favs)
+        if (favs.isNotEmpty() && others.isNotEmpty()) {
+            result.add(User(username = UserAdapter.DIVIDER_USERNAME))
+        }
+        result.addAll(others)
+        return result
+    }
+
+    private fun applyOrderWithTimeFallback(contacts: List<User>): List<User> {
+        val order = Prefs.getUserOrder(this)
+        val rankOf = order.withIndex().associate { (i, u) -> u to i }
+        return contacts.sortedWith(
+            compareBy<User> { rankOf[it.username] ?: Int.MAX_VALUE }
+                .thenByDescending { it.lastMessageTime }
+        )
+    }
+
+    private fun toggleFavorite(username: String) {
+        if (favorites.contains(username)) favorites.remove(username) else favorites.add(username)
+        Prefs.setFavorites(this, favorites)
+        val contacts = buildContactList(
+            users.filter { !it.isGroup && it.username != UserAdapter.DIVIDER_USERNAME }
+        )
+        users.clear()
+        users.addAll(groupItems + contacts)
         adapter.notifyDataSetChanged()
     }
 
@@ -825,8 +878,8 @@ class MainActivity : AppCompatActivity() {
                 val s = stateMap[u.username]
                 u.copy(online = s?.online ?: u.online, lastSeen = s?.lastSeen ?: u.lastSeen)
             }
-            // Rebuild: groups first, then sorted contacts
-            val contacts = applyUserOrder(merged)
+            // Rebuild: groups first, then favorites section, then others
+            val contacts = buildContactList(merged)
             users.clear()
             users.addAll(groupItems + contacts)
             adapter.notifyDataSetChanged()

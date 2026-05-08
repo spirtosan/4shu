@@ -155,6 +155,9 @@ class RequestsActivity : AppCompatActivity() {
 
     private fun handleMessage(msg: JsonObject) {
         when (msg.get("type")?.asString) {
+            "request-message" -> {
+                WebSocketClient.send(mapOf("type" to "contact-list"))
+            }
             "contact-list" -> {
                 receivedList.clear()
                 sentList.clear()

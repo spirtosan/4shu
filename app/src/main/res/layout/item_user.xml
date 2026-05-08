@@ -80,6 +80,16 @@
             android:textSize="13sp" />
     </LinearLayout>
 
+    <TextView
+        android:id="@+id/tvFavStar"
+        android:layout_width="28dp"
+        android:layout_height="40dp"
+        android:gravity="center"
+        android:textSize="14sp"
+        android:clickable="true"
+        android:focusable="true"
+        android:background="?attr/selectableItemBackgroundBorderless" />
+
     <ImageButton
         android:id="@+id/btn_more"
         android:layout_width="40dp"

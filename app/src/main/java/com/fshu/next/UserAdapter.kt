@@ -10,11 +10,13 @@ import android.text.style.ForegroundColorSpan
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import android.widget.PopupMenu
+import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.RecyclerView
 import coil.load
 import coil.transform.CircleCropTransformation
 import com.fshu.next.R
 import com.fshu.next.data.model.User
+import com.fshu.next.databinding.ItemFavoritesDividerBinding
 import com.fshu.next.databinding.ItemUserBinding
 import com.fshu.next.util.Prefs
 import java.io.File
@@ -31,45 +33,61 @@ class UserAdapter(
     private val onEmergencyCall: (User) -> Unit = {},
     private val onEmergencyWithLocation: (User) -> Unit = {},
     private val onRequestLocation: (User) -> Unit = {},
-    private val onSetNickname: (User) -> Unit = {}
-) : RecyclerView.Adapter<UserAdapter.VH>() {
+    private val onSetNickname: (User) -> Unit = {},
+    private val onToggleFavorite: (User) -> Unit = {}
+) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
+
+    companion object {
+        private const val TYPE_USER = 0
+        private const val TYPE_DIVIDER = 1
+        const val DIVIDER_USERNAME = "_divider_favorites"
+    }
 
     inner class VH(val binding: ItemUserBinding) : RecyclerView.ViewHolder(binding.root)
+    inner class DividerVH(val binding: ItemFavoritesDividerBinding) : RecyclerView.ViewHolder(binding.root)
 
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) =
-        VH(ItemUserBinding.inflate(LayoutInflater.from(parent.context), parent, false))
+    override fun getItemViewType(position: Int): Int =
+        if (users[position].username == DIVIDER_USERNAME) TYPE_DIVIDER else TYPE_USER
 
-    override fun onBindViewHolder(holder: VH, position: Int) {
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
+        val inflater = LayoutInflater.from(parent.context)
+        return if (viewType == TYPE_DIVIDER) {
+            DividerVH(ItemFavoritesDividerBinding.inflate(inflater, parent, false))
+        } else {
+            VH(ItemUserBinding.inflate(inflater, parent, false))
+        }
+    }
+
+    override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
+        if (holder is DividerVH) return
+        val h = holder as VH
         val user = users[position]
-        val ctx = holder.itemView.context
-
+        val ctx = h.itemView.context
         val sizePx = (48 * ctx.resources.displayMetrics.density).toInt()
 
         if (user.isGroup) {
-            // Group item: personalAvatar → avatarPath → letter fallback, no online dot
             val personalFile = user.personalAvatar?.let { File(it) }?.takeIf { it.exists() }
             val groupFile = user.avatarPath?.let { File(it) }?.takeIf { it.exists() }
             when {
-                personalFile != null -> holder.binding.ivAvatar.load(personalFile) {
+                personalFile != null -> h.binding.ivAvatar.load(personalFile) {
                     transformations(CircleCropTransformation()); crossfade(true)
                 }
-                groupFile != null -> holder.binding.ivAvatar.load(groupFile) {
+                groupFile != null -> h.binding.ivAvatar.load(groupFile) {
                     transformations(CircleCropTransformation()); crossfade(true)
                 }
                 else -> {
                     val letter = user.displayName.firstOrNull()?.uppercaseChar()?.toString() ?: "G"
-                    holder.binding.ivAvatar.load(
-                        createLetterBitmap(letter, avatarColor(user.displayName, ctx), sizePx)
-                    )
+                    h.binding.ivAvatar.load(createLetterBitmap(letter, avatarColor(user.displayName, ctx), sizePx))
                 }
             }
-            holder.binding.viewOnlineDot.visibility = android.view.View.INVISIBLE
-            holder.binding.tvUsername.text = user.displayName
-            holder.binding.tvHandle.visibility = android.view.View.GONE
-            holder.binding.tvLastMessage.text = user.lastMessage ?: ""
-            holder.binding.tvTime.text = user.lastMessageTime?.let { formatTime(it) } ?: ""
-            holder.itemView.setOnClickListener { onClick(user) }
-            holder.binding.btnMore.visibility = android.view.View.GONE
+            h.binding.viewOnlineDot.visibility = android.view.View.INVISIBLE
+            h.binding.tvUsername.text = user.displayName
+            h.binding.tvHandle.visibility = android.view.View.GONE
+            h.binding.tvLastMessage.text = user.lastMessage ?: ""
+            h.binding.tvTime.text = user.lastMessageTime?.let { formatTime(it) } ?: ""
+            h.itemView.setOnClickListener { onClick(user) }
+            h.binding.btnMore.visibility = android.view.View.GONE
+            h.binding.tvFavStar.visibility = android.view.View.GONE
             return
         }
 
@@ -78,47 +96,52 @@ class UserAdapter(
 
         val avatarFile = File(ctx.filesDir, "avatars/${user.username}.jpg")
         if (avatarFile.exists()) {
-            holder.binding.ivAvatar.load(avatarFile) {
+            h.binding.ivAvatar.load(avatarFile) {
                 transformations(CircleCropTransformation())
                 crossfade(true)
             }
         } else {
             val letter = displayName.firstOrNull()?.uppercaseChar()?.toString() ?: "?"
-            holder.binding.ivAvatar.setImageBitmap(
-                createLetterBitmap(letter, avatarColor(user.username, ctx), sizePx)
-            )
+            h.binding.ivAvatar.setImageBitmap(createLetterBitmap(letter, avatarColor(user.username, ctx), sizePx))
         }
 
-        holder.binding.viewOnlineDot.visibility = android.view.View.VISIBLE
-        // Online indicator dot
-        holder.binding.viewOnlineDot.setBackgroundResource(
+        h.binding.viewOnlineDot.visibility = android.view.View.VISIBLE
+        h.binding.viewOnlineDot.setBackgroundResource(
             if (user.online) R.drawable.bg_online_dot else R.drawable.bg_offline_dot
         )
 
-        holder.binding.tvUsername.text = displayName
+        h.binding.tvUsername.text = displayName
         if (contactNick.isNotEmpty() || !user.nickname.isNullOrBlank()) {
-            holder.binding.tvHandle.visibility = android.view.View.VISIBLE
-            holder.binding.tvHandle.text = "@${user.username}"
+            h.binding.tvHandle.visibility = android.view.View.VISIBLE
+            h.binding.tvHandle.text = "@${user.username}"
         } else {
-            holder.binding.tvHandle.visibility = android.view.View.GONE
+            h.binding.tvHandle.visibility = android.view.View.GONE
         }
 
-        // Show last seen for offline users, last message preview otherwise
-        holder.binding.tvLastMessage.text = when {
+        h.binding.tvLastMessage.text = when {
             !user.online && user.lastSeen != null -> formatLastSeen(user.lastSeen)
             else -> user.lastMessage ?: ""
         }
 
-        // Timestamp
-        holder.binding.tvTime.text = user.lastMessageTime?.let { formatTime(it) } ?: ""
+        h.binding.tvTime.text = user.lastMessageTime?.let { formatTime(it) } ?: ""
 
-        holder.itemView.setOnClickListener { onClick(user) }
+        h.itemView.setOnClickListener { onClick(user) }
 
-        holder.binding.btnMore.visibility = android.view.View.VISIBLE
-        holder.binding.btnMore.setOnClickListener { anchor ->
+        // Star / favorite button
+        h.binding.tvFavStar.visibility = android.view.View.VISIBLE
+        if (user.isFavorite) {
+            h.binding.tvFavStar.text = "★"
+            h.binding.tvFavStar.setTextColor(ContextCompat.getColor(ctx, R.color.accent))
+        } else {
+            h.binding.tvFavStar.text = "☆"
+            h.binding.tvFavStar.setTextColor(ContextCompat.getColor(ctx, R.color.text_secondary))
+        }
+        h.binding.tvFavStar.setOnClickListener { onToggleFavorite(user) }
+
+        h.binding.btnMore.visibility = android.view.View.VISIBLE
+        h.binding.btnMore.setOnClickListener { anchor ->
             PopupMenu(anchor.context, anchor).apply {
                 menuInflater.inflate(R.menu.menu_user, menu)
-                // Tint emergency items red
                 for (id in listOf(R.id.action_user_emergency_call, R.id.action_user_emergency_location)) {
                     menu.findItem(id)?.let { item ->
                         val s = SpannableString(item.title)
@@ -144,7 +167,6 @@ class UserAdapter(
 
     override fun getItemCount() = users.size
 
-    /** Called by ItemTouchHelper during drag — swaps adjacent items live. */
     fun moveItem(from: Int, to: Int) {
         java.util.Collections.swap(users as MutableList<User>, from, to)
         notifyItemMoved(from, to)
@@ -153,30 +175,25 @@ class UserAdapter(
     private fun createLetterBitmap(letter: String, color: Int, sizePx: Int): Bitmap {
         val bmp = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bmp)
-        val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = color }
-        canvas.drawCircle(sizePx / 2f, sizePx / 2f, sizePx / 2f, bgPaint)
-        val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = color }
+            .also { canvas.drawCircle(sizePx / 2f, sizePx / 2f, sizePx / 2f, it) }
+        Paint(Paint.ANTI_ALIAS_FLAG).apply {
             this.color = Color.WHITE
             textSize = sizePx * 0.42f
             textAlign = Paint.Align.CENTER
             typeface = Typeface.DEFAULT_BOLD
+        }.also {
+            val yPos = sizePx / 2f - (it.descent() + it.ascent()) / 2f
+            canvas.drawText(letter, sizePx / 2f, yPos, it)
         }
-        val yPos = sizePx / 2f - (textPaint.descent() + textPaint.ascent()) / 2f
-        canvas.drawText(letter, sizePx / 2f, yPos, textPaint)
         return bmp
     }
 
     private fun avatarColor(username: String, ctx: android.content.Context): Int {
         val colorRes = when (username.hashCode().absoluteValue % 10) {
-            0 -> R.color.avatar_1
-            1 -> R.color.avatar_2
-            2 -> R.color.avatar_3
-            3 -> R.color.avatar_4
-            4 -> R.color.avatar_5
-            5 -> R.color.avatar_6
-            6 -> R.color.avatar_7
-            7 -> R.color.avatar_8
-            8 -> R.color.avatar_9
+            0 -> R.color.avatar_1; 1 -> R.color.avatar_2; 2 -> R.color.avatar_3
+            3 -> R.color.avatar_4; 4 -> R.color.avatar_5; 5 -> R.color.avatar_6
+            6 -> R.color.avatar_7; 7 -> R.color.avatar_8; 8 -> R.color.avatar_9
             else -> R.color.avatar_10
         }
         return ctx.getColor(colorRes)
@@ -200,15 +217,12 @@ class UserAdapter(
         val now = System.currentTimeMillis()
         val cal = Calendar.getInstance().apply { timeInMillis = timestamp }
         val today = Calendar.getInstance()
-
         return when {
             cal.get(Calendar.YEAR) == today.get(Calendar.YEAR) &&
             cal.get(Calendar.DAY_OF_YEAR) == today.get(Calendar.DAY_OF_YEAR) ->
                 SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(timestamp))
-
             now - timestamp < 7L * 24 * 60 * 60 * 1000 ->
                 SimpleDateFormat("EEE", Locale.getDefault()).format(Date(timestamp))
-
             else ->
                 SimpleDateFormat("dd/MM", Locale.getDefault()).format(Date(timestamp))
         }

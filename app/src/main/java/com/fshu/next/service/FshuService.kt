@@ -504,6 +504,17 @@ class FshuService : Service() {
                     val nick = obj.get("nickname")?.asString ?: return@forEach
                     Prefs.setContactNickname(this, contact, nick)
                 }
+                json.getAsJsonObject("profile")?.let { p ->
+                    p.get("email")?.takeIf { !it.isJsonNull }?.asString?.let { Prefs.setMyEmail(this, it) }
+                    p.get("phone")?.takeIf { !it.isJsonNull }?.asString?.let { Prefs.setMyPhone(this, it) }
+                    p.get("bio")?.takeIf { !it.isJsonNull }?.asString?.let { Prefs.setMyBio(this, it) }
+                    p.get("nickname")?.takeIf { !it.isJsonNull }?.asString?.let { Prefs.setMyNickname(this, it) }
+                    p.get("discoverable")?.takeIf { !it.isJsonNull }?.asInt?.let { Prefs.setPrivacyDiscoverable(this, it) }
+                    p.get("show_avatar")?.takeIf { !it.isJsonNull }?.asInt?.let { Prefs.setPrivacyShowAvatar(this, it) }
+                    p.get("show_nickname")?.takeIf { !it.isJsonNull }?.asInt?.let { Prefs.setPrivacyShowNickname(this, it) }
+                    p.get("email_searchable")?.takeIf { !it.isJsonNull }?.asInt?.let { Prefs.setPrivacyEmailSearchable(this, it) }
+                    p.get("phone_searchable")?.takeIf { !it.isJsonNull }?.asInt?.let { Prefs.setPrivacyPhoneSearchable(this, it) }
+                }
                 MessageBus.emit(json)
             }
             "passphrase-hint"         -> MessageBus.emit(json)
@@ -552,11 +563,12 @@ class FshuService : Service() {
         val content = if (peerPubKey.isNotEmpty() && remoteId != 0L) {
             CryptoHelper.decryptFromPeer(this, from, peerPubKey, remoteId, rawContent) ?: rawContent
         } else rawContent
+        val isRequest = json.get("isRequest")?.asBoolean ?: false
         db.messageDao().insert(
             Message(from = from, to = me, content = content, type = "text",
                 timestamp = ts, isSent = false, remoteId = remoteId,
                 replyToId = replyToId, replyToSender = replyToSender,
-                replyToContent = replyToContent)
+                replyToContent = replyToContent, isRequest = isRequest)
         )
         val seq = json.get("seq")?.asDouble?.toLong() ?: 0L
         if (seq > 0 && seq > WebSocketClient.lastSeq) WebSocketClient.lastSeq = seq
@@ -564,6 +576,16 @@ class FshuService : Service() {
             WebSocketClient.send(mapOf(
                 "type" to "delivered", "messageId" to remoteId, "from" to me, "to" to from
             ))
+        }
+        if (isRequest) {
+            val event = JsonObject()
+            event.addProperty("type", "request-message")
+            event.addProperty("from", from)
+            event.addProperty("content", content)
+            event.addProperty("messageId", remoteId)
+            event.addProperty("timestamp", ts)
+            MessageBus.tryEmit(event)
+            return
         }
         if (!com.fshu.next.ui.chat.ChatActivity.isActive ||
             com.fshu.next.ui.chat.ChatActivity.currentPeer != from) {
@@ -592,12 +614,13 @@ class FshuService : Service() {
         val content       = if (msgType == "voice") "\uD83C\uDF99\uFE0F Voice message" else "\uD83D\uDCCE $filename"
         val voiceDuration = if (msgType == "voice") json.get("duration")?.asDouble?.toInt() ?: 0 else 0
         val voiceWaveform = if (msgType == "voice") json.get("waveform")?.asString?.takeIf { it.isNotEmpty() } else null
+        val isRequest = json.get("isRequest")?.asBoolean ?: false
 
         db.messageDao().insert(
             Message(from = from, to = me, content = content,
                 type = msgType, filename = filename, mimeType = mimeType,
                 fileId = fileId, timestamp = ts, isSent = false, remoteId = remoteId,
-                voiceDuration = voiceDuration, voiceWaveform = voiceWaveform)
+                voiceDuration = voiceDuration, voiceWaveform = voiceWaveform, isRequest = isRequest)
         )
 
         val seq = json.get("seq")?.asDouble?.toLong() ?: 0L
@@ -608,6 +631,16 @@ class FshuService : Service() {
         }
         if (remoteId != 0L) {
             WebSocketClient.send(mapOf("type" to "delivered", "messageId" to remoteId, "from" to me, "to" to from))
+        }
+        if (isRequest) {
+            val event = JsonObject()
+            event.addProperty("type", "request-message")
+            event.addProperty("from", from)
+            event.addProperty("content", content)
+            event.addProperty("messageId", remoteId)
+            event.addProperty("timestamp", ts)
+            MessageBus.tryEmit(event)
+            return
         }
         notifyMessage(from, content)
         MessageBus.tryEmit(json)

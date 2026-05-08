@@ -1,0 +1,197 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@color/bg_primary">
+
+    <androidx.appcompat.widget.Toolbar
+        android:id="@+id/toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="?attr/actionBarSize"
+        android:background="@color/bg_secondary"
+        android:elevation="4dp" />
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <!-- Avatar -->
+            <ImageView
+                android:id="@+id/ivAvatar"
+                android:layout_width="80dp"
+                android:layout_height="80dp"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginTop="24dp"
+                android:scaleType="centerCrop"
+                android:clipToOutline="true"
+                android:outlineProvider="background"
+                android:background="@drawable/bg_avatar"
+                android:clickable="true"
+                android:focusable="true" />
+
+            <TextView
+                android:id="@+id/tvChangePhoto"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginTop="6dp"
+                android:layout_marginBottom="20dp"
+                android:text="@string/label_tap_to_change_photo"
+                android:textSize="12sp"
+                android:textColor="@color/text_secondary" />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="?attr/dividerHorizontal" />
+
+            <!-- Display Name section -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/label_display_name"
+                android:textSize="12sp"
+                android:textColor="?android:attr/textColorSecondary"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:paddingTop="14dp"
+                android:paddingBottom="6dp" />
+
+            <EditText
+                android:id="@+id/etNickname"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="16dp"
+                android:layout_marginEnd="16dp"
+                android:layout_marginBottom="8dp"
+                android:hint="@string/hint_display_name"
+                android:inputType="textPersonName|textCapWords"
+                android:maxLength="20"
+                android:textSize="15sp"
+                android:textColor="@color/text_primary"
+                android:background="@android:color/transparent"
+                android:textColorHint="@color/text_tertiary" />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="0.5dp"
+                android:background="@color/border" />
+
+            <!-- About section -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/label_about"
+                android:textSize="12sp"
+                android:textColor="?android:attr/textColorSecondary"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:paddingTop="14dp"
+                android:paddingBottom="6dp" />
+
+            <EditText
+                android:id="@+id/etBio"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="16dp"
+                android:layout_marginEnd="16dp"
+                android:layout_marginBottom="8dp"
+                android:hint="@string/hint_bio"
+                android:inputType="textMultiLine|textCapSentences"
+                android:maxLength="160"
+                android:maxLines="3"
+                android:minLines="2"
+                android:gravity="top"
+                android:textSize="15sp"
+                android:textColor="@color/text_primary"
+                android:background="@android:color/transparent"
+                android:textColorHint="@color/text_tertiary" />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="?attr/dividerHorizontal" />
+
+            <!-- Contact Info section -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/label_contact_info"
+                android:textSize="12sp"
+                android:textColor="?android:attr/textColorSecondary"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:paddingTop="14dp"
+                android:paddingBottom="6dp" />
+
+            <EditText
+                android:id="@+id/etEmail"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="16dp"
+                android:layout_marginEnd="16dp"
+                android:layout_marginBottom="8dp"
+                android:hint="@string/hint_email_address"
+                android:inputType="textEmailAddress"
+                android:maxLength="128"
+                android:textSize="15sp"
+                android:textColor="@color/text_primary"
+                android:background="@android:color/transparent"
+                android:textColorHint="@color/text_tertiary" />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="0.5dp"
+                android:background="@color/border" />
+
+            <EditText
+                android:id="@+id/etPhone"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="16dp"
+                android:layout_marginEnd="16dp"
+                android:layout_marginTop="8dp"
+                android:layout_marginBottom="8dp"
+                android:hint="@string/hint_phone_number"
+                android:inputType="phone"
+                android:maxLength="32"
+                android:textSize="15sp"
+                android:textColor="@color/text_primary"
+                android:background="@android:color/transparent"
+                android:textColorHint="@color/text_tertiary" />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="?attr/dividerHorizontal" />
+
+            <Button
+                android:id="@+id/btnSaveProfile"
+                style="@style/Widget.MaterialComponents.Button"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_margin="16dp"
+                android:backgroundTint="@color/accent"
+                android:text="@string/btn_save_profile" />
+
+            <Button
+                android:id="@+id/btnPrivacySettings"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="16dp"
+                android:layout_marginEnd="16dp"
+                android:layout_marginBottom="24dp"
+                android:text="@string/label_privacy_settings" />
+
+        </LinearLayout>
+    </ScrollView>
+
+</LinearLayout>
