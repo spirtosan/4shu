@@ -1,6 +1,8 @@
 package com.fshu.next.ui.settings
 
 import android.Manifest
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -18,13 +20,20 @@ import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
+import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import com.fshu.next.R
 import com.fshu.next.data.remote.WebSocketClient
 import com.fshu.next.databinding.ActivitySettingsBinding
 import com.fshu.next.service.FshuService
 import com.fshu.next.ui.admin.ChangePasswordDialog
+import com.fshu.next.ui.login.LoginActivity
+import com.fshu.next.util.MessageBus
 import com.fshu.next.util.Prefs
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 class SettingsActivity : AppCompatActivity() {
 
@@ -169,6 +178,86 @@ class SettingsActivity : AppCompatActivity() {
         else
             @Suppress("DEPRECATION") pInfo.versionCode.toLong()
         binding.tvAppVersion.text = getString(R.string.app_version_format, versionName, versionCode.toString())
+
+        // Export my data
+        binding.btnExportData.setOnClickListener {
+            AlertDialog.Builder(this)
+                .setTitle("Export your data?")
+                .setMessage("A download link will be generated and copied to your clipboard. Messages are exported encrypted — only readable in the app.")
+                .setNegativeButton("Cancel", null)
+                .setPositiveButton("Export") { _, _ ->
+                    lifecycleScope.launch {
+                        val ch = Channel<JsonObject>(1)
+                        val job = launch {
+                            MessageBus.events.collect {
+                                if (it.get("type")?.asString == "export-ready") ch.trySend(it)
+                            }
+                        }
+                        WebSocketClient.send(mapOf("type" to "export-request"))
+                        val result = withTimeoutOrNull(10_000) { ch.receive() }
+                        job.cancel()
+                        if (result == null) {
+                            Toast.makeText(this@SettingsActivity, "Export failed", Toast.LENGTH_SHORT).show()
+                            return@launch
+                        }
+                        val url = result.get("url")?.asString ?: ""
+                        val clipboard = getSystemService(ClipboardManager::class.java)
+                        clipboard.setPrimaryClip(ClipData.newPlainText("export", url))
+                        Toast.makeText(this@SettingsActivity, "Export link copied! Valid for 48 hours.", Toast.LENGTH_LONG).show()
+                    }
+                }
+                .show()
+        }
+
+        // Delete account
+        binding.btnDeleteAccount.setOnClickListener {
+            val et = EditText(this).apply {
+                inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+                hint = "Password"
+            }
+            val pad = (16 * resources.displayMetrics.density).toInt()
+            val wrap = FrameLayout(this).apply { setPadding(pad, 0, pad, 0); addView(et) }
+            val dialog = AlertDialog.Builder(this)
+                .setTitle("Delete account")
+                .setMessage("This cannot be undone. Your messages will be anonymized. Enter your password to confirm.")
+                .setView(wrap)
+                .setNegativeButton("Cancel", null)
+                .setPositiveButton("Delete", null)
+                .show()
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).apply {
+                setTextColor(0xFFE53935.toInt())
+                setOnClickListener {
+                    val password = et.text.toString()
+                    if (password.isEmpty()) { et.error = "Enter your password"; return@setOnClickListener }
+                    dialog.dismiss()
+                    lifecycleScope.launch {
+                        val ch = Channel<JsonObject>(1)
+                        val job = launch {
+                            MessageBus.events.collect {
+                                val t = it.get("type")?.asString
+                                if (t == "delete-account-ok" || t == "delete-account-error") ch.trySend(it)
+                            }
+                        }
+                        WebSocketClient.send(mapOf("type" to "delete-account", "currentPassword" to password))
+                        val result = withTimeoutOrNull(10_000) { ch.receive() }
+                        job.cancel()
+                        when {
+                            result == null ->
+                                Toast.makeText(this@SettingsActivity, "Request timed out", Toast.LENGTH_SHORT).show()
+                            result.get("type")?.asString == "delete-account-error" ->
+                                Toast.makeText(this@SettingsActivity, result.get("message")?.asString ?: "Error", Toast.LENGTH_LONG).show()
+                            else -> {
+                                getSharedPreferences("fshu_prefs", Context.MODE_PRIVATE).edit().clear().apply()
+                                deleteSharedPreferences("fshu_secure_prefs")
+                                val intent = Intent(this@SettingsActivity, LoginActivity::class.java)
+                                intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                                startActivity(intent)
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     private fun showGlobalHistoryDialog() {
