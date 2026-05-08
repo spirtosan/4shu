@@ -28,7 +28,7 @@ object Prefs {
         ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE).edit().putString(KEY_USERNAME, value).apply()
 
     fun getServerUrl(ctx: Context) =
-        ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE).getString(KEY_SERVER_URL, "wss://shumkov.eu/fshu5/") ?: "wss://shumkov.eu/fshu5/"
+        ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE).getString(KEY_SERVER_URL, "") ?: ""
 
     fun setServerUrl(ctx: Context, value: String) =
         ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE).edit().putString(KEY_SERVER_URL, value).apply()
