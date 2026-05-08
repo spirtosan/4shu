@@ -11,8 +11,11 @@ import android.os.Bundle
 import android.util.Base64
 import android.util.Patterns
 import android.view.MenuItem
+import android.widget.EditText
+import android.widget.LinearLayout
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
@@ -87,12 +90,15 @@ class MyProfileActivity : AppCompatActivity() {
             startActivity(Intent(this, PrivacySettingsActivity::class.java))
         }
 
+        binding.btnSetSecretQuestion.setOnClickListener { showSetSecretQuestionDialog() }
+
         lifecycleScope.launch {
             MessageBus.events.collect { handleMessage(it) }
         }
 
         if (WebSocketClient.isConnected) {
             WebSocketClient.send(mapOf("type" to "get-my-profile"))
+            WebSocketClient.send(mapOf("type" to "get-secret-question"))
         }
     }
 
@@ -118,7 +124,78 @@ class MyProfileActivity : AppCompatActivity() {
                     Toast.makeText(this, message, Toast.LENGTH_LONG).show()
                 }
             }
+            "my-secret-question" -> {
+                val q = msg.get("question")?.takeIf { !it.isJsonNull }?.asString
+                runOnUiThread {
+                    binding.tvSecretQuestionStatus.text = if (q != null)
+                        getString(R.string.label_secret_question_set)
+                    else
+                        getString(R.string.label_secret_question_not_set)
+                }
+            }
+            "secret-question-ok" -> {
+                runOnUiThread {
+                    binding.tvSecretQuestionStatus.text = getString(R.string.label_secret_question_set)
+                    Toast.makeText(this, getString(R.string.toast_secret_question_saved), Toast.LENGTH_SHORT).show()
+                }
+            }
+            "secret-question-error" -> {
+                val message = msg.get("message")?.asString ?: getString(R.string.toast_error)
+                runOnUiThread { Toast.makeText(this, message, Toast.LENGTH_LONG).show() }
+            }
         }
+    }
+
+    private fun showSetSecretQuestionDialog() {
+        val dp16 = (16 * resources.displayMetrics.density).toInt()
+        val etQuestion = EditText(this).apply {
+            hint = getString(R.string.hint_secret_question)
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
+            maxLines = 2
+        }
+        AlertDialog.Builder(this)
+            .setTitle(getString(R.string.btn_set_secret_question))
+            .setView(LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(dp16, dp16, dp16, 0)
+                addView(etQuestion)
+            })
+            .setPositiveButton(getString(android.R.string.ok)) { _, _ ->
+                val question = etQuestion.text.toString().trim()
+                if (question.length < 4) {
+                    Toast.makeText(this, getString(R.string.toast_error), Toast.LENGTH_SHORT).show()
+                    return@setPositiveButton
+                }
+                showSetAnswerDialog(question)
+            }
+            .setNegativeButton(getString(android.R.string.cancel), null)
+            .show()
+    }
+
+    private fun showSetAnswerDialog(question: String) {
+        val dp16 = (16 * resources.displayMetrics.density).toInt()
+        val etAnswer = EditText(this).apply {
+            hint = getString(R.string.hint_secret_answer)
+            inputType = android.text.InputType.TYPE_CLASS_TEXT
+        }
+        AlertDialog.Builder(this)
+            .setTitle(question)
+            .setView(LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(dp16, dp16, dp16, 0)
+                addView(etAnswer)
+            })
+            .setPositiveButton(getString(android.R.string.ok)) { _, _ ->
+                val answer = etAnswer.text.toString().trim()
+                if (answer.length < 2) return@setPositiveButton
+                WebSocketClient.send(mapOf(
+                    "type"     to "set-secret-question",
+                    "question" to question,
+                    "answer"   to answer
+                ))
+            }
+            .setNegativeButton(getString(android.R.string.cancel), null)
+            .show()
     }
 
     private fun saveProfile() {

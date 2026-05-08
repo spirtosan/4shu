@@ -1,6 +1,5 @@
 package com.fshu.next.ui.settings
 
-import android.content.Context
 import android.os.Bundle
 import android.view.MenuItem
 import android.widget.Toast
@@ -8,11 +7,11 @@ import androidx.appcompat.app.AppCompatActivity
 import com.fshu.next.R
 import com.fshu.next.data.remote.WebSocketClient
 import com.fshu.next.databinding.ActivityPrivacySettingsBinding
+import com.fshu.next.util.Prefs
 
 class PrivacySettingsActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityPrivacySettingsBinding
-    private val prefs get() = getSharedPreferences("fshu_prefs", Context.MODE_PRIVATE)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -25,11 +24,11 @@ class PrivacySettingsActivity : AppCompatActivity() {
             setDisplayHomeAsUpEnabled(true)
         }
 
-        binding.switchDiscoverable.isChecked    = prefs.getInt("privacy_discoverable", 1) == 1
-        binding.switchShowAvatar.isChecked      = prefs.getInt("privacy_show_avatar", 1) == 1
-        binding.switchShowNickname.isChecked    = prefs.getInt("privacy_show_nickname", 1) == 1
-        binding.switchEmailSearchable.isChecked = prefs.getInt("privacy_email_searchable", 0) == 1
-        binding.switchPhoneSearchable.isChecked = prefs.getInt("privacy_phone_searchable", 0) == 1
+        binding.switchDiscoverable.isChecked    = Prefs.getPrivacyDiscoverable(this) == 1
+        binding.switchShowAvatar.isChecked      = Prefs.getPrivacyShowAvatar(this) == 1
+        binding.switchShowNickname.isChecked    = Prefs.getPrivacyShowNickname(this) == 1
+        binding.switchEmailSearchable.isChecked = Prefs.getPrivacyEmailSearchable(this) == 1
+        binding.switchPhoneSearchable.isChecked = Prefs.getPrivacyPhoneSearchable(this) == 1
 
         binding.rowDiscoverable.setOnClickListener {
             binding.switchDiscoverable.isChecked = !binding.switchDiscoverable.isChecked
@@ -57,13 +56,11 @@ class PrivacySettingsActivity : AppCompatActivity() {
         val emailSearchable = if (binding.switchEmailSearchable.isChecked) 1 else 0
         val phoneSearchable = if (binding.switchPhoneSearchable.isChecked) 1 else 0
 
-        prefs.edit()
-            .putInt("privacy_discoverable", discoverable)
-            .putInt("privacy_show_avatar", showAvatar)
-            .putInt("privacy_show_nickname", showNickname)
-            .putInt("privacy_email_searchable", emailSearchable)
-            .putInt("privacy_phone_searchable", phoneSearchable)
-            .apply()
+        Prefs.setPrivacyDiscoverable(this, discoverable)
+        Prefs.setPrivacyShowAvatar(this, showAvatar)
+        Prefs.setPrivacyShowNickname(this, showNickname)
+        Prefs.setPrivacyEmailSearchable(this, emailSearchable)
+        Prefs.setPrivacyPhoneSearchable(this, phoneSearchable)
 
         if (WebSocketClient.isConnected) {
             WebSocketClient.send(mapOf(

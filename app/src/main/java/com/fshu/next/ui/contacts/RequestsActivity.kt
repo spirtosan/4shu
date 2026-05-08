@@ -78,15 +78,15 @@ class RequestsActivity : AppCompatActivity() {
             holder.b.tvTimestamp.text = SimpleDateFormat("MMM d", Locale.getDefault()).format(Date(item.createdAt))
             holder.b.btnAccept.setOnClickListener {
                 WebSocketClient.send(mapOf("type" to "contact-accept", "from" to item.fromUser))
-                receivedList.removeAt(holder.adapterPosition)
-                notifyItemRemoved(holder.adapterPosition)
+                receivedList.removeAt(holder.bindingAdapterPosition)
+                notifyItemRemoved(holder.bindingAdapterPosition)
                 updateVisibility()
                 Toast.makeText(this@RequestsActivity, getString(R.string.toast_request_accepted), Toast.LENGTH_SHORT).show()
             }
             holder.b.btnDecline.setOnClickListener {
                 WebSocketClient.send(mapOf("type" to "contact-decline", "from" to item.fromUser))
-                receivedList.removeAt(holder.adapterPosition)
-                notifyItemRemoved(holder.adapterPosition)
+                receivedList.removeAt(holder.bindingAdapterPosition)
+                notifyItemRemoved(holder.bindingAdapterPosition)
                 updateVisibility()
                 Toast.makeText(this@RequestsActivity, getString(R.string.toast_request_declined), Toast.LENGTH_SHORT).show()
             }
@@ -108,8 +108,8 @@ class RequestsActivity : AppCompatActivity() {
             holder.b.tvStatus.text = item.status
             holder.b.btnCancel.setOnClickListener {
                 WebSocketClient.send(mapOf("type" to "contact-cancel", "to" to item.contact))
-                sentList.removeAt(holder.adapterPosition)
-                notifyItemRemoved(holder.adapterPosition)
+                sentList.removeAt(holder.bindingAdapterPosition)
+                notifyItemRemoved(holder.bindingAdapterPosition)
                 updateVisibility()
                 Toast.makeText(this@RequestsActivity, getString(R.string.toast_request_cancelled), Toast.LENGTH_SHORT).show()
             }

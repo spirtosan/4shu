@@ -2,12 +2,14 @@ package com.fshu.next.ui.login
 
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.snackbar.Snackbar
+import com.fshu.next.R
 import com.fshu.next.MainActivity
 import com.fshu.next.databinding.ActivityLoginBinding
 import com.fshu.next.service.FshuService
@@ -64,6 +66,20 @@ class LoginActivity : AppCompatActivity() {
         }
 
         binding.etServerUrl.setText(Prefs.getServerUrl(this))
+
+        binding.tvForgotPassword.setOnClickListener {
+            val serverUrl = binding.etServerUrl.text.toString().trim()
+                .ifBlank { Prefs.getServerUrl(this) }
+            if (serverUrl.isBlank()) {
+                Toast.makeText(this, getString(R.string.toast_server_url_required), Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            val resetUrl = serverUrl
+                .replace("wss://", "https://")
+                .replace("ws://", "http://")
+                .replace("/fshu5/", "/fshu5/reset")
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(resetUrl)))
+        }
 
         binding.btnJoin.setOnClickListener {
             val username = binding.etUsername.text.toString().trim().lowercase()

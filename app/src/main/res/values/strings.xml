@@ -26,6 +26,8 @@
     <string name="btn_skip">Skip</string>
     <string name="btn_copy_all">Copy all</string>
     <string name="btn_connect">Connect</string>
+    <string name="forgot_password">Forgot password?</string>
+    <string name="toast_server_url_required">Please set server URL first</string>
     <string name="btn_send_emergency">Send Emergency</string>
     <string name="btn_add_member">Add member</string>
     <string name="btn_delete_group">Delete group</string>
@@ -343,6 +345,15 @@
     <string name="label_phone_searchable">Phone searchable</string>
     <string name="desc_phone_searchable">Allow finding your account by phone number.</string>
     <string name="toast_privacy_saved">Privacy settings saved</string>
+
+    <!-- Account Recovery -->
+    <string name="label_account_recovery">Account Recovery</string>
+    <string name="label_secret_question_set">Secret question is set</string>
+    <string name="label_secret_question_not_set">No secret question set</string>
+    <string name="btn_set_secret_question">Set Secret Question</string>
+    <string name="toast_secret_question_saved">Secret question saved</string>
+    <string name="hint_secret_question">Your secret question…</string>
+    <string name="hint_secret_answer">Your answer…</string>
 
     <!-- Block List -->
     <string name="label_blocked_users">Blocked Users</string>

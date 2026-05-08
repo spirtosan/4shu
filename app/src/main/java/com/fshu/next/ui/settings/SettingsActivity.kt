@@ -340,9 +340,9 @@ class SettingsActivity : AppCompatActivity() {
                 .show()
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).apply {
                 setTextColor(0xFFE53935.toInt())
-                setOnClickListener {
+                setOnClickListener deleteBtn@{
                     val password = et.text.toString()
-                    if (password.isEmpty()) { et.error = "Enter your password"; return@setOnClickListener }
+                    if (password.isEmpty()) { et.error = "Enter your password"; return@deleteBtn }
                     dialog.dismiss()
                     lifecycleScope.launch {
                         val ch = Channel<JsonObject>(1)

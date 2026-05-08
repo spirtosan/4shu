@@ -172,6 +172,32 @@ cd "$INSTALL_DIR"
 npm install --quiet --no-audit --no-fund
 success "Dependencies installed"
 
+# ── App Download ─────────────────────────────────────────────────────────────
+echo ""
+echo "=== App Download ==="
+read -p "App description shown on join page (leave blank to hide): " APP_DESCRIPTION
+APP_DESCRIPTION="${APP_DESCRIPTION:-}"
+read -p "APK download URL (leave blank to skip): " APK_URL
+APK_URL="${APK_URL:-}"
+
+# ── SMTP ─────────────────────────────────────────────────────────────────────
+echo ""
+echo "=== Email (for password reset) ==="
+read -p "SMTP host (leave blank to disable email): " SMTP_HOST
+SMTP_HOST="${SMTP_HOST:-}"
+if [ -n "$SMTP_HOST" ]; then
+    read -p "SMTP port [587]: " SMTP_PORT
+    SMTP_PORT="${SMTP_PORT:-587}"
+    read -p "SMTP user: " SMTP_USER
+    read -p "SMTP password: " SMTP_PASS
+    read -p "From address: " SMTP_FROM
+else
+    SMTP_PORT=587
+    SMTP_USER=""
+    SMTP_PASS=""
+    SMTP_FROM=""
+fi
+
 # ── config.json ─────────────────────────────────────────────────────────────
 info "Writing config.json..."
 cat > "$INSTALL_DIR/data/config.json" << EOF
@@ -201,6 +227,16 @@ cat > "$INSTALL_DIR/data/config.json" << EOF
     "fileRetentionDays": 90,
     "historyRetentionDays": 90,
     "localCacheRetentionDays": 30
+  },
+  "appDescription": "$APP_DESCRIPTION",
+  "apkUrl": "$APK_URL",
+  "smtp": {
+    "host": "$SMTP_HOST",
+    "port": $SMTP_PORT,
+    "secure": false,
+    "user": "$SMTP_USER",
+    "password": "$SMTP_PASS",
+    "from": "$SMTP_FROM"
   }
 }
 EOF
@@ -355,6 +391,9 @@ echo "  Port:       $PORT"
 echo "  WebSocket:  wss://$DOMAIN$WS_PATH"
 echo "  Admin user: $ADMIN_USER"
 echo "  TURN:       $DOMAIN:$TURN_PORT  user=$TURN_USER"
+echo ""
+echo "  Join page:  https://$DOMAIN${WS_PATH}join"
+echo "  APK upload: scp app-release.apk root@$DOMAIN:$INSTALL_DIR/files/download/app-release.apk"
 echo ""
 echo "  Next steps:"
 echo "    - Set your app server URL to: wss://$DOMAIN$WS_PATH"

@@ -48,8 +48,8 @@ class BlockListActivity : AppCompatActivity() {
             holder.b.tvUsername.text = item.username
             holder.b.btnUnblock.setOnClickListener {
                 WebSocketClient.send(mapOf("type" to "unblock", "target" to item.username))
-                blockList.removeAt(holder.adapterPosition)
-                notifyItemRemoved(holder.adapterPosition)
+                blockList.removeAt(holder.bindingAdapterPosition)
+                notifyItemRemoved(holder.bindingAdapterPosition)
                 updateVisibility()
                 Toast.makeText(this@BlockListActivity, getString(R.string.toast_unblocked, item.username), Toast.LENGTH_SHORT).show()
             }

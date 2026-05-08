@@ -61,6 +61,11 @@ app/src/main/java/com/fshu/
 | `ping` | client→server | `lastSeq` (long — highest server seq received) |
 | `pong` | server→client | `serverTime` (long), `onlineUsers` ([string]) |
 | `call-mutual-resolve` | server→both clients | `caller` (higher username), `callee` (lower username) — sent when both users call each other simultaneously; callee auto-accepts, caller waits |
+| `set-secret-question` | client→server | `question`, `answer` — stores secret question + bcrypt hash of answer for account recovery |
+| `get-secret-question` | client→server | _(no extra fields)_ — requests own secret question |
+| `my-secret-question` | server→client | `question` (string or null) — own secret question |
+| `secret-question-ok` | server→client | `message` — confirmation after set-secret-question |
+| `secret-question-error` | server→client | `message` — error after set-secret-question |
 | `set-hint` | client→server | `username`, `hint` — stores passphrase hint server-side |
 | `get-hint` | client→server | `username` — requests stored hint for a user |
 | `hint-response` | server→client | `username`, `hint` (string or null) |
