@@ -122,6 +122,7 @@ class CallActivity : AppCompatActivity() {
 
             when (state) {
                 CallViewModel.State.IN_CALL -> {
+                    FshuService.cancelCallNotif(this)
                     // Proximity lock only for audio calls on earpiece
                     if (!isVideoCall && vm.isSpeakerOn.value != true) acquireProximityWakeLock()
                 }

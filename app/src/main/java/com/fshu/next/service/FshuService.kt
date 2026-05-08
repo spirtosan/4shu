@@ -98,6 +98,16 @@ class FshuService : Service() {
             activeRingtone = null
             activeVibrator?.cancel()
             activeVibrator = null
+            // Defensive cancel: if activeVibrator was already null the hardware may still be buzzing
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    context.getSystemService(VibratorManager::class.java)
+                        ?.defaultVibrator?.cancel()
+                } else {
+                    @Suppress("DEPRECATION")
+                    context.getSystemService(Vibrator::class.java)?.cancel()
+                }
+            } catch (_: Exception) {}
             cancelVolumeRamp(context)
         }
 
