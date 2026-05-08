@@ -259,6 +259,9 @@
     <string name="menu_video_call">Video call</string>
     <string name="menu_group_info">Group info</string>
     <string name="menu_leave_group">Leave group</string>
+    <string name="menu_delete_group">Delete group</string>
+    <string name="auto_location_off">Auto-share location: OFF</string>
+    <string name="auto_location_on">Auto-share location: ON</string>
     <string name="label_encrypted_message">[Encrypted message]</string>
     <string name="menu_export_conversation">Export conversation</string>
     <string name="menu_change_background">Change background</string>

@@ -77,18 +77,21 @@ class RequestsActivity : AppCompatActivity() {
             }
             holder.b.tvTimestamp.text = SimpleDateFormat("MMM d", Locale.getDefault()).format(Date(item.createdAt))
             holder.b.btnAccept.setOnClickListener {
-                WebSocketClient.send(mapOf("type" to "contact-accept", "from" to item.fromUser))
+                WebSocketClient.send(mapOf("type" to "contact-accept", "targetUsername" to item.fromUser))
                 receivedList.removeAt(holder.bindingAdapterPosition)
                 notifyItemRemoved(holder.bindingAdapterPosition)
                 updateVisibility()
                 Toast.makeText(this@RequestsActivity, getString(R.string.toast_request_accepted), Toast.LENGTH_SHORT).show()
+                WebSocketClient.send(mapOf("type" to "get-users"))
+                WebSocketClient.send(mapOf("type" to "contact-list"))
             }
             holder.b.btnDecline.setOnClickListener {
-                WebSocketClient.send(mapOf("type" to "contact-decline", "from" to item.fromUser))
+                WebSocketClient.send(mapOf("type" to "contact-decline", "targetUsername" to item.fromUser))
                 receivedList.removeAt(holder.bindingAdapterPosition)
                 notifyItemRemoved(holder.bindingAdapterPosition)
                 updateVisibility()
                 Toast.makeText(this@RequestsActivity, getString(R.string.toast_request_declined), Toast.LENGTH_SHORT).show()
+                WebSocketClient.send(mapOf("type" to "contact-list"))
             }
         }
     }
@@ -107,7 +110,7 @@ class RequestsActivity : AppCompatActivity() {
             holder.b.tvUsername.text = item.contact
             holder.b.tvStatus.text = item.status
             holder.b.btnCancel.setOnClickListener {
-                WebSocketClient.send(mapOf("type" to "contact-cancel", "to" to item.contact))
+                WebSocketClient.send(mapOf("type" to "contact-cancel", "targetUsername" to item.contact))
                 sentList.removeAt(holder.bindingAdapterPosition)
                 notifyItemRemoved(holder.bindingAdapterPosition)
                 updateVisibility()
@@ -157,6 +160,16 @@ class RequestsActivity : AppCompatActivity() {
         when (msg.get("type")?.asString) {
             "request-message" -> {
                 WebSocketClient.send(mapOf("type" to "contact-list"))
+            }
+            "contact-accepted" -> {
+                val accepted = msg.get("targetUsername")?.asString ?: return
+                val removed = sentList.removeAll { it.contact == accepted }
+                if (removed) {
+                    runOnUiThread {
+                        sentAdapter.notifyDataSetChanged()
+                        updateVisibility()
+                    }
+                }
             }
             "contact-list" -> {
                 receivedList.clear()

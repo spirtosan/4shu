@@ -515,9 +515,19 @@ class FshuService : Service() {
                     p.get("email_searchable")?.takeIf { !it.isJsonNull }?.asInt?.let { Prefs.setPrivacyEmailSearchable(this, it) }
                     p.get("phone_searchable")?.takeIf { !it.isJsonNull }?.asInt?.let { Prefs.setPrivacyPhoneSearchable(this, it) }
                 }
+                json.getAsJsonArray("autoLocationPeers")?.let { arr ->
+                    val peers = arr.mapNotNull { it?.takeIf { !it.isJsonNull }?.asString }.toSet()
+                    Prefs.setAutoLocationPeers(this, peers)
+                }
                 MessageBus.emit(json)
             }
             "passphrase-hint"         -> MessageBus.emit(json)
+            "auto-location-peers"     -> {
+                val peers = json.getAsJsonArray("peers")
+                    ?.mapNotNull { it?.takeIf { !it.isJsonNull }?.asString }?.toSet() ?: emptySet()
+                Prefs.setAutoLocationPeers(this, peers)
+                MessageBus.emit(json)
+            }
             "admin-users",
             "admin-result",
             "admin-error",
@@ -527,6 +537,20 @@ class FshuService : Service() {
             "call-end", "call-reject" -> {
                 cancelCallNotif(this)
                 if (CallActivity.isActive) vibrateOnce()
+                if (json.get("type")?.asString == "call-reject") {
+                    val callee = json.get("from")?.asString
+                    val caller = json.get("to")?.asString
+                    val me = Prefs.getUsername(this)
+                    if (callee != null && caller == me) {
+                        db.messageDao().insert(
+                            Message(from = me, to = callee,
+                                content = "📵 Call declined",
+                                type = "text",
+                                timestamp = System.currentTimeMillis(),
+                                isSent = true)
+                        )
+                    }
+                }
                 MessageBus.emit(json)
             }
             "users"                   -> {
@@ -549,54 +573,58 @@ class FshuService : Service() {
     }
 
     private suspend fun persistIncomingMessage(json: JsonObject) {
-        val from = json.get("from")?.asString ?: return
-        val rawContent = json.get("content")?.asString ?: return
-        val ts = json.get("timestamp")?.asDouble?.toLong() ?: 0L
-        val remoteId = json.get("messageId")?.asDouble?.toLong() ?: 0L
-        if (remoteId > 0 && db.messageDao().getByRemoteId(remoteId) != null) return
-        val replyToId = json.get("replyToId")?.asDouble?.toLong()
-        val replyToSender = json.get("replyToSender")?.asString?.takeIf { it.isNotEmpty() }
-        val replyToContent = json.get("replyToContent")?.asString?.takeIf { it.isNotEmpty() }
-        val me         = Prefs.getUsername(this)
-        val peerPubKey = Prefs.getPeerPublicKey(this, from)
-        if (peerPubKey.isEmpty()) requestPeerKey(from)
-        val content = if (peerPubKey.isNotEmpty() && remoteId != 0L) {
-            CryptoHelper.decryptFromPeer(this, from, peerPubKey, remoteId, rawContent) ?: rawContent
-        } else rawContent
-        val isRequest = json.get("isRequest")?.asBoolean ?: false
-        db.messageDao().insert(
-            Message(from = from, to = me, content = content, type = "text",
-                timestamp = ts, isSent = false, remoteId = remoteId,
-                replyToId = replyToId, replyToSender = replyToSender,
-                replyToContent = replyToContent, isRequest = isRequest)
-        )
-        val seq = json.get("seq")?.asDouble?.toLong() ?: 0L
-        if (seq > 0 && seq > WebSocketClient.lastSeq) WebSocketClient.lastSeq = seq
-        if (remoteId != 0L) {
-            WebSocketClient.send(mapOf(
-                "type" to "delivered", "messageId" to remoteId, "from" to me, "to" to from
-            ))
-        }
-        if (isRequest) {
-            val event = JsonObject()
-            event.addProperty("type", "request-message")
-            event.addProperty("from", from)
-            event.addProperty("content", content)
-            event.addProperty("messageId", remoteId)
-            event.addProperty("timestamp", ts)
-            MessageBus.tryEmit(event)
-            return
-        }
-        if (!com.fshu.next.ui.chat.ChatActivity.isActive ||
-            com.fshu.next.ui.chat.ChatActivity.currentPeer != from) {
-            startActivity(
-                com.fshu.next.ui.MessagePopupActivity.createIntent(
-                    this, from, getDisplayName(from), content
-                )
+        try {
+            val from = json.get("from")?.asString ?: return
+            val rawContent = json.get("content")?.asString ?: return
+            val ts = try { json.get("timestamp")?.asLong ?: 0L } catch (_: Exception) { 0L }
+            val remoteId = try { json.get("messageId")?.asLong ?: 0L } catch (_: Exception) { 0L }
+            if (remoteId > 0 && db.messageDao().getByRemoteId(remoteId) != null) return
+            val replyToId = try { json.get("replyToId")?.asLong } catch (_: Exception) { null }
+            val replyToSender = json.get("replyToSender")?.asString?.takeIf { it.isNotEmpty() }
+            val replyToContent = json.get("replyToContent")?.asString?.takeIf { it.isNotEmpty() }
+            val me         = Prefs.getUsername(this)
+            val peerPubKey = Prefs.getPeerPublicKey(this, from)
+            if (peerPubKey.isEmpty()) requestPeerKey(from)
+            val content = if (peerPubKey.isNotEmpty() && remoteId != 0L) {
+                CryptoHelper.decryptFromPeer(this, from, peerPubKey, remoteId, rawContent) ?: rawContent
+            } else rawContent
+            val isRequest = json.get("isRequest")?.asBoolean ?: false
+            db.messageDao().insert(
+                Message(from = from, to = me, content = content, type = "text",
+                    timestamp = ts, isSent = false, remoteId = remoteId,
+                    replyToId = replyToId, replyToSender = replyToSender,
+                    replyToContent = replyToContent, isRequest = isRequest)
             )
+            val seq = try { json.get("seq")?.asLong ?: 0L } catch (_: Exception) { 0L }
+            if (seq > 0 && seq > WebSocketClient.lastSeq) WebSocketClient.lastSeq = seq
+            if (remoteId != 0L) {
+                WebSocketClient.send(mapOf(
+                    "type" to "delivered", "messageId" to remoteId, "from" to me, "to" to from
+                ))
+            }
+            if (isRequest) {
+                val event = JsonObject()
+                event.addProperty("type", "request-message")
+                event.addProperty("from", from)
+                event.addProperty("content", content)
+                event.addProperty("messageId", remoteId)
+                event.addProperty("timestamp", ts)
+                MessageBus.tryEmit(event)
+                return
+            }
+            if (!com.fshu.next.ui.chat.ChatActivity.isActive ||
+                com.fshu.next.ui.chat.ChatActivity.currentPeer != from) {
+                startActivity(
+                    com.fshu.next.ui.MessagePopupActivity.createIntent(
+                        this, from, getDisplayName(from), content
+                    )
+                )
+            }
+            notifyMessage(from, content)
+            MessageBus.tryEmit(json)
+        } catch (e: Exception) {
+            Log.e("FshuService", "persistIncomingMessage error: ${e.message}", e)
         }
-        notifyMessage(from, content)
-        MessageBus.tryEmit(json)
     }
 
     private suspend fun persistIncomingFile(json: JsonObject) {
@@ -739,14 +767,7 @@ class FshuService : Service() {
 
     private suspend fun handleDeletedForAll(json: JsonObject) {
         val msgId = json.get("messageId")?.asDouble?.toLong() ?: return
-        val deletedBy = json.get("from")?.asString ?: ""
-        val deletedAt = json.get("deletedAt")?.asDouble?.toLong() ?: System.currentTimeMillis()
-        val iWasSender = deletedBy == Prefs.getUsername(this)
-        val content = if (iWasSender)
-            "[Message deleted]"
-        else
-            """{"deletedBy":"$deletedBy","deletedAt":$deletedAt}"""
-        db.messageDao().markDeletedForAll(msgId, content)
+        db.messageDao().markDeletedForAll(msgId, "[Message deleted]")
         MessageBus.emit(json)
     }
 
@@ -1023,7 +1044,7 @@ class FshuService : Service() {
             WebSocketClient.send(mapOf("type" to "delivered", "messageId" to remoteId, "from" to me, "to" to from))
         }
         playLocationRequestSound()
-        if (Prefs.getLocationSharingEnabled(this) && Prefs.getPeerTrustLevel(this, from) == "family") {
+        if (Prefs.isAutoLocationEnabled(this, from)) {
             scope.launch {
                 val location = LocationHelper.getCurrentLocation(this@FshuService) ?: return@launch
                 val mapsUrl = LocationHelper.buildMapsUrl(location.latitude, location.longitude)

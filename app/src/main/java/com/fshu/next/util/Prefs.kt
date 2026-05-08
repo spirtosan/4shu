@@ -91,12 +91,24 @@ object Prefs {
     fun setPassphrase(ctx: Context, value: String) =
         getSecurePrefs(ctx).edit().putString(KEY_PASSPHRASE, value).apply()
 
-    /** Auto-respond to location requests. */
+    /** Auto-respond to location requests (legacy global toggle — kept for backward compat). */
     fun getLocationSharingEnabled(ctx: Context): Boolean =
         ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE).getBoolean("location_sharing_enabled", false)
 
     fun setLocationSharingEnabled(ctx: Context, value: Boolean) =
         ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE).edit().putBoolean("location_sharing_enabled", value).apply()
+
+    /** Per-peer auto-share: set of peer usernames for whom location is auto-shared. */
+    fun getAutoLocationPeers(ctx: Context): Set<String> =
+        ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE)
+            .getStringSet("auto_location_peers", emptySet()) ?: emptySet()
+
+    fun setAutoLocationPeers(ctx: Context, peers: Set<String>) =
+        ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE)
+            .edit().putStringSet("auto_location_peers", peers).apply()
+
+    fun isAutoLocationEnabled(ctx: Context, peer: String): Boolean =
+        getAutoLocationPeers(ctx).contains(peer)
 
     /** Cached user list — JSON array of {username,online}. Loaded on start before server update. */
     fun getCachedUsers(ctx: Context): String =

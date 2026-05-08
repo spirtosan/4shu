@@ -116,8 +116,7 @@ class MainActivity : AppCompatActivity() {
 
         setSupportActionBar(binding.toolbar)
         loadMyAvatar()
-        binding.tvRequestsBadge.isClickable = true
-        binding.tvRequestsBadge.setOnClickListener {
+        binding.btnRequestsBadge.setOnClickListener {
             startActivity(Intent(this, com.fshu.next.ui.contacts.RequestsActivity::class.java))
         }
 
@@ -465,7 +464,9 @@ class MainActivity : AppCompatActivity() {
                 }
                 iv.setImageBitmap(bmp)
             }
-            iv.setOnClickListener { pickAvatarLauncher.launch("image/*") }
+            iv.setOnClickListener {
+                startActivity(Intent(this, com.fshu.next.ui.settings.MyProfileActivity::class.java))
+            }
         } catch (e: Exception) {
             Log.e("MainActivity", "loadMyAvatar failed", e)
         }
@@ -703,7 +704,7 @@ class MainActivity : AppCompatActivity() {
 
                 val pending = json.get("pendingRequests")?.takeIf { !it.isJsonNull }?.asInt ?: 0
                 runOnUiThread {
-                    binding.tvRequestsBadge.visibility = if (pending > 0) android.view.View.VISIBLE else android.view.View.GONE
+                    binding.btnRequestsBadge.visibility = if (pending > 0) android.view.View.VISIBLE else android.view.View.GONE
                     binding.tvRequestsBadge.text = if (pending > 9) "9+" else pending.toString()
                 }
             }
@@ -748,14 +749,22 @@ class MainActivity : AppCompatActivity() {
             "contact-list" -> {
                 val count = json.getAsJsonArray("pendingReceived")?.size() ?: 0
                 runOnUiThread {
-                    binding.tvRequestsBadge.visibility = if (count > 0) android.view.View.VISIBLE else android.view.View.GONE
+                    binding.btnRequestsBadge.visibility = if (count > 0) android.view.View.VISIBLE else android.view.View.GONE
                     binding.tvRequestsBadge.text = if (count > 9) "9+" else count.toString()
                 }
             }
+            "contact-request-received" -> {
+                if (WebSocketClient.isConnected) {
+                    WebSocketClient.send(mapOf("type" to "contact-list"))
+                }
+            }
             "contact-accepted" -> {
-                val from = json.get("from")?.asString ?: return
+                val accepted = json.get("targetUsername")?.asString ?: return
                 runOnUiThread {
-                    Toast.makeText(this, "$from accepted your request", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, "$accepted accepted your request", Toast.LENGTH_SHORT).show()
+                }
+                if (WebSocketClient.isConnected) {
+                    WebSocketClient.send(mapOf("type" to "get-users"))
                 }
             }
             "message", "file", "list", "location", "location-request", "location-response" -> {

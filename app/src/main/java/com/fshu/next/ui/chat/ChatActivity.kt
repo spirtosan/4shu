@@ -79,6 +79,9 @@ class ChatActivity : AppCompatActivity() {
     private val vm: ChatViewModel by viewModels()
     private val adapter = ChatAdapter()
 
+    private var myGroupRole = "member"
+    private var isAutoLocationEnabled = false
+
     private var lastTypingSent = 0L
     private val typingHideHandler = Handler(Looper.getMainLooper())
     private val typingHideRunnable = Runnable { supportActionBar?.subtitle = null }
@@ -223,7 +226,7 @@ class ChatActivity : AppCompatActivity() {
                 binding.btnSelectionEdit.visibility =
                     if (canEdit) View.VISIBLE else View.GONE
                 val canReact = count == 1 && singleMsg != null &&
-                    singleMsg.remoteId > 0L && singleMsg.type != "deleted"
+                    singleMsg.type != "deleted"
                 binding.btnSelectionReact.visibility =
                     if (canReact) View.VISIBLE else View.GONE
             }
@@ -585,6 +588,12 @@ class ChatActivity : AppCompatActivity() {
                             }
                         }
                     }
+                    "auto-location-peers" -> {
+                        val arr = json.getAsJsonArray("peers") ?: return@collect
+                        val enabled = arr.any { !it.isJsonNull && it.asString == peer }
+                        isAutoLocationEnabled = enabled
+                        runOnUiThread { invalidateOptionsMenu() }
+                    }
                 }
             }
         }
@@ -665,6 +674,9 @@ class ChatActivity : AppCompatActivity() {
             if (pm.isInteractive) {
                 vm.sendReadReceipts(peer)
             }
+            isAutoLocationEnabled = Prefs.isAutoLocationEnabled(this, peer)
+            com.fshu.next.data.remote.WebSocketClient.send(mapOf("type" to "get-auto-location"))
+            invalidateOptionsMenu()
         }
         registerReceiver(screenOnReceiver, IntentFilter(Intent.ACTION_SCREEN_ON))
     }
@@ -685,12 +697,21 @@ class ChatActivity : AppCompatActivity() {
         menu.findItem(R.id.action_call)?.isVisible = !isGroupChat
         menu.findItem(R.id.action_video_call)?.isVisible = !isGroupChat
         menu.findItem(R.id.action_group_info)?.isVisible = isGroupChat
-        menu.findItem(R.id.action_leave_group)?.isVisible = isGroupChat
+        val isOwner = myGroupRole == "owner"
+        menu.findItem(R.id.action_leave_group)?.isVisible = isGroupChat && !isOwner
+        menu.findItem(R.id.action_delete_group)?.isVisible = isGroupChat && isOwner
         menu.findItem(R.id.action_export)?.isVisible = !isGroupChat
         menu.findItem(R.id.action_new_todo)?.isVisible = !isGroupChat
         menu.findItem(R.id.action_share_location)?.isVisible = !isGroupChat
         menu.findItem(R.id.action_request_location)?.isVisible = !isGroupChat
         menu.findItem(R.id.action_load_history)?.isVisible = !isGroupChat
+        menu.findItem(R.id.action_auto_location)?.apply {
+            isVisible = !isGroupChat
+            title = if (isAutoLocationEnabled)
+                getString(R.string.auto_location_on)
+            else
+                getString(R.string.auto_location_off)
+        }
         return super.onPrepareOptionsMenu(menu)
     }
 
@@ -706,6 +727,25 @@ class ChatActivity : AppCompatActivity() {
                     .setPositiveButton(getString(R.string.btn_leave)) { _, _ ->
                         com.fshu.next.data.remote.WebSocketClient.send(mapOf(
                             "type" to "group-leave",
+                            "groupId" to gid
+                        ))
+                    }
+                    .setNegativeButton(getString(R.string.btn_cancel), null)
+                    .show()
+                    .also { d ->
+                        d.getButton(AlertDialog.BUTTON_POSITIVE)
+                            ?.setTextColor(android.graphics.Color.parseColor("#E53935"))
+                    }
+                return true
+            }
+            R.id.action_delete_group -> {
+                val gid = groupId ?: return true
+                AlertDialog.Builder(this)
+                    .setTitle(getString(R.string.dialog_delete_group_title, title))
+                    .setMessage(getString(R.string.dialog_delete_group_message))
+                    .setPositiveButton(getString(R.string.btn_delete)) { _, _ ->
+                        com.fshu.next.data.remote.WebSocketClient.send(mapOf(
+                            "type" to "group-delete",
                             "groupId" to gid
                         ))
                     }
@@ -757,6 +797,16 @@ class ChatActivity : AppCompatActivity() {
             }
             R.id.action_load_history -> {
                 showHistoryDialog()
+                return true
+            }
+            R.id.action_auto_location -> {
+                isAutoLocationEnabled = !isAutoLocationEnabled
+                com.fshu.next.data.remote.WebSocketClient.send(mapOf(
+                    "type" to "set-auto-location",
+                    "peer" to peer,
+                    "enabled" to isAutoLocationEnabled
+                ))
+                invalidateOptionsMenu()
                 return true
             }
         }
@@ -1006,11 +1056,15 @@ class ChatActivity : AppCompatActivity() {
             val db = com.fshu.next.data.local.AppDatabase.getInstance(this@ChatActivity)
             val group = db.groupDao().getById(gid) ?: return@launch
             val members = db.groupMemberDao().getMembersOf(gid)
+            val me = Prefs.getUsername(this@ChatActivity)
+            val role = members.find { it.username == me }?.role ?: "member"
             val sizePx = (36 * resources.displayMetrics.density).toInt()
             runOnUiThread {
                 title = group.name
                 supportActionBar?.subtitle = resources.getQuantityString(R.plurals.group_members_subtitle, members.size, members.size)
                 loadGroupAvatarInto(group, binding.toolbarAvatar, sizePx)
+                myGroupRole = role
+                invalidateOptionsMenu()
             }
         }
     }

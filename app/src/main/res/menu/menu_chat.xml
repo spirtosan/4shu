@@ -28,6 +28,11 @@
         app:showAsAction="never" />
 
     <item
+        android:id="@+id/action_delete_group"
+        android:title="@string/menu_delete_group"
+        app:showAsAction="never" />
+
+    <item
         android:id="@+id/action_export"
         android:title="@string/menu_export_conversation"
         app:showAsAction="never" />
@@ -55,6 +60,12 @@
     <item
         android:id="@+id/action_load_history"
         android:title="@string/menu_load_history"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_auto_location"
+        android:title="@string/auto_location_off"
+        android:orderInCategory="150"
         app:showAsAction="never" />
 
 </menu>
