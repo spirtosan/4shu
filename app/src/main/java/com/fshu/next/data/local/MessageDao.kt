@@ -147,4 +147,7 @@ interface MessageDao {
            OR (isSent = 1 AND id = :msgId)
     """)
     suspend fun markDeletedForAll(msgId: Long, content: String)
+
+    @Query("DELETE FROM messages WHERE groupId = :groupId")
+    suspend fun deleteMessagesForGroup(groupId: String)
 }

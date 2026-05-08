@@ -23,6 +23,11 @@
         app:showAsAction="never" />
 
     <item
+        android:id="@+id/action_leave_group"
+        android:title="@string/menu_leave_group"
+        app:showAsAction="never" />
+
+    <item
         android:id="@+id/action_export"
         android:title="@string/menu_export_conversation"
         app:showAsAction="never" />

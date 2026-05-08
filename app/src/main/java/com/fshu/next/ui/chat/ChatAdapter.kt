@@ -425,6 +425,17 @@ class ChatAdapter : ListAdapter<Message, RecyclerView.ViewHolder>(DIFF) {
         } else {
             iv.visibility = View.GONE
             tv.visibility = View.VISIBLE
+            val isEncryptedBlob = msg.type != "deleted" &&
+                (msg.groupId != null || !msg.isSent) &&
+                msg.content.length >= 64 &&
+                msg.content.all { it in '0'..'9' || it in 'a'..'f' || it in 'A'..'F' }
+            if (isEncryptedBlob) {
+                tv.text = tv.context.getString(com.fshu.next.R.string.label_encrypted_message)
+                tv.setTypeface(null, android.graphics.Typeface.ITALIC)
+                tv.setTextColor(android.graphics.Color.parseColor("#9E9E9E"))
+                tv.movementMethod = null
+                return
+            }
             tv.text = msg.content
             android.text.util.Linkify.addLinks(tv, android.text.util.Linkify.WEB_URLS)
             tv.movementMethod = if (tv.urls.isNotEmpty())

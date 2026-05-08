@@ -150,6 +150,8 @@
     <string name="dialog_delete_group_title">Delete \"%s\"?</string>
     <string name="dialog_delete_group_message">This will delete the group for all members.</string>
     <string name="dialog_leave_group_title">Leave \"%s\"?</string>
+    <string name="dialog_leave_group_confirm">You will no longer receive messages from this group.</string>
+    <string name="toast_owner_cannot_leave">You are the group owner. Transfer ownership or delete the group first.</string>
     <string name="dialog_add_member_title">Add member</string>
     <string name="hint_username_to_add">Username to add</string>
     <string name="toast_group_key_not_available">Group key not available</string>
@@ -256,6 +258,8 @@
     <string name="menu_voice_call">Voice call</string>
     <string name="menu_video_call">Video call</string>
     <string name="menu_group_info">Group info</string>
+    <string name="menu_leave_group">Leave group</string>
+    <string name="label_encrypted_message">[Encrypted message]</string>
     <string name="menu_export_conversation">Export conversation</string>
     <string name="menu_change_background">Change background</string>
     <string name="menu_new_todo_list">New todo list</string>

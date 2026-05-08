@@ -116,6 +116,10 @@ class MainActivity : AppCompatActivity() {
 
         setSupportActionBar(binding.toolbar)
         loadMyAvatar()
+        binding.tvRequestsBadge.isClickable = true
+        binding.tvRequestsBadge.setOnClickListener {
+            startActivity(Intent(this, com.fshu.next.ui.contacts.RequestsActivity::class.java))
+        }
 
         adapter = UserAdapter(
             users,

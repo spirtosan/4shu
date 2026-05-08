@@ -500,8 +500,8 @@ class FshuService : Service() {
                 if (!turnPass.isNullOrEmpty()) Prefs.setTurnPassword(this, turnPass)
                 json.getAsJsonArray("contactNicknames")?.forEach { el ->
                     val obj = el.asJsonObject
-                    val contact = obj.get("contact")?.asString ?: return@forEach
-                    val nick = obj.get("nickname")?.asString ?: return@forEach
+                    val contact = obj.get("contact")?.takeIf { !it.isJsonNull }?.asString ?: return@forEach
+                    val nick = obj.get("nickname")?.takeIf { !it.isJsonNull }?.asString ?: return@forEach
                     Prefs.setContactNickname(this, contact, nick)
                 }
                 json.getAsJsonObject("profile")?.let { p ->
@@ -534,9 +534,9 @@ class FshuService : Service() {
                 val me = Prefs.getUsername(this)
                 json.getAsJsonArray("users")?.forEach { el ->
                     val obj    = el.asJsonObject
-                    val uname  = obj.get("username")?.asString ?: return@forEach
-                    val pubHex = obj.get("publicKey")?.asString ?: return@forEach
-                    val trust  = obj.get("trustLevel")?.asString ?: "contact"
+                    val uname  = obj.get("username")?.takeIf { !it.isJsonNull }?.asString ?: return@forEach
+                    val pubHex = obj.get("publicKey")?.takeIf { !it.isJsonNull }?.asString ?: return@forEach
+                    val trust  = obj.get("trustLevel")?.takeIf { !it.isJsonNull }?.asString ?: "contact"
                     if (uname == me || pubHex.isEmpty()) return@forEach
                     Prefs.setPeerPublicKey(this, uname, pubHex)
                     CryptoHelper.cachePeerKey(this, uname, pubHex)
@@ -1121,7 +1121,7 @@ class FshuService : Service() {
             for (el in arr) {
                 val obj = el.asJsonObject
                 if (obj.get("username")?.asString == username) {
-                    val nick = obj.get("nickname")?.asString
+                    val nick = obj.get("nickname")?.takeIf { !it.isJsonNull }?.asString
                     return if (!nick.isNullOrBlank()) nick else username
                 }
             }
@@ -1458,6 +1458,7 @@ class FshuService : Service() {
         val groupId = json.get("groupId")?.asString ?: return
         val groupName = db.groupDao().getById(groupId)?.name ?: "a group"
         db.groupDao().deleteById(groupId)
+        db.messageDao().deleteMessagesForGroup(groupId)
 
         val reason    = json.get("reason")?.asString ?: "removed"
         val notifText = when (reason) {

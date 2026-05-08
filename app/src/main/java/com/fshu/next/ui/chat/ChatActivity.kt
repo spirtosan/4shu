@@ -563,6 +563,17 @@ class ChatActivity : AppCompatActivity() {
                         val stateId = json.get("groupId")?.asString
                         if (stateId == groupId) runOnUiThread { loadGroupInfo() }
                     }
+                    "group-error" -> {
+                        val gid = json.get("groupId")?.asString
+                        if (gid == groupId) {
+                            val reason = json.get("reason")?.asString
+                            if (reason == "owner-cannot-leave") runOnUiThread {
+                                Toast.makeText(this@ChatActivity,
+                                    getString(R.string.toast_owner_cannot_leave),
+                                    Toast.LENGTH_LONG).show()
+                            }
+                        }
+                    }
                     "group-avatar-update" -> {
                         val updatedId = json.get("groupId")?.asString
                         if (updatedId == groupId) {
@@ -674,6 +685,7 @@ class ChatActivity : AppCompatActivity() {
         menu.findItem(R.id.action_call)?.isVisible = !isGroupChat
         menu.findItem(R.id.action_video_call)?.isVisible = !isGroupChat
         menu.findItem(R.id.action_group_info)?.isVisible = isGroupChat
+        menu.findItem(R.id.action_leave_group)?.isVisible = isGroupChat
         menu.findItem(R.id.action_export)?.isVisible = !isGroupChat
         menu.findItem(R.id.action_new_todo)?.isVisible = !isGroupChat
         menu.findItem(R.id.action_share_location)?.isVisible = !isGroupChat
@@ -686,6 +698,25 @@ class ChatActivity : AppCompatActivity() {
         when (item.itemId) {
             android.R.id.home -> { finish(); return true }
             R.id.action_group_info -> { showGroupInfo(); return true }
+            R.id.action_leave_group -> {
+                val gid = groupId ?: return true
+                AlertDialog.Builder(this)
+                    .setTitle(getString(R.string.dialog_leave_group_title, title))
+                    .setMessage(getString(R.string.dialog_leave_group_confirm))
+                    .setPositiveButton(getString(R.string.btn_leave)) { _, _ ->
+                        com.fshu.next.data.remote.WebSocketClient.send(mapOf(
+                            "type" to "group-leave",
+                            "groupId" to gid
+                        ))
+                    }
+                    .setNegativeButton(getString(R.string.btn_cancel), null)
+                    .show()
+                    .also { d ->
+                        d.getButton(AlertDialog.BUTTON_POSITIVE)
+                            ?.setTextColor(android.graphics.Color.parseColor("#E53935"))
+                    }
+                return true
+            }
             R.id.action_call -> {
                 startActivity(Intent(this, CallActivity::class.java).apply {
                     putExtra(CallActivity.EXTRA_PEER, peer)
