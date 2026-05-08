@@ -130,12 +130,12 @@ object WebSocketClient {
         }
         val request = Request.Builder().url(url).build()
         webSocket = client.newWebSocket(request, object : WebSocketListener() {
-            override fun onOpen(ws: WebSocket, response: Response) {
+            override fun onOpen(webSocket: WebSocket, response: Response) {
                 connectTimeoutJob?.cancel()
                 connectTimeoutJob = null
                 if (sessionToken.isNotEmpty()) {
                     // Try fast resume first — server will respond with auth-ok or resume-error
-                    ws.send(gson.toJson(mapOf(
+                    webSocket.send(gson.toJson(mapOf(
                         "type" to "resume",
                         "sessionToken" to sessionToken,
                         "username" to username,
@@ -144,7 +144,7 @@ object WebSocketClient {
                         "deviceName" to deviceName
                     )))
                 } else {
-                    ws.send(gson.toJson(mapOf(
+                    webSocket.send(gson.toJson(mapOf(
                         "type" to "auth",
                         "username" to username,
                         "password" to password,
@@ -155,11 +155,11 @@ object WebSocketClient {
                 }
             }
 
-            override fun onMessage(ws: WebSocket, bytes: ByteString) {
+            override fun onMessage(webSocket: WebSocket, bytes: ByteString) {
                 onBinaryMessage?.invoke(bytes)
             }
 
-            override fun onMessage(ws: WebSocket, text: String) {
+            override fun onMessage(webSocket: WebSocket, text: String) {
                 try {
                     val json = gson.fromJson(text, JsonObject::class.java)
                     when (json.get("type")?.asString) {
@@ -177,7 +177,7 @@ object WebSocketClient {
                             busEvent.addProperty("type", "auth-ok")
                             busEvent.addProperty("admin", json.get("admin")?.asBoolean ?: false)
                             handlers.forEach { it(busEvent) }
-                            startHeartbeat(ws)
+                            startHeartbeat(webSocket)
                             onConnected()
                             onConnectedCallback?.invoke()
                         }
@@ -192,7 +192,7 @@ object WebSocketClient {
                             // Token invalid or expired — fall back to full bcrypt auth
                             Log.d(TAG, "Resume failed, falling back to password auth")
                             sessionToken = ""
-                            ws.send(gson.toJson(mapOf(
+                            webSocket.send(gson.toJson(mapOf(
                                 "type" to "auth",
                                 "username" to username,
                                 "password" to password,
@@ -232,7 +232,7 @@ object WebSocketClient {
                 }
             }
 
-            override fun onFailure(ws: WebSocket, t: Throwable, response: Response?) {
+            override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
                 isConnecting.set(false)
                 isConnected = false
                 stopHeartbeat()
@@ -241,7 +241,7 @@ object WebSocketClient {
                 onDisconnected()
             }
 
-            override fun onClosed(ws: WebSocket, code: Int, reason: String) {
+            override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
                 isConnecting.set(false)
                 isConnected = false
                 stopHeartbeat()

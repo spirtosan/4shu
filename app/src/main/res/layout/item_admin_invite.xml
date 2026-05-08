@@ -36,6 +36,14 @@
         </LinearLayout>
 
         <Button
+            android:id="@+id/btnCopyInvite"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Copy"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
+            android:textColor="#E8711A" />
+
+        <Button
             android:id="@+id/btnRevokeInvite"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"

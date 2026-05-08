@@ -371,7 +371,7 @@ class WebRTCManager(
                 tempPc.createOffer(object : SdpObserver {
                     override fun onCreateSuccess(sdp: SessionDescription) {
                         dbg("offer SDP:\n${sdp.description}")
-                        tempPc?.setLocalDescription(sdpObserver(onSetSuccess = {
+                        tempPc.setLocalDescription(sdpObserver(onSetSuccess = {
                             dbg("local description set — ICE gathering started")
                             offerReady.complete(Unit)
                         }), sdp)

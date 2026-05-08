@@ -40,7 +40,8 @@ data class AdminInvite(
     val token: String,
     val createdBy: String,
     val expiresAt: Long,
-    val usedBy: String?
+    val usedBy: String?,
+    val url: String
 )
 
 class AdminPanelActivity : AppCompatActivity() {
@@ -69,7 +70,15 @@ class AdminPanelActivity : AppCompatActivity() {
         binding.rvAdminUsers.adapter = adapter
         binding.rvAdminUsers.isNestedScrollingEnabled = false
 
-        inviteAdapter = AdminInviteAdapter(inviteItems, onRevoke = { invite -> revokeInvite(invite) })
+        inviteAdapter = AdminInviteAdapter(
+            inviteItems,
+            onCopy = { invite ->
+                val clipboard = getSystemService(ClipboardManager::class.java)
+                clipboard.setPrimaryClip(ClipData.newPlainText("invite", invite.url))
+                Toast.makeText(this, "Invite link copied!", Toast.LENGTH_SHORT).show()
+            },
+            onRevoke = { invite -> revokeInvite(invite) }
+        )
         binding.rvAdminInvites.layoutManager = LinearLayoutManager(this)
         binding.rvAdminInvites.adapter = inviteAdapter
         binding.rvAdminInvites.isNestedScrollingEnabled = false
@@ -227,7 +236,8 @@ class AdminPanelActivity : AppCompatActivity() {
                 token     = obj.get("token")?.asString ?: return@mapNotNull null,
                 createdBy = obj.get("created_by")?.asString ?: "",
                 expiresAt = obj.get("expires_at")?.takeIf { !it.isJsonNull }?.asLong ?: 0L,
-                usedBy    = null
+                usedBy    = null,
+                url       = obj.get("url")?.asString ?: ""
             )
         }
         inviteItems.clear()
@@ -368,12 +378,14 @@ class AdminPanelActivity : AppCompatActivity() {
 
     inner class AdminInviteAdapter(
         private val items: List<AdminInvite>,
+        private val onCopy: (AdminInvite) -> Unit,
         private val onRevoke: (AdminInvite) -> Unit
     ) : RecyclerView.Adapter<AdminInviteAdapter.VH>() {
 
         inner class VH(view: View) : RecyclerView.ViewHolder(view) {
             val tvToken: TextView = view.findViewById(R.id.tvInviteToken)
             val tvExpiry: TextView = view.findViewById(R.id.tvInviteExpiry)
+            val btnCopy: Button = view.findViewById(R.id.btnCopyInvite)
             val btnRevoke: Button = view.findViewById(R.id.btnRevokeInvite)
         }
 
@@ -390,6 +402,7 @@ class AdminPanelActivity : AppCompatActivity() {
             } else {
                 "No expiry"
             }
+            holder.btnCopy.setOnClickListener { onCopy(invite) }
             holder.btnRevoke.setOnClickListener { onRevoke(invite) }
         }
     }

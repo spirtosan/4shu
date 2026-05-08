@@ -566,9 +566,9 @@ class ChatActivity : AppCompatActivity() {
                     "group-avatar-update" -> {
                         val updatedId = json.get("groupId")?.asString
                         if (updatedId == groupId) {
-                            lifecycleScope.launch(Dispatchers.IO) {
+                            lifecycleScope.launch(Dispatchers.IO) io@{
                                 val db = com.fshu.next.data.local.AppDatabase.getInstance(this@ChatActivity)
-                                val group = db.groupDao().getById(groupId!!) ?: return@launch
+                                val group = db.groupDao().getById(groupId!!) ?: return@io
                                 val sizePx = (36 * resources.displayMetrics.density).toInt()
                                 runOnUiThread { loadGroupAvatarInto(group, binding.toolbarAvatar, sizePx) }
                             }

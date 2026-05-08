@@ -411,7 +411,7 @@ class MainActivity : AppCompatActivity() {
             if (me.isEmpty()) return
             val avatarFile = File(filesDir, "avatars/$me.jpg")
             val sizePx = (36 * resources.displayMetrics.density).toInt()
-            val iv = binding.toolbarMyAvatar ?: return
+            val iv = binding.toolbarMyAvatar
             if (avatarFile.exists()) {
                 iv.load(avatarFile) {
                     transformations(CircleCropTransformation())
