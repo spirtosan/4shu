@@ -1,5 +1,8 @@
 package com.fshu.next.ui.admin
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.Menu
@@ -22,6 +25,9 @@ import com.fshu.next.util.MessageBus
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 data class AdminUser(
     val username: String,
@@ -30,11 +36,20 @@ data class AdminUser(
     val trustLevel: String = "contact"
 )
 
+data class AdminInvite(
+    val token: String,
+    val createdBy: String,
+    val expiresAt: Long,
+    val usedBy: String?
+)
+
 class AdminPanelActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityAdminPanelBinding
     private val userItems = mutableListOf<AdminUser>()
     private lateinit var adapter: AdminUserAdapter
+    private val inviteItems = mutableListOf<AdminInvite>()
+    private lateinit var inviteAdapter: AdminInviteAdapter
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -52,10 +67,18 @@ class AdminPanelActivity : AppCompatActivity() {
         )
         binding.rvAdminUsers.layoutManager = LinearLayoutManager(this)
         binding.rvAdminUsers.adapter = adapter
+        binding.rvAdminUsers.isNestedScrollingEnabled = false
+
+        inviteAdapter = AdminInviteAdapter(inviteItems, onRevoke = { invite -> revokeInvite(invite) })
+        binding.rvAdminInvites.layoutManager = LinearLayoutManager(this)
+        binding.rvAdminInvites.adapter = inviteAdapter
+        binding.rvAdminInvites.isNestedScrollingEnabled = false
 
         binding.fabAddUser.setOnClickListener { showAddUserDialog() }
+        binding.btnGenerateInvite.setOnClickListener { generateInvite() }
 
         loadUsers()
+        loadInvites()
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
@@ -135,6 +158,81 @@ class AdminPanelActivity : AppCompatActivity() {
             adapter.notifyDataSetChanged()
             binding.tvAdminStatus.visibility = View.GONE
         }
+    }
+
+    private fun loadInvites() {
+        lifecycleScope.launch {
+            val ch = Channel<JsonObject>(1)
+            val job = launch {
+                MessageBus.events.collect {
+                    if (it.get("type")?.asString == "admin-invite-list") ch.trySend(it)
+                }
+            }
+            WebSocketClient.send(mapOf("type" to "admin-invite-list"))
+            val result = withTimeoutOrNull(5_000) { ch.receive() }
+            job.cancel()
+            if (result != null) updateInviteList(result)
+        }
+    }
+
+    private fun generateInvite() {
+        lifecycleScope.launch {
+            val ch = Channel<JsonObject>(2)
+            val job = launch {
+                MessageBus.events.collect {
+                    val t = it.get("type")?.asString
+                    if (t == "admin-invite-created" || t == "admin-invite-list") ch.trySend(it)
+                }
+            }
+            WebSocketClient.send(mapOf("type" to "admin-invite-create"))
+            val created = withTimeoutOrNull(5_000) { ch.receive() }
+            if (created?.get("type")?.asString == "admin-invite-created") {
+                val url = created.get("url")?.asString ?: ""
+                val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                clipboard.setPrimaryClip(ClipData.newPlainText("invite", url))
+                Toast.makeText(this@AdminPanelActivity, "Invite link copied!", Toast.LENGTH_SHORT).show()
+            }
+            WebSocketClient.send(mapOf("type" to "admin-invite-list"))
+            val listResult = withTimeoutOrNull(5_000) { ch.receive() }
+            job.cancel()
+            if (listResult?.get("type")?.asString == "admin-invite-list") updateInviteList(listResult)
+        }
+    }
+
+    private fun revokeInvite(invite: AdminInvite) {
+        lifecycleScope.launch {
+            val ch = Channel<JsonObject>(2)
+            val job = launch {
+                MessageBus.events.collect {
+                    val t = it.get("type")?.asString
+                    if (t == "admin-result" || t == "admin-error" || t == "admin-invite-list") ch.trySend(it)
+                }
+            }
+            WebSocketClient.send(mapOf("type" to "admin-invite-revoke", "token" to invite.token))
+            withTimeoutOrNull(3_000) { ch.receive() }
+            WebSocketClient.send(mapOf("type" to "admin-invite-list"))
+            val listResult = withTimeoutOrNull(5_000) { ch.receive() }
+            job.cancel()
+            if (listResult?.get("type")?.asString == "admin-invite-list") updateInviteList(listResult)
+        }
+    }
+
+    private fun updateInviteList(result: JsonObject) {
+        val arr = result.getAsJsonArray("invites") ?: return
+        val list = arr.mapNotNull { el ->
+            val obj = el.asJsonObject
+            val usedBy = obj.get("used_by")?.takeIf { !it.isJsonNull }?.asString
+            if (usedBy != null) return@mapNotNull null
+            AdminInvite(
+                token     = obj.get("token")?.asString ?: return@mapNotNull null,
+                createdBy = obj.get("created_by")?.asString ?: "",
+                expiresAt = obj.get("expires_at")?.takeIf { !it.isJsonNull }?.asLong ?: 0L,
+                usedBy    = null
+            )
+        }
+        inviteItems.clear()
+        inviteItems.addAll(list)
+        inviteAdapter.notifyDataSetChanged()
     }
 
     private fun showAddUserDialog() {
@@ -255,16 +353,44 @@ class AdminPanelActivity : AppCompatActivity() {
             holder.tvAdminBadge.visibility = if (user.isAdmin) View.VISIBLE else View.GONE
             holder.tvTrustBadge.text = user.trustLevel
             val trustColor = when (user.trustLevel) {
-                "family"  -> android.graphics.Color.parseColor("#4CAF50")
-                "trusted" -> android.graphics.Color.parseColor("#2196F3")
-                "stranger"-> android.graphics.Color.parseColor("#F44336")
-                else      -> android.graphics.Color.parseColor("#9E9E9E")
+                "family"   -> android.graphics.Color.parseColor("#4CAF50")
+                "trusted"  -> android.graphics.Color.parseColor("#2196F3")
+                "stranger" -> android.graphics.Color.parseColor("#F44336")
+                else       -> android.graphics.Color.parseColor("#9E9E9E")
             }
             holder.tvTrustBadge.backgroundTintList =
                 android.content.res.ColorStateList.valueOf(trustColor)
             holder.btnReset.setOnClickListener { onResetPassword(user) }
             holder.btnSetTrust.setOnClickListener { onSetTrust(user) }
             holder.btnRemove.setOnClickListener { onRemove(user) }
+        }
+    }
+
+    inner class AdminInviteAdapter(
+        private val items: List<AdminInvite>,
+        private val onRevoke: (AdminInvite) -> Unit
+    ) : RecyclerView.Adapter<AdminInviteAdapter.VH>() {
+
+        inner class VH(view: View) : RecyclerView.ViewHolder(view) {
+            val tvToken: TextView = view.findViewById(R.id.tvInviteToken)
+            val tvExpiry: TextView = view.findViewById(R.id.tvInviteExpiry)
+            val btnRevoke: Button = view.findViewById(R.id.btnRevokeInvite)
+        }
+
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) =
+            VH(LayoutInflater.from(parent.context).inflate(R.layout.item_admin_invite, parent, false))
+
+        override fun getItemCount() = items.size
+
+        override fun onBindViewHolder(holder: VH, position: Int) {
+            val invite = items[position]
+            holder.tvToken.text = "${invite.token.take(8)}..."
+            holder.tvExpiry.text = if (invite.expiresAt > 0) {
+                "Expires: ${SimpleDateFormat("dd MMM HH:mm", Locale.getDefault()).format(Date(invite.expiresAt))}"
+            } else {
+                "No expiry"
+            }
+            holder.btnRevoke.setOnClickListener { onRevoke(invite) }
         }
     }
 }

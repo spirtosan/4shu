@@ -19,26 +19,63 @@
             app:navigationIcon="?attr/homeAsUpIndicator" />
     </com.google.android.material.appbar.AppBarLayout>
 
-    <LinearLayout
+    <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:orientation="vertical"
         app:layout_behavior="@string/appbar_scrolling_view_behavior">
 
-        <TextView
-            android:id="@+id/tvAdminStatus"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:padding="16dp"
-            android:text="@string/label_loading"
-            android:textColor="?android:textColorSecondary" />
+            android:orientation="vertical"
+            android:paddingBottom="80dp">
 
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/rvAdminUsers"
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1" />
-    </LinearLayout>
+            <TextView
+                android:id="@+id/tvAdminStatus"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:padding="16dp"
+                android:text="@string/label_loading"
+                android:textColor="?android:textColorSecondary" />
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rvAdminUsers"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content" />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:layout_marginTop="8dp"
+                android:background="?android:attr/dividerHorizontal" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:paddingTop="16dp"
+                android:paddingBottom="4dp"
+                android:text="Invite Links"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:textColor="?android:textColorPrimary" />
+
+            <Button
+                android:id="@+id/btnGenerateInvite"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="12dp"
+                android:layout_marginBottom="8dp"
+                android:text="Generate Invite Link" />
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rvAdminInvites"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content" />
+
+        </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
 
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/fabAddUser"

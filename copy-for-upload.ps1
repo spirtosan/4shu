@@ -1,53 +1,59 @@
 # copy-for-upload.ps1
 # Run from C:\Users\spirt\files\
-# Copies all relevant source files to C:\Users\spirt\files\ for upload to Claude
+# Copies all relevant source files from fshu-next to C:\Users\spirt\files\ for upload to Claude
 
-$src = "C:\Users\spirt\fshu"
+$src = "C:\Users\spirt\fshu-next"
 $dst = "C:\Users\spirt\files"
 
 $files = @(
     # Core
-    "app\src\main\java\com\fshu\MainActivity.kt",
-    "app\src\main\java\com\fshu\FshuApplication.kt",
-    "app\src\main\java\com\fshu\UserAdapter.kt",
-    # Data
-    "app\src\main\java\com\fshu\data\local\AppDatabase.kt",
-    "app\src\main\java\com\fshu\data\local\MessageDao.kt",
-    "app\src\main\java\com\fshu\data\model\Message.kt",
-    "app\src\main\java\com\fshu\data\model\User.kt",
-    "app\src\main\java\com\fshu\data\model\ListItem.kt",
-    "app\src\main\java\com\fshu\data\remote\WebSocketClient.kt",
+    "app\src\main\java\com\fshu\next\MainActivity.kt",
+    "app\src\main\java\com\fshu\next\ui\main\UserAdapter.kt",
+    # Data — Models
+    "app\src\main\java\com\fshu\next\data\model\Message.kt",
+    "app\src\main\java\com\fshu\next\data\model\User.kt",
+    "app\src\main\java\com\fshu\next\data\model\Group.kt",
+    "app\src\main\java\com\fshu\next\data\model\GroupMember.kt",
+    "app\src\main\java\com\fshu\next\data\model\ListItem.kt",
+    # Data — Local
+    "app\src\main\java\com\fshu\next\data\local\AppDatabase.kt",
+    "app\src\main\java\com\fshu\next\data\local\dao\MessageDao.kt",
+    "app\src\main\java\com\fshu\next\data\local\dao\GroupDao.kt",
+    "app\src\main\java\com\fshu\next\data\local\dao\GroupMemberDao.kt",
+    # Data — Remote
+    "app\src\main\java\com\fshu\next\data\remote\WebSocketClient.kt",
     # Service
-    "app\src\main\java\com\fshu\service\FshuService.kt",
-    "app\src\main\java\com\fshu\service\FshuFirebaseService.kt",
-    "app\src\main\java\com\fshu\service\WebRTCManager.kt",
-    "app\src\main\java\com\fshu\service\ServiceRestartReceiver.kt",
-    "app\src\main\java\com\fshu\service\ServiceWatchdogWorker.kt",
+    "app\src\main\java\com\fshu\next\service\FshuService.kt",
+    "app\src\main\java\com\fshu\next\service\FshuFirebaseService.kt",
+    "app\src\main\java\com\fshu\next\service\WebRTCManager.kt",
+    "app\src\main\java\com\fshu\next\service\ServiceRestartReceiver.kt",
+    "app\src\main\java\com\fshu\next\service\ServiceWatchdogWorker.kt",
     # UI
-    "app\src\main\java\com\fshu\ui\login\LoginActivity.kt",
-    "app\src\main\java\com\fshu\ui\passphrase\PassphraseActivity.kt",
-    "app\src\main\java\com\fshu\ui\passphrase\PassphraseSetupActivity.kt",
-    "app\src\main\java\com\fshu\ui\permission\PermissionSetupActivity.kt",
-    "app\src\main\java\com\fshu\ui\chat\ChatActivity.kt",
-    "app\src\main\java\com\fshu\ui\chat\ChatViewModel.kt",
-    "app\src\main\java\com\fshu\ui\chat\ChatAdapter.kt",
-    "app\src\main\java\com\fshu\ui\call\CallActivity.kt",
-    "app\src\main\java\com\fshu\ui\call\CallViewModel.kt",
-    "app\src\main\java\com\fshu\ui\admin\AdminPanelActivity.kt",
-    "app\src\main\java\com\fshu\ui\admin\ChangePasswordDialog.kt",
-    "app\src\main\java\com\fshu\ui\settings\SettingsActivity.kt",
-    "app\src\main\java\com\fshu\ui\BackgroundBottomSheet.kt",
-    "app\src\main\java\com\fshu\ui\BackgroundHelper.kt",
-    "app\src\main\java\com\fshu\ui\ConnectionTestSheet.kt",
-    "app\src\main\java\com\fshu\ui\AppLockManager.kt",
+    "app\src\main\java\com\fshu\next\ui\login\LoginActivity.kt",
+    "app\src\main\java\com\fshu\next\ui\permission\PermissionSetupActivity.kt",
+    "app\src\main\java\com\fshu\next\ui\chat\ChatActivity.kt",
+    "app\src\main\java\com\fshu\next\ui\chat\ChatViewModel.kt",
+    "app\src\main\java\com\fshu\next\ui\chat\ChatAdapter.kt",
+    "app\src\main\java\com\fshu\next\ui\chat\WaveformView.kt",
+    "app\src\main\java\com\fshu\next\ui\call\CallActivity.kt",
+    "app\src\main\java\com\fshu\next\ui\call\CallViewModel.kt",
+    "app\src\main\java\com\fshu\next\ui\admin\AdminPanelActivity.kt",
+    "app\src\main\java\com\fshu\next\ui\admin\ChangePasswordDialog.kt",
+    "app\src\main\java\com\fshu\next\ui\settings\SettingsActivity.kt",
+    "app\src\main\java\com\fshu\next\ui\BackgroundBottomSheet.kt",
+    "app\src\main\java\com\fshu\next\ui\BackgroundHelper.kt",
+    "app\src\main\java\com\fshu\next\ui\ConnectionTestSheet.kt",
+    "app\src\main\java\com\fshu\next\ui\AppLockManager.kt",
     # Util
-    "app\src\main\java\com\fshu\util\CryptoHelper.kt",
-    "app\src\main\java\com\fshu\util\LocationHelper.kt",
-    "app\src\main\java\com\fshu\util\MessageBus.kt",
-    "app\src\main\java\com\fshu\util\Prefs.kt",
+    "app\src\main\java\com\fshu\next\util\CryptoHelper.kt",
+    "app\src\main\java\com\fshu\next\util\EcdhHelper.kt",
+    "app\src\main\java\com\fshu\next\util\LocationHelper.kt",
+    "app\src\main\java\com\fshu\next\util\MessageBus.kt",
+    "app\src\main\java\com\fshu\next\util\Prefs.kt",
+    "app\src\main\java\com\fshu\next\util\VoiceRecorder.kt",
+    "app\src\main\java\com\fshu\next\util\CrashHandler.kt",
     # Server
-    "server.js",
-    "server_remote.js",
+    "server5_reference.js",
     "admin.js",
     "package.json",
     # Android config
@@ -63,27 +69,31 @@ $files = @(
     "app\src\main\res\menu\menu_admin_panel.xml",
     # Resources
     "app\src\main\res\values\strings.xml",
+    "app\src\main\res\values-bg\strings.xml",
     "app\src\main\res\values\colors.xml",
     "app\src\main\res\values\themes.xml",
     "app\src\main\res\xml\file_paths.xml",
     # Layouts
-    "app\src\main\res\layout\activity_settings.xml",
-    "app\src\main\res\layout\activity_passphrase.xml",
-    "app\src\main\res\layout\activity_passphrase_setup.xml",
-    "app\src\main\res\layout\fragment_connection_test.xml",
     "app\src\main\res\layout\activity_chat.xml",
+    "app\src\main\res\layout\activity_settings.xml",
+    "app\src\main\res\layout\fragment_connection_test.xml",
     "app\src\main\res\layout\item_message_sent.xml",
     "app\src\main\res\layout\item_message_received.xml",
+    "app\src\main\res\layout\item_voice_sent.xml",
+    "app\src\main\res\layout\item_voice_received.xml",
     "app\src\main\res\layout\item_list_sent.xml",
     "app\src\main\res\layout\item_list_received.xml",
     "app\src\main\res\layout\item_location_sent.xml",
     "app\src\main\res\layout\item_location_received.xml",
     "app\src\main\res\layout\item_location_request_sent.xml",
     "app\src\main\res\layout\item_location_request_received.xml",
-    "app\src\main\res\layout\item_user.xml"
+    "app\src\main\res\layout\item_user.xml",
+    # Planning docs
+    "4shu_master_plan.md",
+    "BRIEFING.md"
 )
 
-# Keep the script itself safe — copy it to the fshu project root
+# Keep the script itself safe — copy it to the fshu-next project root
 $scriptSrc = "$dst\copy-for-upload.ps1"
 $scriptDst = "$src\copy-for-upload.ps1"
 if (Test-Path $scriptSrc) {
