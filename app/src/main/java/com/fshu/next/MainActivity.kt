@@ -796,7 +796,7 @@ class MainActivity : AppCompatActivity() {
                     val idx = users.indexOfFirst { it.username == peer }
                     if (idx >= 0) {
                         users[idx] = users[idx].copy(lastMessage = preview, lastMessageTime = ts)
-                        adapter.notifyItemChanged(idx)
+                        adapter.notifyItemChanged(idx, "message_update")
                     }
                 }
             }

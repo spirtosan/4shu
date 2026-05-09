@@ -13,6 +13,7 @@ import android.widget.PopupMenu
 import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.RecyclerView
 import coil.load
+import coil.request.CachePolicy
 import coil.transform.CircleCropTransformation
 import com.fshu.next.R
 import com.fshu.next.data.model.User
@@ -70,10 +71,18 @@ class UserAdapter(
             val groupFile = user.avatarPath?.let { File(it) }?.takeIf { it.exists() }
             when {
                 personalFile != null -> h.binding.ivAvatar.load(personalFile) {
-                    transformations(CircleCropTransformation()); crossfade(true)
+                    transformations(CircleCropTransformation())
+                    crossfade(false)
+                    memoryCachePolicy(CachePolicy.ENABLED)
+                    diskCachePolicy(CachePolicy.ENABLED)
+                    placeholder(h.binding.ivAvatar.drawable)
                 }
                 groupFile != null -> h.binding.ivAvatar.load(groupFile) {
-                    transformations(CircleCropTransformation()); crossfade(true)
+                    transformations(CircleCropTransformation())
+                    crossfade(false)
+                    memoryCachePolicy(CachePolicy.ENABLED)
+                    diskCachePolicy(CachePolicy.ENABLED)
+                    placeholder(h.binding.ivAvatar.drawable)
                 }
                 else -> {
                     val letter = user.displayName.firstOrNull()?.uppercaseChar()?.toString() ?: "G"
@@ -98,7 +107,10 @@ class UserAdapter(
         if (avatarFile.exists()) {
             h.binding.ivAvatar.load(avatarFile) {
                 transformations(CircleCropTransformation())
-                crossfade(true)
+                crossfade(false)
+                memoryCachePolicy(CachePolicy.ENABLED)
+                diskCachePolicy(CachePolicy.ENABLED)
+                placeholder(h.binding.ivAvatar.drawable)
             }
         } else {
             val letter = displayName.firstOrNull()?.uppercaseChar()?.toString() ?: "?"
@@ -163,6 +175,21 @@ class UserAdapter(
                 show()
             }
         }
+    }
+
+    override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int, payloads: List<Any>) {
+        if (payloads.isNotEmpty() && payloads[0] == "message_update") {
+            if (holder is DividerVH) return
+            val h = holder as VH
+            val user = users[position]
+            h.binding.tvLastMessage.text = when {
+                !user.online && user.lastSeen != null -> formatLastSeen(user.lastSeen)
+                else -> user.lastMessage ?: ""
+            }
+            h.binding.tvTime.text = user.lastMessageTime?.let { formatTime(it) } ?: ""
+            return
+        }
+        super.onBindViewHolder(holder, position, payloads)
     }
 
     override fun getItemCount() = users.size
