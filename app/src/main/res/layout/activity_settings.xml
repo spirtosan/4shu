@@ -541,9 +541,22 @@
             android:layout_height="wrap_content"
             android:layout_marginStart="16dp"
             android:layout_marginEnd="16dp"
-            android:layout_marginBottom="24dp"
+            android:layout_marginBottom="8dp"
             android:backgroundTint="#E53935"
             android:text="Delete account" />
+
+        <TextView
+            android:id="@+id/tvClearOrphanedGroups"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:layout_marginEnd="16dp"
+            android:layout_marginBottom="24dp"
+            android:gravity="center"
+            android:padding="8dp"
+            android:text="Clear orphaned groups"
+            android:textColor="#9AAFBE"
+            android:textSize="13sp" />
 
     </LinearLayout>
 </ScrollView>

@@ -96,6 +96,10 @@
     <string name="toast_mic_permission_granted">Разрешението за микрофон е дадено. Задръж за запис.</string>
     <string name="toast_nothing_to_export">Няма какво да се експортира</string>
     <string name="toast_export_failed">Неуспешен експорт</string>
+    <string name="btn_remove_contact">Премахни контакт</string>
+    <string name="remove_contact_title">Премахване на контакт?</string>
+    <string name="remove_contact_message">Премахване на %s от контактите? Можете да изпратите нова заявка по-късно.</string>
+    <string name="toast_contact_removed">Контактът е премахнат</string>
     <string name="export_data_title">Експортирай данните ми</string>
     <string name="export_data_message_local">Вашите разговори ще бъдат експортирани като четим JSON файл и запазени в папката Downloads.</string>
     <string name="export_confirm">Експортирай</string>

@@ -11,6 +11,7 @@ import android.view.MenuItem
 import android.view.View
 import android.widget.EditText
 import android.widget.FrameLayout
+import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
@@ -92,6 +93,17 @@ class UserProfileActivity : AppCompatActivity() {
         binding.btnUnblock.setOnClickListener {
             WebSocketClient.send(mapOf("type" to "unblock-user", "targetUsername" to targetUsername))
         }
+
+        binding.btnRemoveContact.setOnClickListener {
+            AlertDialog.Builder(this)
+                .setTitle(getString(R.string.remove_contact_title))
+                .setMessage(getString(R.string.remove_contact_message, targetUsername))
+                .setPositiveButton(getString(R.string.btn_remove_contact)) { _, _ ->
+                    WebSocketClient.send(mapOf("type" to "contact-remove", "targetUsername" to targetUsername))
+                }
+                .setNegativeButton(getString(R.string.btn_cancel), null)
+                .show()
+        }
     }
 
     private fun handleMessage(json: JsonObject) {
@@ -158,6 +170,14 @@ class UserProfileActivity : AppCompatActivity() {
                     runOnUiThread { updateContactButtons("accepted") }
                 }
             }
+            "contact-removed" -> {
+                if (json.get("targetUsername")?.asString == targetUsername) {
+                    runOnUiThread {
+                        Toast.makeText(this, getString(R.string.toast_contact_removed), Toast.LENGTH_SHORT).show()
+                        finish()
+                    }
+                }
+            }
             "block-confirmed" -> {
                 if (json.get("targetUsername")?.asString == targetUsername) {
                     runOnUiThread {
@@ -183,16 +203,19 @@ class UserProfileActivity : AppCompatActivity() {
                 binding.btnSendRequest.visibility = View.GONE
                 binding.btnCancelRequest.visibility = View.GONE
                 binding.tvPendingStatus.visibility = View.GONE
+                binding.btnRemoveContact.visibility = View.VISIBLE
             }
             "pending" -> {
                 binding.btnSendRequest.visibility = View.GONE
                 binding.btnCancelRequest.visibility = View.VISIBLE
                 binding.tvPendingStatus.visibility = View.VISIBLE
+                binding.btnRemoveContact.visibility = View.GONE
             }
             else -> {
                 binding.btnSendRequest.visibility = View.VISIBLE
                 binding.btnCancelRequest.visibility = View.GONE
                 binding.tvPendingStatus.visibility = View.GONE
+                binding.btnRemoveContact.visibility = View.GONE
             }
         }
     }

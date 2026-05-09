@@ -96,6 +96,10 @@
     <string name="toast_mic_permission_granted">Microphone permission granted. Hold mic to record.</string>
     <string name="toast_nothing_to_export">Nothing to export</string>
     <string name="toast_export_failed">Export failed</string>
+    <string name="btn_remove_contact">Remove contact</string>
+    <string name="remove_contact_title">Remove contact?</string>
+    <string name="remove_contact_message">Remove %s from contacts? You can send them a new contact request later.</string>
+    <string name="toast_contact_removed">Contact removed</string>
     <string name="export_data_title">Export your data</string>
     <string name="export_data_message_local">Your conversations will be exported as a readable JSON file and saved to your Downloads folder.</string>
     <string name="export_confirm">Export</string>

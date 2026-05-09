@@ -34,6 +34,7 @@ import com.google.gson.JsonObject
 import com.fshu.next.MainActivity
 import com.fshu.next.R
 import com.fshu.next.data.local.AppDatabase
+import com.fshu.next.data.local.entities.Contact
 import com.fshu.next.data.model.Group
 import com.fshu.next.data.model.GroupMember
 import com.fshu.next.data.model.Message
@@ -59,6 +60,7 @@ class FshuService : Service() {
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
     private var lastNetworkId: Int = -1
     private var connectionWatchdogJob: Job? = null
+    private val pendingDecryptQueue = mutableMapOf<String, MutableList<Long>>()
 
     companion object {
         const val CHANNEL_ID = "fshu_fg"
@@ -454,6 +456,30 @@ class FshuService : Service() {
                 db.peerKeyDao().upsert(com.fshu.next.data.model.PeerKey(uname, pubHex))
                 CryptoHelper.cachePeerKey(this, uname, pubHex)
                 Log.d("Crypto", "peer key received for $uname pub=${pubHex.take(16)}")
+                val pending = pendingDecryptQueue.remove(uname)
+                if (!pending.isNullOrEmpty()) {
+                    val me = Prefs.getUsername(this)
+                    scope.launch {
+                        for (msgId in pending) {
+                            val msg = db.messageDao().getById(msgId) ?: continue
+                            val decrypted = CryptoHelper.decryptFromPeer(
+                                this@FshuService, uname, pubHex, msgId, msg.content
+                            ) ?: continue
+                            db.messageDao().updateContent(msgId, decrypted)
+                            if (msg.remoteId > 0L) {
+                                WebSocketClient.send(mapOf(
+                                    "type" to "delivered", "messageId" to msg.remoteId,
+                                    "from" to me, "to" to msg.to
+                                ))
+                            }
+                        }
+                        val evt = com.google.gson.JsonObject().apply {
+                            addProperty("type", "messages-updated")
+                            addProperty("peer", uname)
+                        }
+                        MessageBus.emit(evt)
+                    }
+                }
             }
             "peer-test-request"       -> {
                 val testId = json.get("testId")?.asString ?: return
@@ -568,11 +594,35 @@ class FshuService : Service() {
                 }
                 MessageBus.emit(json)
             }
+            "contact-list"            -> {
+                val me  = Prefs.getUsername(this)
+                val now = System.currentTimeMillis()
+                val arr = json.getAsJsonArray("contacts")
+                if (arr != null) scope.launch {
+                    for (el in arr) {
+                        val obj     = el.asJsonObject
+                        val contact = obj.get("contact")?.takeIf { !it.isJsonNull }?.asString ?: continue
+                        val created = try { obj.get("created_at")?.asLong ?: now } catch (_: Exception) { now }
+                        val updated = try { obj.get("updated_at")?.asLong ?: now } catch (_: Exception) { now }
+                        db.contactDao().upsert(Contact(
+                            owner = me, contact = contact, status = "accepted",
+                            createdAt = created, updatedAt = updated, expiresAt = 0L
+                        ))
+                    }
+                }
+                MessageBus.emit(json)
+            }
             "contact-accepted"        -> {
                 val peer = json.get("targetUsername")?.asString?.takeIf { it.isNotEmpty() }
                     ?: json.get("from")?.asString ?: ""
                 if (peer.isNotEmpty()) {
+                    val me  = Prefs.getUsername(this)
+                    val now = System.currentTimeMillis()
                     scope.launch {
+                        db.contactDao().upsert(Contact(
+                            owner = me, contact = peer, status = "accepted",
+                            createdAt = now, updatedAt = now, expiresAt = 0L
+                        ))
                         db.messageDao().clearRequestFlag(peer)
                         db.messageDao().clearRequestFlagSent(peer)
                         val evt = com.google.gson.JsonObject().apply {
@@ -601,16 +651,20 @@ class FshuService : Service() {
             val me         = Prefs.getUsername(this)
             val peerPubKey = Prefs.getPeerPublicKey(this, from)
             if (peerPubKey.isEmpty()) requestPeerKey(from)
+            val needsDecrypt = peerPubKey.isEmpty() && remoteId != 0L
             val content = if (peerPubKey.isNotEmpty() && remoteId != 0L) {
                 CryptoHelper.decryptFromPeer(this, from, peerPubKey, remoteId, rawContent) ?: rawContent
             } else rawContent
             val isRequest = json.get("isRequest")?.asBoolean ?: false
-            db.messageDao().insert(
+            val insertedId = db.messageDao().insert(
                 Message(from = from, to = me, content = content, type = "text",
                     timestamp = ts, isSent = false, remoteId = remoteId,
                     replyToId = replyToId, replyToSender = replyToSender,
                     replyToContent = replyToContent, isRequest = isRequest)
             )
+            if (needsDecrypt) {
+                pendingDecryptQueue.getOrPut(from) { mutableListOf() }.add(insertedId)
+            }
             val seq = try { json.get("seq")?.asLong ?: 0L } catch (_: Exception) { 0L }
             if (seq > 0 && seq > WebSocketClient.lastSeq) WebSocketClient.lastSeq = seq
             if (remoteId != 0L) {

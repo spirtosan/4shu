@@ -19,4 +19,7 @@ interface GroupMemberDao {
 
     @Query("DELETE FROM group_members WHERE groupId = :groupId")
     suspend fun removeAll(groupId: String)
+
+    @Query("DELETE FROM group_members")
+    suspend fun deleteAll()
 }

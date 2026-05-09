@@ -594,7 +594,8 @@ class ChatActivity : AppCompatActivity() {
                             }
                         }
                     }
-                    "contact-accepted-refresh" -> { /* Room LiveData re-delivers the updated list automatically */ }
+                    "contact-accepted-refresh",
+                    "messages-updated"         -> { /* Room LiveData re-delivers the updated list automatically */ }
                     "auto-location-peers" -> {
                         val arr = json.getAsJsonArray("peers") ?: return@collect
                         val enabled = arr.any { !it.isJsonNull && it.asString == peer }

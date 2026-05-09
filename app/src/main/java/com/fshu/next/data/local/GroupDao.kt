@@ -29,4 +29,7 @@ interface GroupDao {
 
     @Query("UPDATE `groups` SET personalAvatar = :path WHERE groupId = :groupId")
     suspend fun updatePersonalAvatar(groupId: String, path: String)
+
+    @Query("DELETE FROM `groups`")
+    suspend fun deleteAll()
 }

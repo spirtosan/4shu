@@ -151,6 +151,9 @@ interface MessageDao {
     @Query("DELETE FROM messages WHERE groupId = :groupId")
     suspend fun deleteMessagesForGroup(groupId: String)
 
+    @Query("DELETE FROM messages WHERE groupId IS NOT NULL")
+    suspend fun deleteAllGroupMessages()
+
     @Query("UPDATE messages SET isRequest = 0 WHERE `from` = :peer AND isRequest = 1")
     suspend fun clearRequestFlag(peer: String)
 
