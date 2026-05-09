@@ -568,6 +568,22 @@ class FshuService : Service() {
                 }
                 MessageBus.emit(json)
             }
+            "contact-accepted"        -> {
+                val peer = json.get("targetUsername")?.asString?.takeIf { it.isNotEmpty() }
+                    ?: json.get("from")?.asString ?: ""
+                if (peer.isNotEmpty()) {
+                    scope.launch {
+                        db.messageDao().clearRequestFlag(peer)
+                        db.messageDao().clearRequestFlagSent(peer)
+                        val evt = com.google.gson.JsonObject().apply {
+                            addProperty("type", "contact-accepted-refresh")
+                            addProperty("peer", peer)
+                        }
+                        MessageBus.emit(evt)
+                    }
+                }
+                MessageBus.emit(json)
+            }
             else                      -> MessageBus.emit(json)
         }
     }

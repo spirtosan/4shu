@@ -96,6 +96,12 @@
     <string name="toast_mic_permission_granted">Разрешението за микрофон е дадено. Задръж за запис.</string>
     <string name="toast_nothing_to_export">Няма какво да се експортира</string>
     <string name="toast_export_failed">Неуспешен експорт</string>
+    <string name="export_data_title">Експортирай данните ми</string>
+    <string name="export_data_message_local">Вашите разговори ще бъдат експортирани като четим JSON файл и запазени в папката Downloads.</string>
+    <string name="export_confirm">Експортирай</string>
+    <string name="export_in_progress">Експортиране на данните…</string>
+    <string name="export_share_title">Запази файла с експорт</string>
+    <string name="export_failed">Експортирането не бе успешно. Моля, опитайте отново.</string>
 
     <plurals name="toast_messages_copied">
         <item quantity="one">1 съобщение копирано</item>
@@ -154,6 +160,13 @@
     <string name="hint_username_to_add">Потребителско ime за добавяне</string>
     <string name="toast_group_key_not_available">Ключът на групата не е наличен</string>
     <string name="toast_cannot_invite_no_key">Не може да се покани: публичен ключ не е намерен за %s</string>
+    <string name="toast_no_contacts_to_add">Няма контакти за добавяне</string>
+    <string name="error_group_unauthorized">Нямате права</string>
+    <string name="error_user_not_found">Потребителят не е намерен</string>
+    <string name="error_already_member">Вече е член</string>
+    <string name="error_owner_cannot_leave">Вие сте собственик на групата. Прехвърлете собствеността или изтрийте групата.</string>
+    <string name="error_generic">Възникна грешка</string>
+    <string name="error_username_empty">Потребителското име не може да е празно</string>
 
     <!-- Location bubbles -->
     <string name="label_location_shared_auto">📍 Местоположението е споделено автоматично</string>

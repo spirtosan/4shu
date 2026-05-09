@@ -96,6 +96,12 @@
     <string name="toast_mic_permission_granted">Microphone permission granted. Hold mic to record.</string>
     <string name="toast_nothing_to_export">Nothing to export</string>
     <string name="toast_export_failed">Export failed</string>
+    <string name="export_data_title">Export your data</string>
+    <string name="export_data_message_local">Your conversations will be exported as a readable JSON file and saved to your Downloads folder.</string>
+    <string name="export_confirm">Export</string>
+    <string name="export_in_progress">Exporting your data…</string>
+    <string name="export_share_title">Save export file</string>
+    <string name="export_failed">Export failed. Please try again.</string>
 
     <plurals name="toast_messages_copied">
         <item quantity="one">1 message copied</item>
@@ -156,6 +162,13 @@
     <string name="hint_username_to_add">Username to add</string>
     <string name="toast_group_key_not_available">Group key not available</string>
     <string name="toast_cannot_invite_no_key">Cannot invite: public key not found for %s</string>
+    <string name="toast_no_contacts_to_add">No contacts to add</string>
+    <string name="error_group_unauthorized">Not authorized</string>
+    <string name="error_user_not_found">User not found</string>
+    <string name="error_already_member">Already a member</string>
+    <string name="error_owner_cannot_leave">You are the group owner. Transfer ownership or delete the group first.</string>
+    <string name="error_generic">An error occurred</string>
+    <string name="error_username_empty">Username cannot be empty</string>
 
     <!-- Location bubbles -->
     <string name="label_location_shared_auto">📍 Location shared automatically</string>

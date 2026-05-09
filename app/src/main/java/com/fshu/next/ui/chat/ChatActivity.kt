@@ -569,11 +569,17 @@ class ChatActivity : AppCompatActivity() {
                     "group-error" -> {
                         val gid = json.get("groupId")?.asString
                         if (gid == groupId) {
-                            val reason = json.get("reason")?.asString
-                            if (reason == "owner-cannot-leave") runOnUiThread {
-                                Toast.makeText(this@ChatActivity,
-                                    getString(R.string.toast_owner_cannot_leave),
-                                    Toast.LENGTH_LONG).show()
+                            val reason = json.get("reason")?.asString ?: ""
+                            val message = json.get("message")?.asString ?: ""
+                            val errorText = when (reason) {
+                                "unauthorized"       -> getString(R.string.error_group_unauthorized)
+                                "user-not-found"     -> getString(R.string.error_user_not_found)
+                                "already-member"     -> getString(R.string.error_already_member)
+                                "owner-cannot-leave" -> getString(R.string.error_owner_cannot_leave)
+                                else -> message.ifEmpty { getString(R.string.error_generic) }
+                            }
+                            runOnUiThread {
+                                Toast.makeText(this@ChatActivity, errorText, Toast.LENGTH_LONG).show()
                             }
                         }
                     }
@@ -588,6 +594,7 @@ class ChatActivity : AppCompatActivity() {
                             }
                         }
                     }
+                    "contact-accepted-refresh" -> { /* Room LiveData re-delivers the updated list automatically */ }
                     "auto-location-peers" -> {
                         val arr = json.getAsJsonArray("peers") ?: return@collect
                         val enabled = arr.any { !it.isJsonNull && it.asString == peer }
@@ -1302,48 +1309,63 @@ class ChatActivity : AppCompatActivity() {
         }
     }
 
-    private fun showAddMemberDialog(groupId: String, existingUsernames: List<String>) {
-        val edit = EditText(this).apply {
-            hint = getString(R.string.hint_username_to_add)
-            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
-        }
-        val pad = (16 * resources.displayMetrics.density).toInt()
-        val wrap = FrameLayout(this).apply {
-            setPadding(pad, pad / 2, pad, 0)
-            addView(edit)
-        }
-        AlertDialog.Builder(this)
-            .setTitle(getString(R.string.dialog_add_member_title))
-            .setView(wrap)
-            .setPositiveButton(getString(R.string.btn_add)) { _, _ ->
-                val target = edit.text.toString().trim()
-                if (target.isEmpty() || target in existingUsernames) return@setPositiveButton
-                lifecycleScope.launch(Dispatchers.IO) {
-                    val db = com.fshu.next.data.local.AppDatabase.getInstance(this@ChatActivity)
-                    val group = db.groupDao().getById(groupId)
-                    val groupKeyHex = group?.groupKey ?: ""
-                    if (groupKeyHex.isEmpty()) {
-                        runOnUiThread { Toast.makeText(this@ChatActivity, getString(R.string.toast_group_key_not_available), Toast.LENGTH_SHORT).show() }
-                        return@launch
-                    }
-                    val memberPubKey = Prefs.getPeerPublicKey(this@ChatActivity, target)
-                    if (memberPubKey.isEmpty()) {
-                        runOnUiThread { Toast.makeText(this@ChatActivity, getString(R.string.toast_cannot_invite_no_key, target), Toast.LENGTH_SHORT).show() }
-                        return@launch
-                    }
-                    val groupKeyBytes = with(com.fshu.next.util.EcdhHelper) { groupKeyHex.fromHex() }
-                    val myPriv = Prefs.getEcPrivateKey(this@ChatActivity)
-                    val encryptedKey = com.fshu.next.util.CryptoHelper.encryptGroupKeyForMember(groupKeyBytes, memberPubKey, myPriv)
-                    com.fshu.next.data.remote.WebSocketClient.send(mapOf(
-                        "type"         to "group-invite",
-                        "groupId"      to groupId,
-                        "username"     to target,
-                        "encryptedKey" to encryptedKey
-                    ))
+    private fun showAddMemberDialog(groupId: String, existingMembers: List<String>) {
+        val me = Prefs.getUsername(this)
+        lifecycleScope.launch(Dispatchers.IO) {
+            val db = com.fshu.next.data.local.AppDatabase.getInstance(this@ChatActivity)
+            val contacts = db.contactDao().getAcceptedContacts(me)
+            val candidates = contacts.filter { it.contact !in existingMembers && it.contact != me }
+            runOnUiThread {
+                if (candidates.isEmpty()) {
+                    Toast.makeText(this@ChatActivity, getString(R.string.toast_no_contacts_to_add), Toast.LENGTH_SHORT).show()
+                    return@runOnUiThread
                 }
+                val names = candidates.map { c ->
+                    Prefs.getContactNickname(this@ChatActivity, c.contact).takeIf { it.isNotBlank() } ?: c.contact
+                }.toTypedArray()
+                AlertDialog.Builder(this@ChatActivity)
+                    .setTitle(getString(R.string.btn_add_member))
+                    .setItems(names) { _, index ->
+                        addMemberByUsername(groupId, existingMembers, candidates[index].contact)
+                    }
+                    .setNegativeButton(getString(R.string.btn_cancel), null)
+                    .show()
             }
-            .setNegativeButton(getString(R.string.btn_cancel), null)
-            .show()
+        }
+    }
+
+    private fun addMemberByUsername(groupId: String, existingMembers: List<String>, targetUsername: String) {
+        if (targetUsername.isBlank()) {
+            Toast.makeText(this, getString(R.string.error_username_empty), Toast.LENGTH_SHORT).show()
+            return
+        }
+        if (existingMembers.contains(targetUsername)) {
+            Toast.makeText(this, getString(R.string.error_already_member), Toast.LENGTH_SHORT).show()
+            return
+        }
+        lifecycleScope.launch(Dispatchers.IO) {
+            val db = com.fshu.next.data.local.AppDatabase.getInstance(this@ChatActivity)
+            val group = db.groupDao().getById(groupId)
+            val groupKeyHex = group?.groupKey ?: ""
+            if (groupKeyHex.isEmpty()) {
+                runOnUiThread { Toast.makeText(this@ChatActivity, getString(R.string.toast_group_key_not_available), Toast.LENGTH_SHORT).show() }
+                return@launch
+            }
+            val memberPubKey = Prefs.getPeerPublicKey(this@ChatActivity, targetUsername)
+            if (memberPubKey.isEmpty()) {
+                runOnUiThread { Toast.makeText(this@ChatActivity, getString(R.string.toast_cannot_invite_no_key, targetUsername), Toast.LENGTH_SHORT).show() }
+                return@launch
+            }
+            val groupKeyBytes = with(com.fshu.next.util.EcdhHelper) { groupKeyHex.fromHex() }
+            val myPriv = Prefs.getEcPrivateKey(this@ChatActivity)
+            val encryptedKey = com.fshu.next.util.CryptoHelper.encryptGroupKeyForMember(groupKeyBytes, memberPubKey, myPriv)
+            com.fshu.next.data.remote.WebSocketClient.send(mapOf(
+                "type"         to "group-invite",
+                "groupId"      to groupId,
+                "username"     to targetUsername,
+                "encryptedKey" to encryptedKey
+            ))
+        }
     }
 
     private fun exportConversation() {

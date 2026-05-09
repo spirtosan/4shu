@@ -30,7 +30,9 @@ import androidx.recyclerview.widget.RecyclerView
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import com.fshu.next.R
+import com.fshu.next.data.local.AppDatabase
 import com.fshu.next.data.remote.WebSocketClient
+import com.fshu.next.util.CryptoHelper
 import com.fshu.next.databinding.ActivitySettingsBinding
 import com.fshu.next.databinding.ItemDeviceBinding
 import com.fshu.next.service.FshuService
@@ -39,8 +41,10 @@ import com.fshu.next.ui.contacts.RequestsActivity
 import com.fshu.next.ui.login.LoginActivity
 import com.fshu.next.util.MessageBus
 import com.fshu.next.util.Prefs
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -296,30 +300,12 @@ class SettingsActivity : AppCompatActivity() {
         // Export my data
         binding.btnExportData.setOnClickListener {
             AlertDialog.Builder(this)
-                .setTitle("Export your data?")
-                .setMessage("A download link will be generated and copied to your clipboard. Messages are exported encrypted — only readable in the app.")
-                .setNegativeButton("Cancel", null)
-                .setPositiveButton("Export") { _, _ ->
-                    lifecycleScope.launch {
-                        val ch = Channel<JsonObject>(1)
-                        val job = launch {
-                            MessageBus.events.collect {
-                                if (it.get("type")?.asString == "export-ready") ch.trySend(it)
-                            }
-                        }
-                        WebSocketClient.send(mapOf("type" to "export-request"))
-                        val result = withTimeoutOrNull(10_000) { ch.receive() }
-                        job.cancel()
-                        if (result == null) {
-                            Toast.makeText(this@SettingsActivity, "Export failed", Toast.LENGTH_SHORT).show()
-                            return@launch
-                        }
-                        val url = result.get("url")?.asString ?: ""
-                        val clipboard = getSystemService(ClipboardManager::class.java)
-                        clipboard.setPrimaryClip(ClipData.newPlainText("export", url))
-                        Toast.makeText(this@SettingsActivity, "Export link copied! Valid for 48 hours.", Toast.LENGTH_LONG).show()
-                    }
+                .setTitle(getString(R.string.export_data_title))
+                .setMessage(getString(R.string.export_data_message_local))
+                .setPositiveButton(getString(R.string.export_confirm)) { _, _ ->
+                    performLocalExport()
                 }
+                .setNegativeButton(getString(R.string.btn_cancel), null)
                 .show()
         }
 
@@ -547,6 +533,119 @@ class SettingsActivity : AppCompatActivity() {
             container.addView(nameView)
             container.addView(statusView)
             binding.permissionsContainer.addView(container)
+        }
+    }
+
+    private fun performLocalExport() {
+        val progressDialog = AlertDialog.Builder(this)
+            .setMessage(getString(R.string.export_in_progress))
+            .setCancelable(false)
+            .show()
+
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val me = Prefs.getUsername(this@SettingsActivity)
+                val db = AppDatabase.getInstance(this@SettingsActivity)
+
+                val dmMessages    = db.messageDao().getAllDmMessages()
+                val groupMessages = db.messageDao().getAllGroupMessages()
+
+                val exportObj = org.json.JSONObject()
+                exportObj.put("exportedAt",
+                    SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).format(Date()))
+                exportObj.put("username", me)
+
+                // DM conversations
+                val dmArray  = org.json.JSONArray()
+                val dmByPeer = dmMessages.groupBy { msg -> if (msg.from == me) msg.to else msg.from }
+                for ((peer, msgs) in dmByPeer) {
+                    val convObj  = org.json.JSONObject()
+                    convObj.put("peer", peer)
+                    val msgArray = org.json.JSONArray()
+                    for (msg in msgs) {
+                        val msgObj  = org.json.JSONObject()
+                        msgObj.put("from",      msg.from)
+                        msgObj.put("to",        msg.to)
+                        msgObj.put("timestamp", msg.timestamp)
+                        msgObj.put("type",      msg.type)
+                        val content = try {
+                            if (msg.content.length >= 64 &&
+                                msg.content.all { it in '0'..'9' || it in 'a'..'f' || it in 'A'..'F' }) {
+                                val peerPubHex = Prefs.getPeerPublicKey(this@SettingsActivity, peer)
+                                CryptoHelper.decryptFromPeer(
+                                    this@SettingsActivity, peer, peerPubHex, msg.id, msg.content)
+                                    ?: msg.content
+                            } else {
+                                msg.content
+                            }
+                        } catch (e: Exception) { msg.content }
+                        msgObj.put("content", content)
+                        msgArray.put(msgObj)
+                    }
+                    convObj.put("messages", msgArray)
+                    dmArray.put(convObj)
+                }
+                exportObj.put("conversations", dmArray)
+
+                // Group messages
+                val groupArray   = org.json.JSONArray()
+                val groupByGroup = groupMessages.groupBy { it.groupId }
+                for ((groupId, msgs) in groupByGroup) {
+                    val grpObj   = org.json.JSONObject()
+                    grpObj.put("groupId", groupId)
+                    val msgArray = org.json.JSONArray()
+                    for (msg in msgs) {
+                        val msgObj = org.json.JSONObject()
+                        msgObj.put("from",      msg.from)
+                        msgObj.put("timestamp", msg.timestamp)
+                        msgObj.put("type",      msg.type)
+                        msgObj.put("content",   msg.content)
+                        msgArray.put(msgObj)
+                    }
+                    grpObj.put("messages", msgArray)
+                    groupArray.put(grpObj)
+                }
+                exportObj.put("groups", groupArray)
+
+                val fileName = "fshu_export_${me}_${
+                    SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())}.json"
+
+                val contentValues = android.content.ContentValues().apply {
+                    put(android.provider.MediaStore.Downloads.DISPLAY_NAME, fileName)
+                    put(android.provider.MediaStore.Downloads.MIME_TYPE, "application/json")
+                }
+                val uri = contentResolver.insert(
+                    android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+                    contentValues)
+
+                if (uri != null) {
+                    contentResolver.openOutputStream(uri)?.use { out ->
+                        out.write(exportObj.toString(2).toByteArray())
+                    }
+                    withContext(Dispatchers.Main) {
+                        progressDialog.dismiss()
+                        val shareIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                            type = "application/json"
+                            putExtra(android.content.Intent.EXTRA_STREAM, uri)
+                            addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        }
+                        startActivity(android.content.Intent.createChooser(
+                            shareIntent, getString(R.string.export_share_title)))
+                    }
+                } else {
+                    withContext(Dispatchers.Main) {
+                        progressDialog.dismiss()
+                        Toast.makeText(this@SettingsActivity,
+                            getString(R.string.export_failed), Toast.LENGTH_LONG).show()
+                    }
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    progressDialog.dismiss()
+                    Toast.makeText(this@SettingsActivity,
+                        getString(R.string.export_failed), Toast.LENGTH_LONG).show()
+                }
+            }
         }
     }
 

@@ -150,4 +150,26 @@ interface MessageDao {
 
     @Query("DELETE FROM messages WHERE groupId = :groupId")
     suspend fun deleteMessagesForGroup(groupId: String)
+
+    @Query("UPDATE messages SET isRequest = 0 WHERE `from` = :peer AND isRequest = 1")
+    suspend fun clearRequestFlag(peer: String)
+
+    @Query("UPDATE messages SET isRequest = 0 WHERE `to` = :peer AND isRequest = 1")
+    suspend fun clearRequestFlagSent(peer: String)
+
+    @Query("""
+        SELECT * FROM messages
+        WHERE groupId IS NULL
+        AND type != 'deleted'
+        ORDER BY timestamp ASC
+    """)
+    suspend fun getAllDmMessages(): List<Message>
+
+    @Query("""
+        SELECT * FROM messages
+        WHERE groupId IS NOT NULL
+        AND type != 'deleted'
+        ORDER BY timestamp ASC
+    """)
+    suspend fun getAllGroupMessages(): List<Message>
 }
