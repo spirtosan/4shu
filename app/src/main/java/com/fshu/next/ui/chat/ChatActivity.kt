@@ -519,8 +519,12 @@ class ChatActivity : AppCompatActivity() {
                     "ws-dm-debug" -> {
                         val from = json.get("from")?.asString ?: "?"
                         val frame = json.get("frame")?.asInt ?: 0
+                        val error = json.get("error")?.asString
                         if (from == peer) runOnUiThread {
-                            Toast.makeText(this@ChatActivity, "[DBG] WS DM frame #$frame from $from", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(this@ChatActivity,
+                                if (error != null) "[DBG] PERSIST ERROR: $error"
+                                else "[DBG] WS DM frame #$frame from $from",
+                                Toast.LENGTH_LONG).show()
                         }
                     }
                     "history-loaded" -> {

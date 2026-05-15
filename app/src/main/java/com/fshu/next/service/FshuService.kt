@@ -684,17 +684,27 @@ class FshuService : Service() {
     }
 
     private suspend fun persistIncomingMessage(json: JsonObject) {
+        Log.d("PERSIST_DBG", "entered persistIncomingMessage from=${json.get("from")?.asString}")
         try {
-            val from = json.get("from")?.asString ?: return
-            val rawContent = json.get("content")?.asString ?: return
+            val from = json.get("from")?.asString ?: run {
+                Log.d("PERSIST_DBG", "early return: from is null")
+                return
+            }
+            val rawContent = json.get("content")?.asString ?: run {
+                Log.d("PERSIST_DBG", "early return: content is null from=$from")
+                return
+            }
             val ts = try { json.get("timestamp")?.asLong ?: 0L } catch (_: Exception) { 0L }
             val remoteId = try { json.get("messageId")?.asLong ?: 0L } catch (_: Exception) { 0L }
+            Log.d("PERSIST_DBG", "from=$from remoteId=$remoteId rawContent.len=${rawContent.length}")
             Log.d("MSG_DBG", "incoming: from=$from remoteId=$remoteId")
             val existingCheck = if (remoteId > 0) db.messageDao().getByRemoteId(remoteId, from) else null
             if (existingCheck != null) {
                 Log.d("MSG_DBG", "DEDUP DROP: remoteId=$remoteId from=$from collides with stored id=${existingCheck.id}")
+                Log.d("PERSIST_DBG", "early return: dedup drop remoteId=$remoteId")
                 return
             }
+            Log.d("PERSIST_DBG", "dedup passed, proceeding to decryption")
             val replyToId = try { json.get("replyToId")?.asLong } catch (_: Exception) { null }
             val replyToSender = json.get("replyToSender")?.asString?.takeIf { it.isNotEmpty() }
             val replyToContent = json.get("replyToContent")?.asString?.takeIf { it.isNotEmpty() }
@@ -752,7 +762,14 @@ class FshuService : Service() {
             notifyMessage(from, content)
             MessageBus.tryEmit(json)
         } catch (e: Exception) {
-            Log.e("FshuService", "persistIncomingMessage error: ${e.message}", e)
+            Log.e("PERSIST_DBG", "persistIncomingMessage THREW: ${e.message}", e)
+            val errEvt = com.google.gson.JsonObject().apply {
+                addProperty("type", "ws-dm-debug")
+                addProperty("from", json.get("from")?.asString ?: "?")
+                addProperty("frame", -1)
+                addProperty("error", e.message ?: "unknown")
+            }
+            MessageBus.tryEmit(errEvt)
         }
     }
 
