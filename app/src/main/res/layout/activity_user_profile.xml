@@ -131,6 +131,28 @@
                 android:textColor="#E53935"
                 android:visibility="gone" />
 
+            <TextView
+                android:id="@+id/tvTrustLabel"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/label_trust_level"
+                android:textColor="@color/text_secondary"
+                android:textSize="13sp"
+                android:layout_marginTop="16dp"
+                android:layout_marginStart="24dp"
+                android:visibility="gone"/>
+
+            <TextView
+                android:id="@+id/tvTrustValue"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="@color/accent"
+                android:textSize="15sp"
+                android:paddingTop="4dp"
+                android:paddingBottom="4dp"
+                android:layout_marginStart="24dp"
+                android:visibility="gone"/>
+
         </LinearLayout>
     </ScrollView>
 

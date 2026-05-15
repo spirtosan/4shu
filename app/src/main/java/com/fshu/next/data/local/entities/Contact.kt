@@ -1,5 +1,6 @@
 package com.fshu.next.data.local.entities
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
@@ -11,5 +12,6 @@ data class Contact(
     val status: String,
     val createdAt: Long,
     val updatedAt: Long,
-    val expiresAt: Long
+    val expiresAt: Long,
+    @ColumnInfo(name = "trust_level") val trustLevel: String = "contact"
 )

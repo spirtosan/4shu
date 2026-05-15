@@ -219,6 +219,11 @@
     <string name="app_lock_timeout_1m">1 minute</string>
     <string name="app_lock_timeout_5m">5 minutes</string>
     <string name="app_lock_timeout_30m">30 minutes</string>
+    <string name="label_trust_level">Trust level</string>
+    <string name="trust_family">Family</string>
+    <string name="trust_trusted">Trusted</string>
+    <string name="trust_contact">Contact</string>
+    <string name="trust_stranger">Stranger</string>
     <string name="dialog_sync_history_title">Sync all chat history</string>
     <string name="toast_no_known_peers">No known peers</string>
     <string name="toast_syncing_history">Syncing history…</string>

@@ -20,6 +20,7 @@ import com.fshu.next.R
 import com.fshu.next.data.remote.WebSocketClient
 import com.fshu.next.databinding.ActivityUserProfileBinding
 import com.fshu.next.util.MessageBus
+import com.fshu.next.util.Prefs
 import com.google.gson.JsonObject
 import kotlinx.coroutines.launch
 
@@ -27,6 +28,7 @@ class UserProfileActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityUserProfileBinding
     private var targetUsername = ""
+    private var currentTrustLevel: String = "contact"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -131,13 +133,23 @@ class UserProfileActivity : AppCompatActivity() {
             "contact-list" -> {
                 val contacts = json.getAsJsonArray("contacts")
                 val pendingSent = json.getAsJsonArray("pendingSent")
+                val isAccepted = contacts?.any {
+                    it.asJsonObject.get("contact")?.asString == targetUsername
+                } ?: false
+                val isPending = pendingSent?.any {
+                    it.asJsonObject.get("contact")?.asString == targetUsername
+                } ?: false
+                if (isAccepted) {
+                    val contactRow = contacts?.firstOrNull {
+                        it.asJsonObject.get("contact")?.asString == targetUsername
+                    }?.asJsonObject
+                    currentTrustLevel = contactRow?.get("trustLevel")?.takeIf { !it.isJsonNull }?.asString
+                        ?: Prefs.getPeerTrustLevel(this, targetUsername)
+                    runOnUiThread { updateTrustUI(true) }
+                } else {
+                    runOnUiThread { updateTrustUI(false) }
+                }
                 runOnUiThread {
-                    val isAccepted = contacts?.any {
-                        it.asJsonObject.get("contact")?.asString == targetUsername
-                    } ?: false
-                    val isPending = pendingSent?.any {
-                        it.asJsonObject.get("contact")?.asString == targetUsername
-                    } ?: false
                     updateContactButtons(when {
                         isAccepted -> "accepted"
                         isPending -> "pending"
@@ -249,6 +261,47 @@ class UserProfileActivity : AppCompatActivity() {
             canvas.drawText(letter, sizePx / 2f, yPos, it)
         }
         binding.ivAvatar.setImageBitmap(bmp)
+    }
+
+    private fun updateTrustUI(visible: Boolean) {
+        if (!visible) {
+            binding.tvTrustLabel.visibility = View.GONE
+            binding.tvTrustValue.visibility = View.GONE
+            return
+        }
+        binding.tvTrustLabel.visibility = View.VISIBLE
+        binding.tvTrustValue.visibility = View.VISIBLE
+        binding.tvTrustValue.text = when (currentTrustLevel) {
+            "family"   -> getString(R.string.trust_family)
+            "trusted"  -> getString(R.string.trust_trusted)
+            "stranger" -> getString(R.string.trust_stranger)
+            else       -> getString(R.string.trust_contact)
+        }
+        binding.tvTrustValue.setOnClickListener { showTrustPicker() }
+    }
+
+    private fun showTrustPicker() {
+        val options = arrayOf(
+            getString(R.string.trust_family),
+            getString(R.string.trust_trusted),
+            getString(R.string.trust_contact),
+            getString(R.string.trust_stranger)
+        )
+        val values = arrayOf("family", "trusted", "contact", "stranger")
+        val currentIndex = values.indexOf(currentTrustLevel).takeIf { it >= 0 } ?: 2
+        AlertDialog.Builder(this)
+            .setTitle(getString(R.string.label_trust_level))
+            .setSingleChoiceItems(options, currentIndex) { dialog, which ->
+                currentTrustLevel = values[which]
+                WebSocketClient.send(mapOf(
+                    "type"           to "set-trust",
+                    "targetUsername" to targetUsername,
+                    "trustLevel"     to currentTrustLevel
+                ))
+                updateTrustUI(true)
+                dialog.dismiss()
+            }
+            .show()
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {

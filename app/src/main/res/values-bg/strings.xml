@@ -217,6 +217,11 @@
     <string name="app_lock_timeout_1m">1 минута</string>
     <string name="app_lock_timeout_5m">5 минути</string>
     <string name="app_lock_timeout_30m">30 минути</string>
+    <string name="label_trust_level">Ниво на доверие</string>
+    <string name="trust_family">Семейство</string>
+    <string name="trust_trusted">Доверен</string>
+    <string name="trust_contact">Контакт</string>
+    <string name="trust_stranger">Непознат</string>
     <string name="dialog_sync_history_title">Синхронизирай цялата история</string>
     <string name="toast_no_known_peers">Няма познати потребители</string>
     <string name="toast_syncing_history">Синхронизиране на история…</string>
