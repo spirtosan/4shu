@@ -151,13 +151,17 @@ class FshuService : Service() {
             }
         createNotificationChannels()
         WebSocketClient.addHandler { json ->
-            if (json.get("type")?.asString == "message") {
-                val debugEvt = com.google.gson.JsonObject().apply {
-                    addProperty("type", "ws-dm-debug")
-                    addProperty("from", json.get("from")?.asString ?: "?")
-                    addProperty("frame", WebSocketClient.wsFrameCount.get())
+            try {
+                if (json.get("type")?.takeIf { !it.isJsonNull }?.asString == "message") {
+                    val debugEvt = com.google.gson.JsonObject().apply {
+                        addProperty("type", "ws-dm-debug")
+                        addProperty("from", json.get("from")?.takeIf { !it.isJsonNull }?.asString ?: "?")
+                        addProperty("frame", WebSocketClient.wsFrameCount.get())
+                    }
+                    MessageBus.tryEmit(debugEvt)
                 }
-                MessageBus.tryEmit(debugEvt)
+            } catch (e: Exception) {
+                Log.w("FshuService", "ws-dm-debug builder threw: ${e.message}")
             }
             scope.launch { dispatch(json) }
         }
