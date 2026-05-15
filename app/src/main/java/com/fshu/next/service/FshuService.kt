@@ -516,6 +516,7 @@ class FshuService : Service() {
             "group-removed"           -> handleGroupRemoved(json)
             "group-delivery-update"   -> handleGroupDeliveryUpdate(json)
             "group-key-update"        -> handleGroupKeyUpdate(json)
+            "group-key-needed"        -> handleGroupKeyNeeded(json)
             "group-history-response"  -> handleGroupHistoryResponse(json)
             "group-avatar"            -> handleGroupAvatar(json)
             "group-error"             -> MessageBus.emit(json)
@@ -1693,6 +1694,26 @@ class FshuService : Service() {
     private suspend fun handleGroupKeyUpdate(json: JsonObject) {
         val groupId = json.get("groupId")?.asString ?: return
         WebSocketClient.send(mapOf("type" to "group-info-request", "groupId" to groupId))
+    }
+
+    private suspend fun handleGroupKeyNeeded(json: JsonObject) {
+        val groupId         = json.get("groupId")?.asString ?: return
+        val memberUsername  = json.get("memberUsername")?.asString ?: return
+        val memberPublicKey = json.get("memberPublicKey")?.asString ?: return
+        val me              = Prefs.getUsername(this)
+        val group           = db.groupDao().getById(groupId) ?: return
+        if (group.owner != me) return
+        val groupKeyHex = group.groupKey.takeIf { it.isNotEmpty() } ?: return
+        val groupKey    = with(EcdhHelper) { groupKeyHex.fromHex() }
+        val myPriv      = Prefs.getEcPrivateKey(this)
+        if (myPriv.isEmpty()) return
+        val encryptedKey = CryptoHelper.encryptGroupKeyForMember(groupKey, memberPublicKey, myPriv)
+        WebSocketClient.send(mapOf(
+            "type"            to "group-key-submit",
+            "groupId"         to groupId,
+            "memberUsername"  to memberUsername,
+            "encryptedKey"    to encryptedKey
+        ))
     }
 
     private suspend fun handleGroupHistoryResponse(json: JsonObject) {
