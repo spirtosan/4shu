@@ -214,6 +214,11 @@
     <string name="toast_push_disabled">Push wake-up disabled</string>
     <string name="toast_app_lock_enabled">App lock enabled</string>
     <string name="toast_app_lock_disabled">App lock disabled</string>
+    <string name="app_lock_timeout_title">Lock after</string>
+    <string name="app_lock_timeout_30s">30 seconds</string>
+    <string name="app_lock_timeout_1m">1 minute</string>
+    <string name="app_lock_timeout_5m">5 minutes</string>
+    <string name="app_lock_timeout_30m">30 minutes</string>
     <string name="dialog_sync_history_title">Sync all chat history</string>
     <string name="toast_no_known_peers">No known peers</string>
     <string name="toast_syncing_history">Syncing history…</string>

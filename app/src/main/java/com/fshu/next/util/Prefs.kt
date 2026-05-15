@@ -216,6 +216,14 @@ object Prefs {
         ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE)
             .edit().putBoolean("app_lock_enabled", enabled).apply()
 
+    fun getAppLockTimeoutMs(ctx: Context): Long =
+        ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE)
+            .getLong("app_lock_timeout_ms", 60_000L)
+
+    fun setAppLockTimeoutMs(ctx: Context, ms: Long) =
+        ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE)
+            .edit().putLong("app_lock_timeout_ms", ms).apply()
+
     fun getSessionToken(ctx: Context): String =
         getSecurePrefs(ctx).getString("session_token", "") ?: ""
 

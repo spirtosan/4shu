@@ -10,18 +10,19 @@ import com.fshu.next.R
 import com.fshu.next.util.Prefs
 
 object AppLockManager {
-
     private var lockedAt: Long = 0L
-    private const val LOCK_TIMEOUT_MS = 60_000L // 1 minute background before locking
+    private var isLocked: Boolean = true  // starts locked until first successful auth
 
     fun onAppBackground() {
         lockedAt = System.currentTimeMillis()
+        isLocked = true
     }
 
     fun shouldLock(ctx: Context): Boolean {
         if (!Prefs.getAppLockEnabled(ctx)) return false
-        if (lockedAt == 0L) return true
-        return System.currentTimeMillis() - lockedAt > LOCK_TIMEOUT_MS
+        if (isLocked) return true
+        val timeoutMs = Prefs.getAppLockTimeoutMs(ctx)
+        return System.currentTimeMillis() - lockedAt > timeoutMs
     }
 
     fun isBiometricAvailable(ctx: Context): Boolean {
@@ -40,7 +41,8 @@ object AppLockManager {
         val executor = ContextCompat.getMainExecutor(activity)
         val callback = object : BiometricPrompt.AuthenticationCallback() {
             override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
-                lockedAt = 0L
+                isLocked = false
+                lockedAt = System.currentTimeMillis()
                 onSuccess()
             }
             override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
@@ -52,7 +54,6 @@ object AppLockManager {
             override fun onAuthenticationFailed() {}
         }
         val prompt = BiometricPrompt(activity, executor, callback)
-
         val promptInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             BiometricPrompt.PromptInfo.Builder()
                 .setTitle(activity.getString(R.string.app_lock_title))

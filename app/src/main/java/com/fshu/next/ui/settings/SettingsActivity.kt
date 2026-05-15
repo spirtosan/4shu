@@ -204,6 +204,7 @@ class SettingsActivity : AppCompatActivity() {
             Prefs.setAppLockEnabled(this, enabled)
             binding.switchAppLock.isChecked = enabled
             Toast.makeText(this, if (enabled) getString(R.string.toast_app_lock_enabled) else getString(R.string.toast_app_lock_disabled), Toast.LENGTH_SHORT).show()
+            if (enabled) showAppLockTimeoutPicker()
         }
 
         // Devices
@@ -673,5 +674,24 @@ class SettingsActivity : AppCompatActivity() {
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         if (item.itemId == android.R.id.home) { finish(); return true }
         return super.onOptionsItemSelected(item)
+    }
+
+    private fun showAppLockTimeoutPicker() {
+        val options = arrayOf(
+            getString(R.string.app_lock_timeout_30s),
+            getString(R.string.app_lock_timeout_1m),
+            getString(R.string.app_lock_timeout_5m),
+            getString(R.string.app_lock_timeout_30m)
+        )
+        val values = longArrayOf(30_000L, 60_000L, 300_000L, 1_800_000L)
+        val current = Prefs.getAppLockTimeoutMs(this)
+        val currentIndex = values.indexOfFirst { it == current }.takeIf { it >= 0 } ?: 1
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle(getString(R.string.app_lock_timeout_title))
+            .setSingleChoiceItems(options, currentIndex) { dialog, which ->
+                Prefs.setAppLockTimeoutMs(this, values[which])
+                dialog.dismiss()
+            }
+            .show()
     }
 }
