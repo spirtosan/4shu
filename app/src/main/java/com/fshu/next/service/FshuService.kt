@@ -453,6 +453,10 @@ class FshuService : Service() {
             "public-key-response"     -> {
                 val uname  = json.get("username")?.asString ?: return
                 val pubHex = json.get("publicKey")?.asString ?: return
+                if (pubHex.length != 64 || !pubHex.all { it.isDigit() || it in 'a'..'f' || it in 'A'..'F' }) {
+                    Log.w("Crypto", "peer key REJECTED for $uname — invalid format (len=${pubHex.length})")
+                    return
+                }
                 db.peerKeyDao().upsert(com.fshu.next.data.model.PeerKey(uname, pubHex))
                 CryptoHelper.cachePeerKey(this, uname, pubHex)
                 Log.d("Crypto", "peer key received for $uname pub=${pubHex.take(16)}")

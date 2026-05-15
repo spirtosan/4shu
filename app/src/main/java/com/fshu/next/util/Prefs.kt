@@ -159,6 +159,9 @@ object Prefs {
     fun setPeerPublicKey(ctx: Context, peer: String, key: String) =
         ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE).edit().putString("peer_pub_$peer", key).apply()
 
+    fun clearPeerPublicKey(ctx: Context, peer: String) =
+        ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE).edit().remove("peer_pub_$peer").apply()
+
     fun isAdmin(ctx: Context): Boolean =
         ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE).getBoolean(KEY_IS_ADMIN, false)
 

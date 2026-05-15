@@ -72,28 +72,39 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         replyToContent: String? = null
     ) {
         viewModelScope.launch(Dispatchers.IO) {
-            val ts = System.currentTimeMillis()
-            val id = db.messageDao().insert(
-                Message(from = me, to = peer, content = content, type = "text",
-                    timestamp = ts, isSent = true, status = "SENDING",
-                    replyToId = replyToId, replyToSender = replyToSender,
-                    replyToContent = replyToContent)
-            )
-            val peerPubKey  = Prefs.getPeerPublicKey(getApplication(), peer)
-            val wireContent = if (peerPubKey.isNotEmpty())
-                CryptoHelper.encryptForPeer(getApplication(), peer, peerPubKey, id, content)
-            else content
-            val payload = mutableMapOf<String, Any>(
-                "type" to "message", "from" to me, "to" to peer,
-                "content" to wireContent, "messageId" to id,
-                "timestamp" to ts
-            )
-            if (replyToId != null) {
-                payload["replyToId"] = replyToId
-                payload["replyToSender"] = replyToSender ?: ""
-                payload["replyToContent"] = replyToContent ?: ""
+            try {
+                val ts = System.currentTimeMillis()
+                val id = db.messageDao().insert(
+                    Message(from = me, to = peer, content = content, type = "text",
+                        timestamp = ts, isSent = true, status = "SENDING",
+                        replyToId = replyToId, replyToSender = replyToSender,
+                        replyToContent = replyToContent)
+                )
+                val peerPubKey  = Prefs.getPeerPublicKey(getApplication(), peer)
+                val wireContent = try {
+                    if (peerPubKey.isNotEmpty())
+                        CryptoHelper.encryptForPeer(getApplication(), peer, peerPubKey, id, content)
+                    else content
+                } catch (e: Exception) {
+                    android.util.Log.e("ChatViewModel", "encryptForPeer failed for $peer: ${e.message} — clearing cached key", e)
+                    Prefs.clearPeerPublicKey(getApplication(), peer)
+                    db.messageDao().updateStatus(id, "FAILED")
+                    return@launch
+                }
+                val payload = mutableMapOf<String, Any>(
+                    "type" to "message", "from" to me, "to" to peer,
+                    "content" to wireContent, "messageId" to id,
+                    "timestamp" to ts
+                )
+                if (replyToId != null) {
+                    payload["replyToId"] = replyToId
+                    payload["replyToSender"] = replyToSender ?: ""
+                    payload["replyToContent"] = replyToContent ?: ""
+                }
+                WebSocketClient.send(payload)
+            } catch (e: Exception) {
+                android.util.Log.e("ChatViewModel", "sendText failed: ${e.message}", e)
             }
-            WebSocketClient.send(payload)
         }
     }
 
