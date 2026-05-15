@@ -644,7 +644,12 @@ class FshuService : Service() {
             val rawContent = json.get("content")?.asString ?: return
             val ts = try { json.get("timestamp")?.asLong ?: 0L } catch (_: Exception) { 0L }
             val remoteId = try { json.get("messageId")?.asLong ?: 0L } catch (_: Exception) { 0L }
-            if (remoteId > 0 && db.messageDao().getByRemoteId(remoteId, from) != null) return
+            Log.d("MSG_DBG", "incoming: from=$from remoteId=$remoteId")
+            val existingCheck = if (remoteId > 0) db.messageDao().getByRemoteId(remoteId, from) else null
+            if (existingCheck != null) {
+                Log.d("MSG_DBG", "DEDUP DROP: remoteId=$remoteId from=$from collides with stored id=${existingCheck.id}")
+                return
+            }
             val replyToId = try { json.get("replyToId")?.asLong } catch (_: Exception) { null }
             val replyToSender = json.get("replyToSender")?.asString?.takeIf { it.isNotEmpty() }
             val replyToContent = json.get("replyToContent")?.asString?.takeIf { it.isNotEmpty() }

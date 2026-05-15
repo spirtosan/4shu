@@ -180,4 +180,8 @@ interface MessageDao {
         ORDER BY timestamp ASC
     """)
     suspend fun getAllGroupMessages(): List<Message>
+
+    /** Deletes all received messages (isSent=0) from [peer] — used to clear stale dedup state. */
+    @Query("DELETE FROM messages WHERE `from` = :peer AND isSent = 0")
+    suspend fun deleteReceivedFrom(peer: String)
 }

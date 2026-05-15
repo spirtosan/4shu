@@ -720,6 +720,7 @@ class ChatActivity : AppCompatActivity() {
             else
                 getString(R.string.auto_location_off)
         }
+        menu.findItem(R.id.action_clear_peer_messages)?.isVisible = !isGroupChat
         return super.onPrepareOptionsMenu(menu)
     }
 
@@ -815,6 +816,21 @@ class ChatActivity : AppCompatActivity() {
                     "enabled" to isAutoLocationEnabled
                 ))
                 invalidateOptionsMenu()
+                return true
+            }
+            R.id.action_clear_peer_messages -> {
+                AlertDialog.Builder(this)
+                    .setTitle("[DEBUG] Clear received messages")
+                    .setMessage("Delete all received messages from $peer in local DB? This only affects this device and cannot be undone.")
+                    .setPositiveButton("Clear") { _, _ ->
+                        lifecycleScope.launch(Dispatchers.IO) {
+                            val db = com.fshu.next.data.local.AppDatabase.getInstance(this@ChatActivity)
+                            db.messageDao().deleteReceivedFrom(peer)
+                            android.util.Log.d("MSG_DBG", "Cleared all received messages from $peer")
+                        }
+                    }
+                    .setNegativeButton("Cancel", null)
+                    .show()
                 return true
             }
         }
