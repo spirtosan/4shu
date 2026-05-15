@@ -90,6 +90,15 @@
         android:focusable="true"
         android:background="?attr/selectableItemBackgroundBorderless" />
 
+    <TextView
+        android:id="@+id/tvMuteIcon"
+        android:layout_width="28dp"
+        android:layout_height="40dp"
+        android:gravity="center"
+        android:text="🔇"
+        android:textSize="14sp"
+        android:visibility="gone" />
+
     <ImageButton
         android:id="@+id/btn_more"
         android:layout_width="40dp"

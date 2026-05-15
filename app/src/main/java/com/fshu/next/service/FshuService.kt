@@ -34,6 +34,7 @@ import com.google.gson.JsonObject
 import com.fshu.next.MainActivity
 import com.fshu.next.R
 import com.fshu.next.data.local.AppDatabase
+import com.fshu.next.data.local.Mute
 import com.fshu.next.data.local.entities.Contact
 import com.fshu.next.data.model.Group
 import com.fshu.next.data.model.GroupMember
@@ -517,6 +518,7 @@ class FshuService : Service() {
             "group-delivery-update"   -> handleGroupDeliveryUpdate(json)
             "group-key-update"        -> handleGroupKeyUpdate(json)
             "group-key-needed"        -> handleGroupKeyNeeded(json)
+            "mute-updated"            -> handleMuteUpdated(json)
             "group-history-response"  -> handleGroupHistoryResponse(json)
             "group-avatar"            -> handleGroupAvatar(json)
             "group-error"             -> MessageBus.emit(json)
@@ -569,6 +571,16 @@ class FshuService : Service() {
                 json.getAsJsonArray("autoLocationPeers")?.let { arr ->
                     val peers = arr.mapNotNull { it?.takeIf { !it.isJsonNull }?.asString }.toSet()
                     Prefs.setAutoLocationPeers(this, peers)
+                }
+                val mutesArr = json.getAsJsonArray("mutes")
+                if (mutesArr != null) {
+                    db.muteDao().deleteAll()
+                    for (m in mutesArr) {
+                        val obj = m.asJsonObject
+                        val target = obj.get("target")?.asString ?: continue
+                        val targetType = obj.get("target_type")?.asString ?: "contact"
+                        db.muteDao().insert(Mute(target = target, targetType = targetType))
+                    }
                 }
                 MessageBus.emit(json)
             }
@@ -1317,6 +1329,7 @@ class FshuService : Service() {
     }
 
     private fun notifyMessage(from: String, content: String) {
+        if (db.muteDao().isMuted(from)) return
         // Vibrate respecting silent/vibrate mode
         try {
             val am = getSystemService(android.media.AudioManager::class.java)
@@ -1365,6 +1378,7 @@ class FshuService : Service() {
 
     private fun notifyCall(from: String, sdp: String, isVideo: Boolean = false, isEmergency: Boolean = false) {
         cancelCallNotif(this)
+        if (!isEmergency && db.muteDao().isMuted(from)) return
 
         val intent = Intent(this, CallActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
@@ -1694,6 +1708,16 @@ class FshuService : Service() {
     private suspend fun handleGroupKeyUpdate(json: JsonObject) {
         val groupId = json.get("groupId")?.asString ?: return
         WebSocketClient.send(mapOf("type" to "group-info-request", "groupId" to groupId))
+    }
+
+    private suspend fun handleMuteUpdated(json: JsonObject) {
+        val target = json.get("target")?.asString ?: return
+        val muted = json.get("muted")?.asBoolean ?: return
+        if (muted) {
+            db.muteDao().insert(Mute(target = target, targetType = json.get("targetType")?.asString ?: "contact"))
+        } else {
+            db.muteDao().delete(target)
+        }
     }
 
     private suspend fun handleGroupKeyNeeded(json: JsonObject) {

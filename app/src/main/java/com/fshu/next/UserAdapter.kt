@@ -35,7 +35,8 @@ class UserAdapter(
     private val onEmergencyWithLocation: (User) -> Unit = {},
     private val onRequestLocation: (User) -> Unit = {},
     private val onSetNickname: (User) -> Unit = {},
-    private val onToggleFavorite: (User) -> Unit = {}
+    private val onToggleFavorite: (User) -> Unit = {},
+    private val onMuteToggle: (User) -> Unit = {}
 ) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
 
     companion object {
@@ -150,6 +151,9 @@ class UserAdapter(
         }
         h.binding.tvFavStar.setOnClickListener { onToggleFavorite(user) }
 
+        h.binding.tvMuteIcon.visibility =
+            if (user.isMuted) android.view.View.VISIBLE else android.view.View.GONE
+
         h.binding.btnMore.visibility = android.view.View.VISIBLE
         h.binding.btnMore.setOnClickListener { anchor ->
             PopupMenu(anchor.context, anchor).apply {
@@ -161,6 +165,9 @@ class UserAdapter(
                         item.title = s
                     }
                 }
+                menu.findItem(R.id.action_user_mute)?.title =
+                    if (user.isMuted) anchor.context.getString(R.string.action_unmute)
+                    else anchor.context.getString(R.string.action_mute)
                 setOnMenuItemClickListener { item ->
                     when (item.itemId) {
                         R.id.action_user_call -> { onCall(user); true }
@@ -169,6 +176,7 @@ class UserAdapter(
                         R.id.action_user_emergency_call -> { onEmergencyCall(user); true }
                         R.id.action_user_emergency_location -> { onEmergencyWithLocation(user); true }
                         R.id.action_user_set_nickname -> { onSetNickname(user); true }
+                        R.id.action_user_mute -> { onMuteToggle(user); true }
                         else -> false
                     }
                 }

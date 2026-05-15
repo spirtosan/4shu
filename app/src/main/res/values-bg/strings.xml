@@ -222,6 +222,10 @@
     <string name="trust_trusted">Доверен</string>
     <string name="trust_contact">Контакт</string>
     <string name="trust_stranger">Непознат</string>
+    <string name="action_mute">Заглуши</string>
+    <string name="action_unmute">Включи звук</string>
+    <string name="toast_muted">Заглушен</string>
+    <string name="toast_unmuted">Звукът е включен</string>
     <string name="dialog_sync_history_title">Синхронизирай цялата история</string>
     <string name="toast_no_known_peers">Няма познати потребители</string>
     <string name="toast_syncing_history">Синхронизиране на история…</string>

@@ -49,6 +49,7 @@ import com.fshu.next.util.CrashHandler
 import com.fshu.next.util.CryptoHelper
 import com.fshu.next.util.LocationHelper
 import com.fshu.next.util.MessageBus
+import com.fshu.next.data.local.Mute
 import com.fshu.next.util.Prefs
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.filter
@@ -64,6 +65,7 @@ class MainActivity : AppCompatActivity() {
     private val groupItems = mutableListOf<User>()
     private lateinit var adapter: UserAdapter
     private var favorites = mutableSetOf<String>()
+    private val mutedTargets = mutableSetOf<String>()
     private var pendingEmergencyLocationUser: User? = null
     private var enrichJob: kotlinx.coroutines.Job? = null
 
@@ -190,6 +192,24 @@ class MainActivity : AppCompatActivity() {
                 }
             },
             onToggleFavorite = { user -> toggleFavorite(user.username) },
+            onMuteToggle = { user ->
+                val isMuted = mutedTargets.contains(user.username)
+                lifecycleScope.launch(Dispatchers.IO) {
+                    val muteDb = AppDatabase.getInstance(this@MainActivity)
+                    if (isMuted) {
+                        muteDb.muteDao().delete(user.username)
+                        WebSocketClient.send(mapOf("type" to "remove-mute", "target" to user.username, "targetType" to "contact"))
+                    } else {
+                        muteDb.muteDao().insert(Mute(target = user.username, targetType = "contact"))
+                        WebSocketClient.send(mapOf("type" to "set-mute", "target" to user.username, "targetType" to "contact"))
+                    }
+                    withContext(Dispatchers.Main) {
+                        if (isMuted) mutedTargets.remove(user.username) else mutedTargets.add(user.username)
+                        rebuildCombinedList()
+                        Toast.makeText(this@MainActivity, if (isMuted) getString(R.string.toast_unmuted) else getString(R.string.toast_muted), Toast.LENGTH_SHORT).show()
+                    }
+                }
+            },
             onSetNickname = { user ->
                 val current = Prefs.getContactNickname(this, user.username)
                 val et = android.widget.EditText(this).apply {
@@ -267,6 +287,11 @@ class MainActivity : AppCompatActivity() {
         startService(Intent(this, FshuService::class.java))
 
         favorites = Prefs.getFavorites(this).toMutableSet()
+
+        lifecycleScope.launch(Dispatchers.IO) {
+            val loaded = AppDatabase.getInstance(this@MainActivity).muteDao().getAll().map { it.target }
+            withContext(Dispatchers.Main) { mutedTargets.addAll(loaded) }
+        }
 
         // Load cached user list immediately so the list is populated before server update arrives.
         loadCachedUsers()
@@ -835,7 +860,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun buildContactList(contacts: List<User>): List<User> {
-        val marked = contacts.map { it.copy(isFavorite = it.username in favorites) }
+        val marked = contacts.map { it.copy(isFavorite = it.username in favorites, isMuted = it.username in mutedTargets) }
         val favs = applyUserOrder(marked.filter { it.isFavorite })
         val others = applyOrderWithTimeFallback(marked.filter { !it.isFavorite })
         val result = mutableListOf<User>()
@@ -871,6 +896,8 @@ class MainActivity : AppCompatActivity() {
         val me = Prefs.getUsername(this)
         val db = AppDatabase.getInstance(this)
         val enriched = withContext(Dispatchers.IO) {
+            val freshMutes = db.muteDao().getAll().map { it.target }.toSet()
+            withContext(Dispatchers.Main) { mutedTargets.clear(); mutedTargets.addAll(freshMutes) }
             list.map { user ->
                 val last = db.messageDao().getLastMessage(user.username, me)
                 val preview = when (last?.type) {

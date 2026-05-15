@@ -25,4 +25,8 @@
         android:id="@+id/action_user_set_nickname"
         android:title="@string/menu_set_nickname" />
 
+    <item
+        android:id="@+id/action_user_mute"
+        android:title="@string/action_mute" />
+
 </menu>
