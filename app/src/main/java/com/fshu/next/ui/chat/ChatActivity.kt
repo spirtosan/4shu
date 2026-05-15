@@ -516,6 +516,13 @@ class ChatActivity : AppCompatActivity() {
         lifecycleScope.launch {
             MessageBus.events.collect { json ->
                 when (json.get("type")?.asString) {
+                    "ws-dm-debug" -> {
+                        val from = json.get("from")?.asString ?: "?"
+                        val frame = json.get("frame")?.asInt ?: 0
+                        if (from == peer) runOnUiThread {
+                            Toast.makeText(this@ChatActivity, "[DBG] WS DM frame #$frame from $from", Toast.LENGTH_SHORT).show()
+                        }
+                    }
                     "history-loaded" -> {
                         val peer = json.get("peer")?.asString ?: ""
                         if (peer == this@ChatActivity.peer) {

@@ -151,6 +151,14 @@ class FshuService : Service() {
             }
         createNotificationChannels()
         WebSocketClient.addHandler { json ->
+            if (json.get("type")?.asString == "message") {
+                val debugEvt = com.google.gson.JsonObject().apply {
+                    addProperty("type", "ws-dm-debug")
+                    addProperty("from", json.get("from")?.asString ?: "?")
+                    addProperty("frame", WebSocketClient.wsFrameCount.get())
+                }
+                MessageBus.tryEmit(debugEvt)
+            }
             scope.launch { dispatch(json) }
         }
         WebSocketClient.onHeartbeat = {
@@ -443,7 +451,7 @@ class FshuService : Service() {
         when (json.get("type")?.asString) {
             "call-offer"              -> handleIncomingCall(json, isEmergency = false)
             "call-emergency"          -> handleIncomingCall(json, isEmergency = true)
-            "message"                 -> persistIncomingMessage(json)
+            "message"                 -> { Log.d("ROUTE_DBG", "routing to persistIncomingMessage"); persistIncomingMessage(json) }
             "file", "voice"           -> persistIncomingFile(json)
             "typing"                  -> MessageBus.emit(json)
             "deleted"                 -> handleDeletedForAll(json)

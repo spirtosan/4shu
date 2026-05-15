@@ -28,6 +28,8 @@ object WebSocketClient {
     private var webSocket: WebSocket? = null
     private val handlers = java.util.concurrent.CopyOnWriteArrayList<MessageHandler>()
 
+    val wsFrameCount = java.util.concurrent.atomic.AtomicInteger(0)
+
     @Volatile private var intentionalDisconnect = false
 
     private val heartbeatScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
@@ -160,8 +162,10 @@ object WebSocketClient {
             }
 
             override fun onMessage(webSocket: WebSocket, text: String) {
+                val frame = wsFrameCount.incrementAndGet()
                 try {
                     val json = gson.fromJson(text, JsonObject::class.java)
+                    Log.d("ROUTE_DBG", "onMessage type=${json.get("type")?.asString} frame=#$frame")
                     when (json.get("type")?.asString) {
                         "auth-ok" -> {
                             connectTimeoutJob?.cancel()
