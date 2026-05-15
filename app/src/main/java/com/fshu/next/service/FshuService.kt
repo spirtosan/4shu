@@ -61,7 +61,7 @@ class FshuService : Service() {
     private var lastNetworkId: Long = -1L
     private var serviceStartTime: Long = 0L
     private var connectionWatchdogJob: Job? = null
-    private val pendingDecryptQueue = mutableMapOf<String, MutableList<Long>>()
+    private val pendingDecryptQueue = mutableMapOf<String, MutableList<Pair<Long, String>>>()
 
     companion object {
         const val CHANNEL_ID = "fshu_fg"
@@ -467,11 +467,11 @@ class FshuService : Service() {
                 if (!pending.isNullOrEmpty()) {
                     val me = Prefs.getUsername(this)
                     scope.launch {
-                        for (msgId in pending) {
+                        for ((msgId, rawCipher) in pending) {
                             val msg = db.messageDao().getById(msgId) ?: continue
-                            val decrypted = CryptoHelper.decryptFromPeer(
-                                this@FshuService, uname, pubHex, msgId, msg.content
-                            ) ?: continue
+                            val decrypted = try {
+                                CryptoHelper.decryptFromPeer(this@FshuService, uname, pubHex, msgId, rawCipher)
+                            } catch (_: Exception) { null } ?: continue
                             db.messageDao().updateContent(msgId, decrypted)
                             if (msg.remoteId > 0L) {
                                 WebSocketClient.send(mapOf(
@@ -611,6 +611,22 @@ class FshuService : Service() {
                             Log.w("FshuService", "cachePeerKey failed for $uname: ${e.message}")
                         }
                         Prefs.setPeerTrustLevel(this, uname, trust)
+                        val pendingFromBroadcast = pendingDecryptQueue.remove(uname)
+                        if (!pendingFromBroadcast.isNullOrEmpty()) {
+                            scope.launch {
+                                for ((msgId, rawCipher) in pendingFromBroadcast) {
+                                    val decrypted = try {
+                                        CryptoHelper.decryptFromPeer(this@FshuService, uname, pubHex, msgId, rawCipher)
+                                    } catch (_: Exception) { null } ?: continue
+                                    db.messageDao().updateContent(msgId, decrypted)
+                                }
+                                val evt = com.google.gson.JsonObject().apply {
+                                    addProperty("type", "messages-updated")
+                                    addProperty("peer", uname)
+                                }
+                                MessageBus.emit(evt)
+                            }
+                        }
                     }
                 }
                 MessageBus.emit(json)
@@ -677,10 +693,18 @@ class FshuService : Service() {
             val me         = Prefs.getUsername(this)
             val peerPubKey = Prefs.getPeerPublicKey(this, from)
             if (peerPubKey.isEmpty()) requestPeerKey(from)
-            val needsDecrypt = peerPubKey.isEmpty() && remoteId != 0L
-            val content = if (peerPubKey.isNotEmpty() && remoteId != 0L) {
-                CryptoHelper.decryptFromPeer(this, from, peerPubKey, remoteId, rawContent) ?: rawContent
-            } else rawContent
+            val isEncrypted = remoteId != 0L
+            val (content, needsRetry) = when {
+                !isEncrypted -> Pair(rawContent, false)
+                peerPubKey.isEmpty() -> Pair("[waiting for key]", true)
+                else -> try {
+                    val dec = CryptoHelper.decryptFromPeer(this, from, peerPubKey, remoteId, rawContent)
+                    if (dec != null) Pair(dec, false) else Pair("[decryption failed]", true)
+                } catch (e: Exception) {
+                    Log.w("FshuService", "decryptFromPeer threw for $from remoteId=$remoteId: ${e.message}")
+                    Pair("[decryption failed]", true)
+                }
+            }
             val isRequest = json.get("isRequest")?.asBoolean ?: false
             val insertedId = db.messageDao().insert(
                 Message(from = from, to = me, content = content, type = "text",
@@ -688,8 +712,8 @@ class FshuService : Service() {
                     replyToId = replyToId, replyToSender = replyToSender,
                     replyToContent = replyToContent, isRequest = isRequest)
             )
-            if (needsDecrypt) {
-                pendingDecryptQueue.getOrPut(from) { mutableListOf() }.add(insertedId)
+            if (needsRetry) {
+                pendingDecryptQueue.getOrPut(from) { mutableListOf() }.add(Pair(insertedId, rawContent))
             }
             // TODO: implement seq replay — server does not yet attach seq to forwarded messages
             val seq = try { json.get("seq")?.asLong ?: 0L } catch (_: Exception) { 0L }
