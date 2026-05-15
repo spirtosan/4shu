@@ -472,11 +472,16 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun sendReaction(msg: Message, emoji: String?) {
-        if (msg.remoteId == 0L) return
+        val msgId: Any = if (msg.groupId != null) {
+            msg.tempId ?: return
+        } else {
+            if (msg.remoteId == 0L) return
+            msg.remoteId
+        }
         viewModelScope.launch(Dispatchers.IO) {
             val payload = mutableMapOf<String, Any>(
                 "type" to "react",
-                "messageId" to msg.remoteId
+                "messageId" to msgId
             )
             if (emoji != null) payload["emoji"] = emoji
             WebSocketClient.send(payload)

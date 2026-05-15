@@ -811,11 +811,17 @@ class FshuService : Service() {
     }
 
     private suspend fun handleReactions(json: JsonObject) {
-        val messageId = json.get("messageId")?.asDouble?.toLong() ?: return
+        val messageIdEl = json.get("messageId") ?: return
         val reactionsEl = json.get("reactions")
         val reactionsJson = if (reactionsEl != null && reactionsEl.isJsonArray)
             reactionsEl.toString() else "[]"
-        db.messageDao().updateReactions(messageId, reactionsJson)
+        val longId = try { messageIdEl.asLong } catch (_: Exception) { -1L }
+        if (longId > 0) {
+            db.messageDao().updateReactions(longId, reactionsJson)
+        } else {
+            val tempId = try { messageIdEl.asString } catch (_: Exception) { return }
+            db.messageDao().updateReactionsByTempId(tempId, reactionsJson)
+        }
         MessageBus.emit(json)
     }
 
@@ -1517,6 +1523,9 @@ class FshuService : Service() {
         if (db.messageDao().getByTempId(serverMsgId) != null) return
 
         val group       = db.groupDao().getById(groupId)
+        if (group == null) {
+            WebSocketClient.send(mapOf("type" to "group-info-request", "groupId" to groupId))
+        }
         val groupKeyHex = group?.groupKey ?: ""
         val content     = if (groupKeyHex.isNotEmpty()) {
             val key = with(EcdhHelper) { groupKeyHex.fromHex() }

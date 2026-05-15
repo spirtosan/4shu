@@ -119,6 +119,9 @@ interface MessageDao {
     """)
     suspend fun updateReactions(remoteId: Long, reactions: String)
 
+    @Query("UPDATE messages SET reactions = :reactions WHERE tempId = :tempId")
+    suspend fun updateReactionsByTempId(tempId: String, reactions: String)
+
     @Query("UPDATE messages SET voiceWaveform = :waveform, voiceDuration = :duration WHERE fileId = :fileId")
     suspend fun updateVoiceMeta(fileId: String, waveform: String, duration: Int)
 

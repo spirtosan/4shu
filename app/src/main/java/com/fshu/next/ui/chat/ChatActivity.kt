@@ -1062,7 +1062,14 @@ class ChatActivity : AppCompatActivity() {
         val gid = groupId ?: return
         lifecycleScope.launch(Dispatchers.IO) {
             val db = com.fshu.next.data.local.AppDatabase.getInstance(this@ChatActivity)
-            val group = db.groupDao().getById(gid) ?: return@launch
+            val group = db.groupDao().getById(gid)
+            if (group == null) {
+                // Group not in local DB — request from server; group-state event will re-trigger this.
+                com.fshu.next.data.remote.WebSocketClient.send(
+                    mapOf("type" to "group-info-request", "groupId" to gid)
+                )
+                return@launch
+            }
             val members = db.groupMemberDao().getMembersOf(gid)
             val me = Prefs.getUsername(this@ChatActivity)
             val role = members.find { it.username == me }?.role ?: "member"
