@@ -58,7 +58,8 @@ class FshuService : Service() {
     private var wifiLock: WifiManager.WifiLock? = null
     private var connectivityManager: ConnectivityManager? = null
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
-    private var lastNetworkId: Int = -1
+    private var lastNetworkId: Long = -1L
+    private var serviceStartTime: Long = 0L
     private var connectionWatchdogJob: Job? = null
     private val pendingDecryptQueue = mutableMapOf<String, MutableList<Long>>()
 
@@ -136,6 +137,7 @@ class FshuService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        serviceStartTime = System.currentTimeMillis()
         // CryptoHelper.initDebugLog(applicationContext)
         val pm = getSystemService(PowerManager::class.java)
         wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "fshu:connection").apply {
@@ -1756,17 +1758,18 @@ class FshuService : Service() {
 
         val callback = object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) {
-                val netId = network.hashCode()
-                if (netId == lastNetworkId) return  // same network, skip
+                val netId = network.networkHandle
+                if (netId == lastNetworkId) return
                 lastNetworkId = netId
-                Log.d("FshuService", "Network available (id=$netId) — forcing reconnect")
+                // Skip the immediate onAvailable fired at registration time
+                val uptime = System.currentTimeMillis() - serviceStartTime
+                if (uptime < 3000) return
+                Log.d("FshuService", "Network available (id=$netId uptime=${uptime}ms) — forcing reconnect")
                 scope.launch {
-                    // Brief delay so the network stack is fully ready
                     delay(500)
                     if (!WebSocketClient.isConnected) {
                         connect(url, username, password)
                     } else {
-                        // Network changed — drop and reconnect to bind to new interface
                         WebSocketClient.disconnect()
                         delay(300)
                         connect(url, username, password)
