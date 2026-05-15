@@ -665,6 +665,7 @@ class FshuService : Service() {
             if (needsDecrypt) {
                 pendingDecryptQueue.getOrPut(from) { mutableListOf() }.add(insertedId)
             }
+            // TODO: implement seq replay — server does not yet attach seq to forwarded messages
             val seq = try { json.get("seq")?.asLong ?: 0L } catch (_: Exception) { 0L }
             if (seq > 0 && seq > WebSocketClient.lastSeq) WebSocketClient.lastSeq = seq
             if (remoteId != 0L) {

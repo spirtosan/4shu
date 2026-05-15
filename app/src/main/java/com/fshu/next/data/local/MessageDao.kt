@@ -78,8 +78,10 @@ interface MessageDao {
     @Query("SELECT * FROM messages WHERE id = :id")
     suspend fun getById(id: Long): Message?
 
-    /** Finds any message with this remoteId — used to deduplicate received history responses. */
-    @Query("SELECT * FROM messages WHERE remoteId = :remoteId AND remoteId > 0 LIMIT 1")
+    /** Finds a received message with this remoteId — used to deduplicate incoming messages.
+     *  isSent = 0 prevents a local sent message's remoteId from falsely matching an incoming
+     *  message whose server-id happens to equal our own Room PK. */
+    @Query("SELECT * FROM messages WHERE remoteId = :remoteId AND remoteId > 0 AND isSent = 0 LIMIT 1")
     suspend fun getByRemoteId(remoteId: Long): Message?
 
     /** Finds a sent message with matching peer and approximate timestamp — used to deduplicate sent history responses. */
