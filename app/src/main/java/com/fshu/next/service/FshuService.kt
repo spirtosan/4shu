@@ -51,6 +51,11 @@ import java.io.File
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
+private fun com.google.gson.JsonElement?.safeString(): String? = this?.takeIf { !it.isJsonNull }?.asString
+private fun com.google.gson.JsonElement?.safeLong(): Long? = this?.takeIf { !it.isJsonNull }?.asLong
+private fun com.google.gson.JsonElement?.safeDouble(): Double? = this?.takeIf { !it.isJsonNull }?.asDouble
+private fun com.google.gson.JsonElement?.safeBoolean(): Boolean? = this?.takeIf { !it.isJsonNull }?.asBoolean
+
 class FshuService : Service() {
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val db by lazy { AppDatabase.getInstance(this) }
@@ -692,18 +697,18 @@ class FshuService : Service() {
             Log.e("PERSIST_DBG", "persistIncomingMessage called with invalid json: $json")
             return
         }
-        Log.d("PERSIST_DBG", "entered persistIncomingMessage from=${json.get("from")?.takeIf { !it.isJsonNull }?.asString}")
+        Log.d("PERSIST_DBG", "entered persistIncomingMessage from=${json.get("from").safeString()}")
         try {
-            val from = json.get("from")?.takeIf { !it.isJsonNull }?.asString ?: run {
+            val from = json.get("from").safeString() ?: run {
                 Log.d("PERSIST_DBG", "early return: from is null/JsonNull")
                 return
             }
-            val rawContent = json.get("content")?.takeIf { !it.isJsonNull }?.asString ?: run {
+            val rawContent = json.get("content").safeString() ?: run {
                 Log.d("PERSIST_DBG", "early return: content is null/JsonNull from=$from")
                 return
             }
-            val ts = try { json.get("timestamp")?.asLong ?: 0L } catch (_: Exception) { 0L }
-            val remoteId = try { json.get("messageId")?.asLong ?: 0L } catch (_: Exception) { 0L }
+            val ts = json.get("timestamp").safeLong() ?: 0L
+            val remoteId = json.get("messageId").safeLong() ?: 0L
             Log.d("PERSIST_DBG", "from=$from remoteId=$remoteId rawContent.len=${rawContent.length}")
             Log.d("MSG_DBG", "incoming: from=$from remoteId=$remoteId")
             val existingCheck = if (remoteId > 0) db.messageDao().getByRemoteId(remoteId, from) else null
@@ -713,9 +718,9 @@ class FshuService : Service() {
                 return
             }
             Log.d("PERSIST_DBG", "dedup passed, proceeding to decryption")
-            val replyToId = try { json.get("replyToId")?.asLong } catch (_: Exception) { null }
-            val replyToSender = json.get("replyToSender")?.asString?.takeIf { it.isNotEmpty() }
-            val replyToContent = json.get("replyToContent")?.asString?.takeIf { it.isNotEmpty() }
+            val replyToId = json.get("replyToId").safeLong()
+            val replyToSender = json.get("replyToSender").safeString()?.takeIf { it.isNotEmpty() }
+            val replyToContent = json.get("replyToContent").safeString()?.takeIf { it.isNotEmpty() }
             val me         = Prefs.getUsername(this)
             val peerPubKey = Prefs.getPeerPublicKey(this, from)
             if (peerPubKey.isEmpty()) requestPeerKey(from)
@@ -731,7 +736,7 @@ class FshuService : Service() {
                     Pair("[decryption failed]", true)
                 }
             }
-            val isRequest = json.get("isRequest")?.asBoolean ?: false
+            val isRequest = json.get("isRequest").safeBoolean() ?: false
             val insertedId = db.messageDao().insert(
                 Message(from = from, to = me, content = content, type = "text",
                     timestamp = ts, isSent = false, remoteId = remoteId,
@@ -742,7 +747,7 @@ class FshuService : Service() {
                 pendingDecryptQueue.getOrPut(from) { mutableListOf() }.add(Pair(insertedId, rawContent))
             }
             // TODO: implement seq replay — server does not yet attach seq to forwarded messages
-            val seq = try { json.get("seq")?.asLong ?: 0L } catch (_: Exception) { 0L }
+            val seq = json.get("seq").safeLong() ?: 0L
             if (seq > 0 && seq > WebSocketClient.lastSeq) WebSocketClient.lastSeq = seq
             if (remoteId != 0L) {
                 WebSocketClient.send(mapOf(
@@ -773,7 +778,7 @@ class FshuService : Service() {
             Log.e("PERSIST_DBG", "persistIncomingMessage THREW: ${e.message}", e)
             val errEvt = com.google.gson.JsonObject().apply {
                 addProperty("type", "ws-dm-debug")
-                addProperty("from", json.get("from")?.asString ?: "?")
+                addProperty("from", json.get("from").safeString() ?: "?")
                 addProperty("frame", -1)
                 addProperty("error", e.message ?: "unknown")
             }
@@ -782,21 +787,21 @@ class FshuService : Service() {
     }
 
     private suspend fun persistIncomingFile(json: JsonObject) {
-        val from     = json.get("from")?.asString ?: return
-        val filename = json.get("filename")?.asString ?: return
-        val mimeType = json.get("mimeType")?.asString ?: "application/octet-stream"
-        val ts       = json.get("timestamp")?.asDouble?.toLong() ?: System.currentTimeMillis()
-        val fileId   = json.get("fileId")?.asString
-        val remoteId = json.get("messageId")?.asDouble?.toLong() ?: 0L
-        val msgType  = json.get("type")?.asString ?: "file"   // "file" or "voice"
+        val from     = json.get("from").safeString() ?: return
+        val filename = json.get("filename").safeString() ?: return
+        val mimeType = json.get("mimeType").safeString() ?: "application/octet-stream"
+        val ts       = json.get("timestamp").safeDouble()?.toLong() ?: System.currentTimeMillis()
+        val fileId   = json.get("fileId").safeString()
+        val remoteId = json.get("messageId").safeDouble()?.toLong() ?: 0L
+        val msgType  = json.get("type").safeString() ?: "file"   // "file" or "voice"
         val me       = Prefs.getUsername(this)
 
         if (remoteId > 0 && db.messageDao().getByRemoteId(remoteId, from) != null) return
 
         val content       = if (msgType == "voice") "\uD83C\uDF99\uFE0F Voice message" else "\uD83D\uDCCE $filename"
-        val voiceDuration = if (msgType == "voice") json.get("duration")?.asDouble?.toInt() ?: 0 else 0
-        val voiceWaveform = if (msgType == "voice") json.get("waveform")?.asString?.takeIf { it.isNotEmpty() } else null
-        val isRequest = json.get("isRequest")?.asBoolean ?: false
+        val voiceDuration = if (msgType == "voice") json.get("duration").safeDouble()?.toInt() ?: 0 else 0
+        val voiceWaveform = if (msgType == "voice") json.get("waveform").safeString()?.takeIf { it.isNotEmpty() } else null
+        val isRequest = json.get("isRequest").safeBoolean() ?: false
 
         db.messageDao().insert(
             Message(from = from, to = me, content = content,
@@ -805,7 +810,7 @@ class FshuService : Service() {
                 voiceDuration = voiceDuration, voiceWaveform = voiceWaveform, isRequest = isRequest)
         )
 
-        val seq = json.get("seq")?.asDouble?.toLong() ?: 0L
+        val seq = json.get("seq").safeDouble()?.toLong() ?: 0L
         if (seq > 0 && seq > WebSocketClient.lastSeq) WebSocketClient.lastSeq = seq
 
         if (fileId != null) {
