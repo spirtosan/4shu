@@ -177,6 +177,7 @@ class FshuService : Service() {
             // Upload our public key on every connect so server can store/distribute it (Phase 1f)
             val myPub = Prefs.getEcPublicKey(this@FshuService)
             if (myPub.isNotEmpty()) {
+                Log.d("KEY_DBG", "onConnected: uploading own key len=${myPub.length} key=${myPub.take(8)}…")
                 WebSocketClient.send(mapOf("type" to "public-key", "publicKey" to myPub))
             }
             val token = Prefs.getFcmToken(this@FshuService)
@@ -598,8 +599,10 @@ class FshuService : Service() {
                             Log.w("FshuService", "users-broadcast: key rejected for $uname (len=${pubHex.length})")
                             continue
                         }
+                        Prefs.clearPeerPublicKey(this, uname)
                         Prefs.setPeerPublicKey(this, uname, pubHex)
                         db.peerKeyDao().upsert(com.fshu.next.data.model.PeerKey(uname, pubHex))
+                        Log.d("KEY_DBG", "users-broadcast: stored key for $uname len=${pubHex.length} key=${pubHex.take(8)}…")
                         try {
                             CryptoHelper.cachePeerKey(this, uname, pubHex)
                         } catch (e: Exception) {
