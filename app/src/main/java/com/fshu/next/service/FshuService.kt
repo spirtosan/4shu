@@ -644,7 +644,7 @@ class FshuService : Service() {
             val rawContent = json.get("content")?.asString ?: return
             val ts = try { json.get("timestamp")?.asLong ?: 0L } catch (_: Exception) { 0L }
             val remoteId = try { json.get("messageId")?.asLong ?: 0L } catch (_: Exception) { 0L }
-            if (remoteId > 0 && db.messageDao().getByRemoteId(remoteId) != null) return
+            if (remoteId > 0 && db.messageDao().getByRemoteId(remoteId, from) != null) return
             val replyToId = try { json.get("replyToId")?.asLong } catch (_: Exception) { null }
             val replyToSender = json.get("replyToSender")?.asString?.takeIf { it.isNotEmpty() }
             val replyToContent = json.get("replyToContent")?.asString?.takeIf { it.isNotEmpty() }
@@ -708,7 +708,7 @@ class FshuService : Service() {
         val msgType  = json.get("type")?.asString ?: "file"   // "file" or "voice"
         val me       = Prefs.getUsername(this)
 
-        if (remoteId > 0 && db.messageDao().getByRemoteId(remoteId) != null) return
+        if (remoteId > 0 && db.messageDao().getByRemoteId(remoteId, from) != null) return
 
         val content       = if (msgType == "voice") "\uD83C\uDF99\uFE0F Voice message" else "\uD83D\uDCCE $filename"
         val voiceDuration = if (msgType == "voice") json.get("duration")?.asDouble?.toInt() ?: 0 else 0
@@ -1418,7 +1418,7 @@ class FshuService : Service() {
                 val alreadyExists = if (from == me) {
                     db.messageDao().getSentNear(to, ts - 1000, ts + 1000) != null
                 } else {
-                    msgId > 0 && db.messageDao().getByRemoteId(msgId) != null
+                    msgId > 0 && db.messageDao().getByRemoteId(msgId, from) != null
                 }
                 if (alreadyExists) continue
 
