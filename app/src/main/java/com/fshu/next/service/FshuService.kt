@@ -684,14 +684,18 @@ class FshuService : Service() {
     }
 
     private suspend fun persistIncomingMessage(json: JsonObject) {
-        Log.d("PERSIST_DBG", "entered persistIncomingMessage from=${json.get("from")?.asString}")
+        if (json.isJsonNull || !json.has("from") || !json.has("content")) {
+            Log.e("PERSIST_DBG", "persistIncomingMessage called with invalid json: $json")
+            return
+        }
+        Log.d("PERSIST_DBG", "entered persistIncomingMessage from=${json.get("from")?.takeIf { !it.isJsonNull }?.asString}")
         try {
-            val from = json.get("from")?.asString ?: run {
-                Log.d("PERSIST_DBG", "early return: from is null")
+            val from = json.get("from")?.takeIf { !it.isJsonNull }?.asString ?: run {
+                Log.d("PERSIST_DBG", "early return: from is null/JsonNull")
                 return
             }
-            val rawContent = json.get("content")?.asString ?: run {
-                Log.d("PERSIST_DBG", "early return: content is null from=$from")
+            val rawContent = json.get("content")?.takeIf { !it.isJsonNull }?.asString ?: run {
+                Log.d("PERSIST_DBG", "early return: content is null/JsonNull from=$from")
                 return
             }
             val ts = try { json.get("timestamp")?.asLong ?: 0L } catch (_: Exception) { 0L }
