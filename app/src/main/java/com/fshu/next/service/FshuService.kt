@@ -585,16 +585,28 @@ class FshuService : Service() {
             }
             "users"                   -> {
                 lastUsersJson = json
-                val me = Prefs.getUsername(this)
-                json.getAsJsonArray("users")?.forEach { el ->
-                    val obj    = el.asJsonObject
-                    val uname  = obj.get("username")?.takeIf { !it.isJsonNull }?.asString ?: return@forEach
-                    val pubHex = obj.get("publicKey")?.takeIf { !it.isJsonNull }?.asString ?: return@forEach
-                    val trust  = obj.get("trustLevel")?.takeIf { !it.isJsonNull }?.asString ?: "contact"
-                    if (uname == me || pubHex.isEmpty()) return@forEach
-                    Prefs.setPeerPublicKey(this, uname, pubHex)
-                    CryptoHelper.cachePeerKey(this, uname, pubHex)
-                    Prefs.setPeerTrustLevel(this, uname, trust)
+                val me  = Prefs.getUsername(this)
+                val arr = json.getAsJsonArray("users")
+                if (arr != null) {
+                    for (el in arr) {
+                        val obj    = el.asJsonObject
+                        val uname  = obj.get("username")?.takeIf { !it.isJsonNull }?.asString ?: continue
+                        val pubHex = obj.get("publicKey")?.takeIf { !it.isJsonNull }?.asString ?: continue
+                        val trust  = obj.get("trustLevel")?.takeIf { !it.isJsonNull }?.asString ?: "contact"
+                        if (uname == me) continue
+                        if (pubHex.length != 64 || !pubHex.all { it.isDigit() || it in 'a'..'f' || it in 'A'..'F' }) {
+                            Log.w("FshuService", "users-broadcast: key rejected for $uname (len=${pubHex.length})")
+                            continue
+                        }
+                        Prefs.setPeerPublicKey(this, uname, pubHex)
+                        db.peerKeyDao().upsert(com.fshu.next.data.model.PeerKey(uname, pubHex))
+                        try {
+                            CryptoHelper.cachePeerKey(this, uname, pubHex)
+                        } catch (e: Exception) {
+                            Log.w("FshuService", "cachePeerKey failed for $uname: ${e.message}")
+                        }
+                        Prefs.setPeerTrustLevel(this, uname, trust)
+                    }
                 }
                 MessageBus.emit(json)
             }
