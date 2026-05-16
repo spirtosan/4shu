@@ -614,17 +614,34 @@ class FshuService : Service() {
                     val caller = json.get("to")?.asString
                     val me = Prefs.getUsername(this)
                     if (callee != null && caller == me) {
-                        // Fire-and-forget: don't await the insert — it would block MessageBus.emit(json)
-                        // below, delaying the call-reject signal to CallActivity by 20-30 s if Room's
-                        // transaction executor is busy. Insert runs on the service scope (IO, always
-                        // alive) so it completes well within CallActivity's 3-second finish delay.
+                        val ts = System.currentTimeMillis()
+                        // Send to callee immediately — before the Room insert — so the server
+                        // delivers the chat message in real-time. Without an explicit send the
+                        // message would sit in SENDING state until checkStaleSending fires on
+                        // the next heartbeat (~30 s delay). Use ts as the ECDH nonce (same
+                        // role Room's auto-id plays for regular messages); include it as
+                        // messageId so the receiver can derive the correct decryption nonce.
+                        val peerPubKey = Prefs.getPeerPublicKey(this, callee)
+                        val wireContent = if (peerPubKey.isNotEmpty())
+                            try { CryptoHelper.encryptForPeer(this, callee, peerPubKey, ts, "📵 Call declined") }
+                            catch (_: Exception) { null }
+                        else null
+                        val payload = mutableMapOf<String, Any?>(
+                            "type" to "message", "from" to me, "to" to callee,
+                            "content" to (wireContent ?: "📵 Call declined"), "timestamp" to ts
+                        )
+                        if (wireContent != null) payload["messageId"] = ts
+                        WebSocketClient.send(payload)
+                        // Room insert is async (service scope) so it never blocks the send above.
+                        // status = SENT prevents checkStaleSending from re-sending this message.
                         scope.launch {
                             db.messageDao().insert(
                                 Message(from = me, to = callee,
                                     content = "📵 Call declined",
                                     type = "text",
-                                    timestamp = System.currentTimeMillis(),
-                                    isSent = true)
+                                    timestamp = ts,
+                                    isSent = true,
+                                    status = "SENT")
                             )
                         }
                     }
