@@ -312,5 +312,7 @@
   "label_no_blocked_users": { "en": "No blocked users", "bg": "", "ru": "" },
   "btn_unblock": { "en": "Unblock", "bg": "", "ru": "" },
   "toast_unblocked": { "en": "%s unblocked", "bg": "", "ru": "" },
-  "admin_server_info_format": { "en": "Disk:\\n%1$s\\n\\nFiles: %2$d (%3$s)\\nHistory files: %4$d", "bg": "", "ru": "" }
+  "admin_server_info_format": { "en": "Disk:\\n%1$s\\n\\nFiles: %2$d (%3$s)\\nHistory files: %4$d", "bg": "", "ru": "" },
+  "label_allow_emergency_calls": { "en": "Allow emergency calls", "bg": "", "ru": "" },
+  "desc_allow_emergency_calls": { "en": "Can reach you in an emergency regardless of other settings", "bg": "", "ru": "" }
 }

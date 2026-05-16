@@ -28,4 +28,10 @@ interface ContactDao {
 
     @Query("DELETE FROM contacts WHERE status = 'pending' AND expiresAt < :now")
     fun expireOld(now: Long)
+
+    @Query("UPDATE contacts SET allow_emergency_call = :allow WHERE owner = :owner AND contact = :contact")
+    suspend fun setEmergencyAllow(owner: String, contact: String, allow: Int)
+
+    @Query("SELECT allow_emergency_call FROM contacts WHERE owner = :owner AND contact = :contact")
+    suspend fun getEmergencyAllow(owner: String, contact: String): Int?
 }

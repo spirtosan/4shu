@@ -139,6 +139,14 @@ class FshuService : Service() {
             val max = am.getStreamMaxVolume(AudioManager.STREAM_ALARM)
             am.setStreamVolume(AudioManager.STREAM_ALARM, (max * 0.35).toInt().coerceAtLeast(1), 0)
         }
+
+        fun sendSetEmergencyAllow(contact: String, allow: Boolean) {
+            WebSocketClient.send(mapOf(
+                "type"    to "set-emergency-allow",
+                "contact" to contact,
+                "allow"   to if (allow) 1 else 0
+            ))
+        }
     }
 
     override fun onCreate() {
@@ -606,7 +614,7 @@ class FshuService : Service() {
             "change-password-ok",
             "change-password-error"   -> MessageBus.emit(json)
             "call-busy"               -> { cancelCallNotif(this); MessageBus.emit(json) }
-            "call-end", "call-reject" -> {
+            "call-end", "call-reject", "call-decline" -> {
                 cancelCallNotif(this)
                 if (CallActivity.isActive) vibrateOnce()
                 if (json.get("type")?.asString == "call-reject") {
@@ -714,6 +722,12 @@ class FshuService : Service() {
                             owner = me, contact = contact, status = "accepted",
                             createdAt = created, updatedAt = updated, expiresAt = 0L
                         ))
+                        val allowEmergency = try {
+                            obj.get("allow_emergency_call")?.takeIf { !it.isJsonNull }?.asInt
+                        } catch (_: Exception) { null }
+                        if (allowEmergency != null) {
+                            db.contactDao().setEmergencyAllow(me, contact, allowEmergency)
+                        }
                     }
                 }
                 MessageBus.emit(json)
@@ -740,6 +754,14 @@ class FshuService : Service() {
                 }
                 MessageBus.emit(json)
             }
+            "emergency-allow-update"  -> {
+                val me      = Prefs.getUsername(this)
+                val contact = json.get("contact")?.safeString() ?: return
+                val allow   = try { json.get("allow")?.asInt } catch (_: Exception) { null } ?: return
+                scope.launch { db.contactDao().setEmergencyAllow(me, contact, allow) }
+                MessageBus.emit(json)
+            }
+            "emergency-allow-set"     -> MessageBus.emit(json)
             else                      -> MessageBus.emit(json)
         }
     }

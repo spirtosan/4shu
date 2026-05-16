@@ -314,4 +314,27 @@
     <string name="btn_unblock">Unblock</string>
     <string name="toast_unblocked">%s unblocked</string>
     <string name="admin_server_info_format">Disk:\n%1$s\n\nFiles: %2$d (%3$s)\nHistory files: %4$d</string>
+    <string name="label_allow_emergency_calls">Allow emergency calls</string>
+    <string name="desc_allow_emergency_calls">Can reach you in an emergency regardless of other settings</string>
+
+    <plurals name="group_members_subtitle">
+        <item quantity="one">1 member</item>
+        <item quantity="other">%d members</item>
+    </plurals>
+    <plurals name="toast_messages_copied">
+        <item quantity="one">1 message copied</item>
+        <item quantity="other">%d messages copied</item>
+    </plurals>
+    <plurals name="toast_loaded_messages">
+        <item quantity="one">Loaded 1 message</item>
+        <item quantity="other">Loaded %d messages</item>
+    </plurals>
+    <plurals name="dialog_delete_messages_title">
+        <item quantity="one">Delete 1 message?</item>
+        <item quantity="other">Delete %d messages?</item>
+    </plurals>
+    <plurals name="dialog_delete_messages_body">
+        <item quantity="one">This will delete the selected message from your device only.</item>
+        <item quantity="other">This will delete the selected messages from your device only.</item>
+    </plurals>
 </resources>

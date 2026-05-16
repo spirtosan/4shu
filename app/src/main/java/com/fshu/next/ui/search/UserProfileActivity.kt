@@ -17,18 +17,25 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.fshu.next.R
+import com.fshu.next.data.local.AppDatabase
+import com.fshu.next.data.local.entities.effectiveEmergencyAllow
 import com.fshu.next.data.remote.WebSocketClient
 import com.fshu.next.databinding.ActivityUserProfileBinding
+import com.fshu.next.service.FshuService
 import com.fshu.next.util.MessageBus
 import com.fshu.next.util.Prefs
 import com.google.gson.JsonObject
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class UserProfileActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityUserProfileBinding
+    private lateinit var db: AppDatabase
     private var targetUsername = ""
     private var currentTrustLevel: String = "contact"
+    private var currentAllowEmergency: Int? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -41,10 +48,24 @@ class UserProfileActivity : AppCompatActivity() {
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
         supportActionBar?.title = targetUsername
 
+        db = AppDatabase.getInstance(this)
+
         drawLetterAvatar(targetUsername, 80)
 
         lifecycleScope.launch {
             MessageBus.events.collect { handleMessage(it) }
+        }
+
+        // Load initial emergency-allow state from local Room DB
+        lifecycleScope.launch {
+            val me = Prefs.getUsername(this@UserProfileActivity)
+            currentAllowEmergency = withContext(Dispatchers.IO) {
+                db.contactDao().getEmergencyAllow(me, targetUsername)
+            }
+        }
+
+        binding.rowEmergencyAllow.setOnClickListener {
+            binding.switchEmergencyAllow.toggle()
         }
 
         WebSocketClient.send(mapOf("type" to "user-profile", "targetUsername" to targetUsername))
@@ -145,6 +166,10 @@ class UserProfileActivity : AppCompatActivity() {
                     }?.asJsonObject
                     currentTrustLevel = contactRow?.get("trustLevel")?.takeIf { !it.isJsonNull }?.asString
                         ?: Prefs.getPeerTrustLevel(this, targetUsername)
+                    val serverAllow = try {
+                        contactRow?.get("allow_emergency_call")?.takeIf { !it.isJsonNull }?.asInt
+                    } catch (_: Exception) { null }
+                    if (serverAllow != null) currentAllowEmergency = serverAllow
                     runOnUiThread { updateTrustUI(true) }
                 } else {
                     runOnUiThread { updateTrustUI(false) }
@@ -155,6 +180,15 @@ class UserProfileActivity : AppCompatActivity() {
                         isPending -> "pending"
                         else -> null
                     })
+                }
+            }
+            "emergency-allow-update" -> {
+                if (json.get("contact")?.asString == targetUsername) {
+                    val allow = try { json.get("allow")?.asInt } catch (_: Exception) { null }
+                    if (allow != null) {
+                        currentAllowEmergency = allow
+                        runOnUiThread { updateEmergencySwitch() }
+                    }
                 }
             }
             "block-list" -> {
@@ -267,6 +301,7 @@ class UserProfileActivity : AppCompatActivity() {
         if (!visible) {
             binding.tvTrustLabel.visibility = View.GONE
             binding.tvTrustValue.visibility = View.GONE
+            binding.rowEmergencyAllow.visibility = View.GONE
             return
         }
         binding.tvTrustLabel.visibility = View.VISIBLE
@@ -278,6 +313,24 @@ class UserProfileActivity : AppCompatActivity() {
             else       -> getString(R.string.trust_contact)
         }
         binding.tvTrustValue.setOnClickListener { showTrustPicker() }
+        binding.rowEmergencyAllow.visibility = View.VISIBLE
+        updateEmergencySwitch()
+    }
+
+    private fun updateEmergencySwitch() {
+        val checked = effectiveEmergencyAllow(currentAllowEmergency, currentTrustLevel)
+        // Temporarily remove listener to avoid re-firing while setting programmatic state
+        binding.switchEmergencyAllow.setOnCheckedChangeListener(null)
+        binding.switchEmergencyAllow.isChecked = checked
+        binding.switchEmergencyAllow.setOnCheckedChangeListener { _, isChecked ->
+            val allow = if (isChecked) 1 else 0
+            currentAllowEmergency = allow
+            val me = Prefs.getUsername(this)
+            FshuService.sendSetEmergencyAllow(targetUsername, isChecked)
+            lifecycleScope.launch(Dispatchers.IO) {
+                db.contactDao().setEmergencyAllow(me, targetUsername, allow)
+            }
+        }
     }
 
     private fun showTrustPicker() {

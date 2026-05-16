@@ -448,7 +448,7 @@ class CallActivity : AppCompatActivity() {
                 json.get("candidate")?.asString ?: return
             )
             "call-busy"               -> vm.handleBusy()
-            "call-end", "call-reject" -> vm.remoteEndCall(
+            "call-end", "call-reject", "call-decline" -> vm.remoteEndCall(
                 json.get("reason")?.asString ?: if (json.get("type")?.asString == "call-reject") "rejected" else "ended"
             )
         }

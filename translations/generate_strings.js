@@ -1,4 +1,9 @@
 'use strict';
+// NOTE: When generating the default English output (values/strings.xml), this script
+// reads the existing file first and preserves all <plurals> blocks from it.
+// Plurals are not stored in strings_master.json — they are managed manually in
+// values/strings.xml and must not be removed when regenerating.
+// values-bg and values-ru do not include plurals (Android falls back to default).
 const fs = require('fs');
 const path = require('path');
 
@@ -35,6 +40,14 @@ for (const [lang, outPath] of Object.entries(langs)) {
 
   fs.mkdirSync(path.dirname(outPath), { recursive: true });
 
+  // For the default (en) output, preserve existing <plurals> blocks.
+  let pluralsBlocks = [];
+  if (lang === 'en' && fs.existsSync(outPath)) {
+    const existing = fs.readFileSync(outPath, 'utf8');
+    const matches = existing.match(/ {4}<plurals[\s\S]*?<\/plurals>/g);
+    if (matches) pluralsBlocks = matches;
+  }
+
   const lines = [
     '<?xml version="1.0" encoding="utf-8"?>',
     '<resources>',
@@ -44,6 +57,13 @@ for (const [lang, outPath] of Object.entries(langs)) {
     const val = master[key][lang];
     if (val === '') continue;
     lines.push(`    <string name="${key}">${escapeXml(val)}</string>`);
+  }
+
+  if (pluralsBlocks.length > 0) {
+    lines.push('');
+    for (const block of pluralsBlocks) {
+      lines.push(block);
+    }
   }
 
   lines.push('</resources>');
