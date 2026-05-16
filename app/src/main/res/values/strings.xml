@@ -17,8 +17,6 @@
     <string name="btn_set">Set</string>
     <string name="btn_reset">Reset</string>
     <string name="btn_change">Change</string>
-    <string name="btn_sync">Sync</string>
-    <string name="btn_load">Load</string>
     <string name="btn_skip">Skip</string>
     <string name="btn_copy_all">Copy all</string>
     <string name="btn_connect">Connect</string>
@@ -95,13 +93,6 @@
     <string name="dialog_delete_message_title">Delete message?</string>
     <string name="delete_option_for_everyone">Delete for everyone</string>
     <string name="delete_option_for_me">Delete for me only</string>
-    <string name="dialog_load_history_title">Load history</string>
-    <string name="history_option_7_days">Last 7 days</string>
-    <string name="history_option_30_days">Last 30 days</string>
-    <string name="history_option_90_days">Last 90 days</string>
-    <string name="history_option_custom">Custom…</string>
-    <string name="dialog_custom_period_title">Custom period</string>
-    <string name="hint_days">Days (1–90)</string>
     <string name="label_todo_list">☑ Todo list</string>
     <string name="dialog_new_todo_title">New todo list</string>
     <string name="dialog_edit_todo_title">Edit todo list</string>
@@ -147,9 +138,6 @@
     <string name="desc_app_lock">Require biometric or device PIN to open the app.</string>
     <string name="label_unlock_to_continue">Unlock to continue</string>
     <string name="btn_change_password">Change password</string>
-    <string name="label_history">History</string>
-    <string name="label_sync_all_history">Sync all chat history</string>
-    <string name="desc_sync_all_history">Download missing messages from the server for all conversations.</string>
     <string name="label_permissions">Permissions</string>
     <string name="dialog_device_name_title">Device name</string>
     <string name="dialog_server_url_title">Server URL</string>
@@ -176,10 +164,7 @@
     <string name="action_unmute">Unmute</string>
     <string name="toast_muted">Muted</string>
     <string name="toast_unmuted">Unmuted</string>
-    <string name="dialog_sync_history_title">Sync all chat history</string>
     <string name="toast_no_known_peers">No known peers</string>
-    <string name="toast_syncing_history">Syncing history…</string>
-    <string name="toast_history_requests_sent">History requests sent</string>
     <string name="title_admin_panel">Admin Panel</string>
     <string name="label_access_denied">Access denied</string>
     <string name="dialog_server_info_title">Server info</string>
@@ -233,7 +218,6 @@
     <string name="menu_new_todo_list">New todo list</string>
     <string name="menu_share_location">📍 Share my location</string>
     <string name="menu_request_location">📍 Request location</string>
-    <string name="menu_load_history">📜 Load history</string>
     <string name="menu_new_group">New group</string>
     <string name="menu_admin_panel">Admin panel</string>
     <string name="menu_reconnect">Reconnect</string>

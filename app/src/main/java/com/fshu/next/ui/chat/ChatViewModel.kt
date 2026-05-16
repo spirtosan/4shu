@@ -451,20 +451,6 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /**
-     * Sends read receipts for every message received from [peer] that carries a
-     * remoteId (the sender's Room ID). Called when the chat screen opens.
-     */
-    fun requestHistory(peer: String, days: Int) {
-        viewModelScope.launch(Dispatchers.IO) {
-            val since = System.currentTimeMillis() - days * 86_400_000L
-            WebSocketClient.send(mapOf(
-                "type" to "history-request", "from" to me, "to" to peer,
-                "since" to since, "days" to days
-            ))
-        }
-    }
-
     fun sendReadReceipts(peer: String) {
         viewModelScope.launch(Dispatchers.IO) {
             db.messageDao().getReceivedFrom(peer, me).forEach { msg ->

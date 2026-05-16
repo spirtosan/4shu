@@ -1,12 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-
-    <!-- App -->
     <string name="app_name">4shu β</string>
     <string name="app_lock_title">4shu</string>
-    <string name="app_version_format">Fshu v%1$s (компилация %2$s)</string>
-
-    <!-- Common buttons -->
+    <string name="app_version_format">Fshu v%1$s (build %2$s)</string>
     <string name="btn_ok">OK</string>
     <string name="btn_cancel">Отказ</string>
     <string name="btn_save">Запази</string>
@@ -15,75 +11,61 @@
     <string name="btn_remove">Премахни</string>
     <string name="btn_add">Добави</string>
     <string name="btn_create">Създай</string>
-    <string name="btn_enable">Активирай</string>
+    <string name="btn_enable">Включи</string>
     <string name="btn_clear">Изчисти</string>
     <string name="btn_leave">Напусни</string>
     <string name="btn_set">Задай</string>
     <string name="btn_reset">Нулирай</string>
     <string name="btn_change">Промени</string>
-    <string name="btn_sync">Синхронизирай</string>
-    <string name="btn_load">Зареди</string>
     <string name="btn_skip">Пропусни</string>
     <string name="btn_copy_all">Копирай всичко</string>
     <string name="btn_connect">Свържи</string>
     <string name="forgot_password">Забравена парола?</string>
-    <string name="toast_server_url_required">Моля, въведете URL на сървъра първо</string>
-    <string name="btn_send_emergency">Изпрати спешно</string>
+    <string name="toast_server_url_required">Моля, задай URL на сървъра</string>
+    <string name="btn_send_emergency">Изпрати спешен сигнал</string>
     <string name="btn_add_member">Добави член</string>
     <string name="btn_delete_group">Изтрий група</string>
     <string name="btn_leave_group">Напусни група</string>
-    <string name="btn_reset_to_default">Нулирай по подразбиране</string>
+    <string name="btn_reset_to_default">Върни по подразбиране</string>
     <string name="btn_add_item">+ Добави елемент</string>
     <string name="btn_row_delete">×</string>
-
-    <!-- Common status -->
     <string name="toast_done">Готово</string>
     <string name="toast_error">Грешка</string>
     <string name="toast_no_response">Няма отговор</string>
-    <string name="label_loading">Зарежда…</string>
-
-    <!-- Login -->
+    <string name="label_loading">Зареждане…</string>
     <string name="hint_username">Потребителско име</string>
     <string name="hint_password">Парола</string>
     <string name="hint_server_url">URL на сървъра (wss://…)</string>
-
-    <!-- Main / Contact list -->
-    <string name="toast_location_permission_required">Необходимо е разрешение за местоположение</string>
-    <string name="toast_avatar_upload_failed">Неуспешно качване на аватар</string>
-    <string name="toast_reconnecting">Свързване…</string>
+    <string name="toast_location_permission_required">Нужно е разрешение за местоположение</string>
+    <string name="toast_avatar_upload_failed">Неуспешно качване на снимка</string>
+    <string name="toast_reconnecting">Свързване отново…</string>
     <string name="toast_connected">Свързан ✓</string>
     <string name="toast_failed">Неуспешно ✗</string>
     <string name="dialog_emergency_call_title">Спешно повикване</string>
-    <string name="dialog_emergency_call_message">Да изпратя спешно повикване до %s?\nТова ще отмени тихия режим на устройството им.</string>
+    <string name="dialog_emergency_call_message">Да изпратиш спешно повикване до %s?\nТова ще отмени тихия режим на устройството им.</string>
     <string name="dialog_emergency_location_title">Спешно повикване + местоположение</string>
-    <string name="dialog_emergency_location_message">Ще се обади на %s И ще сподели незабавно текущото ти местоположение.\nИзползвай само при истинска спешност.</string>
-    <string name="dialog_set_nickname_title">Задай прякора ми</string>
-    <string name="dialog_set_nickname_message">Ще бъде видим за всички. Остави празно за потребителско си име.</string>
-    <string name="dialog_nickname_for_title">Прякор за %s</string>
-    <string name="hint_your_nickname">Прякорът ти (макс. 20 знака)</string>
-    <string name="hint_nickname_for_contact">Прякор за %s (остави празно за изчистване)</string>
-    <string name="toast_nickname_cleared">Прякорът е изчистен</string>
-    <string name="toast_nickname_set">Прякорът е зададен на \"%s\"</string>
-    <string name="toast_no_crash_logs">Няма записи за сривове</string>
-    <string name="dialog_crash_logs_title">Записи за сривове (%d)</string>
+    <string name="dialog_emergency_location_message">Ще се обадиш на %s И ще споделиш местоположението си незабавно.\nИзползвай само при истинска спешност.</string>
+    <string name="dialog_set_nickname_title">Задай псевдоним</string>
+    <string name="dialog_set_nickname_message">Ще е видим за всички. Остави празно за да използваш потребителското име.</string>
+    <string name="dialog_nickname_for_title">Псевдоним за %s</string>
+    <string name="hint_your_nickname">Твоят псевдоним (макс. 20 знака)</string>
+    <string name="hint_nickname_for_contact">Псевдоним за %s (остави празно за изчистване)</string>
+    <string name="toast_nickname_cleared">Псевдонимът е изчистен</string>
+    <string name="toast_nickname_set">Псевдонимът е зададен на \"%s\"</string>
+    <string name="toast_no_crash_logs">Няма намерени журнали за сривове</string>
+    <string name="dialog_crash_logs_title">Журнали за сривове (%d)</string>
     <string name="toast_copied_to_clipboard">Копирано в клипборда</string>
-    <string name="toast_logs_cleared">Записите са изчистени</string>
+    <string name="toast_logs_cleared">Журналите са изчистени</string>
     <string name="dialog_new_group_title">Нова група</string>
     <string name="hint_group_name">Име на групата</string>
-    <string name="toast_group_name_required">Необходимо е ime на групата</string>
+    <string name="toast_group_name_required">Нужно е име на групата</string>
     <string name="toast_select_at_least_one_member">Избери поне един член</string>
     <string name="toast_group_created">Групата \"%s\" е създадена</string>
-
-    <!-- Chat -->
     <string name="hint_message">Съобщение</string>
     <string name="label_0_selected">0 избрани</string>
     <string name="label_n_selected">%d избрани</string>
     <string name="label_voice_recording">🎤 0:00</string>
     <string name="typing_indicator">пише…</string>
-    <plurals name="group_members_subtitle">
-        <item quantity="one">1 член</item>
-        <item quantity="other">%d членове</item>
-    </plurals>
     <string name="toast_group_photo_updated">Снимката на групата е обновена</string>
     <string name="toast_failed_to_upload_photo">Неуспешно качване на снимка</string>
     <string name="toast_failed_to_set_personal_photo">Неуспешно задаване на лична снимка</string>
@@ -91,127 +73,83 @@
     <string name="toast_filename_copied">Името на файла е копирано</string>
     <string name="toast_copied">Копирано</string>
     <string name="toast_list_copied">Списъкът е копиран като текст</string>
-    <string name="toast_location_link_copied">Връзката към местоположението е копирана</string>
+    <string name="toast_location_link_copied">Линкът за местоположение е копиран</string>
     <string name="toast_hold_longer_to_record">Задръж по-дълго за запис</string>
     <string name="toast_mic_permission_granted">Разрешението за микрофон е дадено. Задръж за запис.</string>
     <string name="toast_nothing_to_export">Няма какво да се експортира</string>
-    <string name="toast_export_failed">Неуспешен експорт</string>
+    <string name="toast_export_failed">Неуспешно експортиране</string>
     <string name="btn_remove_contact">Премахни контакт</string>
-    <string name="remove_contact_title">Премахване на контакт?</string>
-    <string name="remove_contact_message">Премахване на %s от контактите? Можете да изпратите нова заявка по-късно.</string>
+    <string name="remove_contact_title">Премахни контакт?</string>
+    <string name="remove_contact_message">Да премахнеш %s от контактите? Можеш да изпратиш нова заявка по-късно.</string>
     <string name="toast_contact_removed">Контактът е премахнат</string>
-    <string name="export_data_title">Експортирай данните ми</string>
-    <string name="export_data_message_local">Вашите разговори ще бъдат експортирани като четим JSON файл и запазени в папката Downloads.</string>
+    <string name="export_data_title">Експортирай данните</string>
+    <string name="export_data_message_local">Разговорите ти ще бъдат запазени като JSON файл в папката Изтегляния.</string>
     <string name="export_confirm">Експортирай</string>
     <string name="export_in_progress">Експортиране на данните…</string>
-    <string name="export_share_title">Запази файла с експорт</string>
-    <string name="export_failed">Експортирането не бе успешно. Моля, опитайте отново.</string>
-
-    <plurals name="toast_messages_copied">
-        <item quantity="one">1 съобщение копирано</item>
-        <item quantity="other">%d съобщения копирани</item>
-    </plurals>
-
-    <plurals name="toast_loaded_messages">
-        <item quantity="one">Заредено 1 съобщение</item>
-        <item quantity="other">Заредени %d съобщения</item>
-    </plurals>
-
-    <!-- Chat — edit / react / delete -->
+    <string name="export_share_title">Запази файла с данни</string>
+    <string name="export_failed">Неуспешно експортиране. Опитай отново.</string>
     <string name="dialog_edit_message_title">Редактирай съобщение</string>
     <string name="dialog_react_title">Реакция</string>
     <string name="dialog_delete_message_title">Изтрий съобщение?</string>
     <string name="delete_option_for_everyone">Изтрий за всички</string>
     <string name="delete_option_for_me">Изтрий само за мен</string>
-
-    <plurals name="dialog_delete_messages_title">
-        <item quantity="one">Изтрий 1 съобщение?</item>
-        <item quantity="other">Изтрий %d съобщения?</item>
-    </plurals>
-
-    <plurals name="dialog_delete_messages_body">
-        <item quantity="one">Избраното съобщение ще бъде изтрито само от твоето устройство.</item>
-        <item quantity="other">Избраните съобщения ще бъдат изтрити само от твоето устройство.</item>
-    </plurals>
-
-    <!-- Chat — history -->
-    <string name="dialog_load_history_title">Зареди история</string>
-    <string name="history_option_7_days">Последните 7 дни</string>
-    <string name="history_option_30_days">Последните 30 дни</string>
-    <string name="history_option_90_days">Последните 90 дни</string>
-    <string name="history_option_custom">По избор…</string>
-    <string name="dialog_custom_period_title">Персонален период</string>
-    <string name="hint_days">Дни (1–90)</string>
-
-    <!-- Chat — todo list -->
     <string name="label_todo_list">☑ Списък задачи</string>
     <string name="dialog_new_todo_title">Нов списък задачи</string>
     <string name="dialog_edit_todo_title">Редактирай списък задачи</string>
-
-    <!-- Chat — group events -->
     <string name="dialog_removed_from_group_title">Премахнат от групата</string>
     <string name="dialog_removed_from_group_message">Беше премахнат от тази група от администратор.</string>
     <string name="dialog_group_deleted_title">Групата е изтрита</string>
-    <string name="dialog_group_deleted_message">Тази група беше изтрита.</string>
-    <string name="toast_you_left_group">Напуснахте групата</string>
-
-    <!-- Chat — group info dialog -->
+    <string name="dialog_group_deleted_message">Тази група е изтрита.</string>
+    <string name="toast_you_left_group">Напусна групата</string>
     <string name="dialog_remove_member_title">Премахни %s?</string>
     <string name="dialog_delete_group_title">Изтрий \"%s\"?</string>
     <string name="dialog_delete_group_message">Това ще изтрие групата за всички членове.</string>
     <string name="dialog_leave_group_title">Напусни \"%s\"?</string>
+    <string name="dialog_leave_group_confirm">Няма да получаваш повече съобщения от тази група.</string>
+    <string name="toast_owner_cannot_leave">Ти си собственикът на групата. Прехвърли собствеността или изтрий групата.</string>
     <string name="dialog_add_member_title">Добави член</string>
-    <string name="hint_username_to_add">Потребителско ime за добавяне</string>
-    <string name="toast_group_key_not_available">Ключът на групата не е наличен</string>
-    <string name="toast_cannot_invite_no_key">Не може да се покани: публичен ключ не е намерен за %s</string>
+    <string name="hint_username_to_add">Потребителско име за добавяне</string>
+    <string name="toast_group_key_not_available">Груповият ключ не е наличен</string>
+    <string name="toast_cannot_invite_no_key">Не може да поканиш: публичният ключ на %s не е намерен</string>
     <string name="toast_no_contacts_to_add">Няма контакти за добавяне</string>
-    <string name="error_group_unauthorized">Нямате права</string>
+    <string name="error_group_unauthorized">Нямаш разрешение</string>
     <string name="error_user_not_found">Потребителят не е намерен</string>
     <string name="error_already_member">Вече е член</string>
-    <string name="error_owner_cannot_leave">Вие сте собственик на групата. Прехвърлете собствеността или изтрийте групата.</string>
+    <string name="error_owner_cannot_leave">Ти си собственикът на групата. Прехвърли собствеността или изтрий групата.</string>
     <string name="error_generic">Възникна грешка</string>
     <string name="error_username_empty">Потребителското име не може да е празно</string>
-
-    <!-- Location bubbles -->
     <string name="label_location_shared_auto">📍 Местоположението е споделено автоматично</string>
-    <string name="label_location_requested_by">📍 %s поиска вашето местоположение</string>
+    <string name="label_location_requested_by">📍 %s поиска твоето местоположение</string>
     <string name="label_location_coords">📍 %s</string>
     <string name="label_location_fallback">📍 Местоположение</string>
-    <string name="location_accuracy_format">±%.0fм</string>
-    <string name="btn_open_in_maps">Отвори в Карти</string>
-
-    <!-- Call -->
+    <string name="location_accuracy_format">±%.0fm</string>
+    <string name="btn_open_in_maps">Отвори в Maps</string>
     <string name="label_emergency_call_banner">🚨 СПЕШНО ПОВИКВАНЕ</string>
     <string name="btn_silence">Заглуши</string>
     <string name="btn_decline">Откажи</string>
     <string name="btn_accept">Приеми</string>
-
-    <!-- Settings -->
     <string name="label_server_url">URL на сървъра</string>
-    <string name="label_device_name">Ime на устройство</string>
+    <string name="label_device_name">Име на устройството</string>
     <string name="label_location_sharing">📍 Споделяне на местоположение</string>
-    <string name="desc_location_sharing">Автоматичен отговор на заявки за местоположение само от семейни контакти.</string>
-    <string name="label_push_fcm">🔔 Push събуждане (FCM)</string>
-    <string name="desc_push_fcm">Използва Google Firebase за събуждане на приложението при пристигане на съобщение или повикване. Деактивирай за максимална поверителност.</string>
-    <string name="label_app_lock">🔒 Заключване на приложение</string>
-    <string name="desc_app_lock">Изисква биометрия или ПИН за отваряне.</string>
-    <string name="label_unlock_to_continue">Отключи, за да продължиш</string>
+    <string name="desc_location_sharing">Автоматично отговаряй на заявки за местоположение само от семейни контакти.</string>
+    <string name="label_push_fcm">🔔 Push известия (FCM)</string>
+    <string name="desc_push_fcm">Използва Google Firebase за събуждане на приложението при съобщение или повикване. Изключи за максимална поверителност.</string>
+    <string name="label_app_lock">🔒 Заключване на приложението</string>
+    <string name="desc_app_lock">Изисква биометрично или PIN за отваряне на приложението.</string>
+    <string name="label_unlock_to_continue">Отключи за да продължиш</string>
     <string name="btn_change_password">Промени паролата</string>
-    <string name="label_history">История</string>
-    <string name="label_sync_all_history">Синхронизирай цялата история</string>
-    <string name="desc_sync_all_history">Изтегли липсващи съобщения от сървъра за всички разговори.</string>
     <string name="label_permissions">Разрешения</string>
-    <string name="dialog_device_name_title">Ime на устройство</string>
+    <string name="dialog_device_name_title">Име на устройството</string>
     <string name="dialog_server_url_title">URL на сървъра</string>
     <string name="toast_url_invalid">URL трябва да започва с wss:// или ws://</string>
-    <string name="toast_server_url_updated">URL на сървъра обновен — повторно свързване</string>
-    <string name="toast_reset_to_default_reconnecting">Нулирано по подразбиране — повторно свързване</string>
-    <string name="dialog_enable_location_title">Активирай споделяне на местоположение?</string>
-    <string name="dialog_enable_location_message">Когато е активирано, Fshu ще отговаря автоматично с текущата ти GPS позиция при заявка.\n\nМожеш да деактивираш по всяко време от Настройки.</string>
-    <string name="toast_push_enabled">Push събуждането е активирано</string>
-    <string name="toast_push_disabled">Push събуждането е деактивирано</string>
-    <string name="toast_app_lock_enabled">Заключването е активирано</string>
-    <string name="toast_app_lock_disabled">Заключването е деактивирано</string>
+    <string name="toast_server_url_updated">URL на сървъра е обновен — свързване отново</string>
+    <string name="toast_reset_to_default_reconnecting">Нулирано по подразбиране — свързване отново</string>
+    <string name="dialog_enable_location_title">Включи споделяне на местоположение?</string>
+    <string name="dialog_enable_location_message">Когато е включено, Fshu автоматично ще отговаря с текущото ти GPS местоположение.\n\nМожеш да го изключиш по всяко време от Настройките.</string>
+    <string name="toast_push_enabled">Push известията са включени</string>
+    <string name="toast_push_disabled">Push известията са изключени</string>
+    <string name="toast_app_lock_enabled">Заключването на приложението е включено</string>
+    <string name="toast_app_lock_disabled">Заключването на приложението е изключено</string>
     <string name="app_lock_timeout_title">Заключи след</string>
     <string name="app_lock_timeout_30s">30 секунди</string>
     <string name="app_lock_timeout_1m">1 минута</string>
@@ -223,177 +161,143 @@
     <string name="trust_contact">Контакт</string>
     <string name="trust_stranger">Непознат</string>
     <string name="action_mute">Заглуши</string>
-    <string name="action_unmute">Включи звук</string>
+    <string name="action_unmute">Включи звука</string>
     <string name="toast_muted">Заглушен</string>
     <string name="toast_unmuted">Звукът е включен</string>
-    <string name="dialog_sync_history_title">Синхронизирай цялата история</string>
     <string name="toast_no_known_peers">Няма познати потребители</string>
-    <string name="toast_syncing_history">Синхронизиране на история…</string>
-    <string name="toast_history_requests_sent">Заявките за история са изпратени</string>
-
-    <!-- Admin Panel -->
-    <string name="title_admin_panel">Администраторски панел</string>
+    <string name="title_admin_panel">Административен панел</string>
     <string name="label_access_denied">Достъпът е отказан</string>
     <string name="dialog_server_info_title">Информация за сървъра</string>
     <string name="label_no_response_server">Няма отговор от сървъра</string>
     <string name="label_invalid_response">Невалиден отговор</string>
     <string name="toast_no_response_from_server">Няма отговор от сървъра</string>
     <string name="dialog_add_user_title">Добави потребител</string>
-    <string name="toast_username_password_required">Необходими са потребителско ime и парола</string>
+    <string name="toast_username_password_required">Нужни са потребителско име и парола</string>
     <string name="dialog_reset_password_title">Нулиране на парола за %s</string>
-    <string name="toast_password_required">Необходима е парола</string>
+    <string name="toast_password_required">Нужна е парола</string>
     <string name="dialog_remove_user_title">Премахни потребител</string>
-    <string name="dialog_remove_user_message">Премахни %s? Това не може да бъде отменено.</string>
+    <string name="dialog_remove_user_message">Да премахнеш %s? Това не може да се отмени.</string>
     <string name="dialog_trust_level_title">Ниво на доверие за %s</string>
     <string name="item_admin_badge">ADMIN</string>
     <string name="item_trust_default">контакт</string>
-    <string name="btn_reset_password">Нулирай парола</string>
-    <string name="btn_trust">Доверие</string>
-
-    <!-- Change Password -->
+    <string name="btn_reset_password">Нулирай паролата</string>
+    <string name="btn_trust">Довери</string>
     <string name="dialog_change_password_title">Промени паролата</string>
     <string name="toast_all_fields_required">Всички полета са задължителни</string>
     <string name="toast_passwords_dont_match">Паролите не съвпадат</string>
-    <string name="toast_password_changed">Паролата е сменена</string>
+    <string name="toast_password_changed">Паролата е променена</string>
     <string name="hint_current_password">Текуща парола</string>
     <string name="hint_new_password">Нова парола</string>
     <string name="hint_confirm_new_password">Потвърди новата парола</string>
-
-    <!-- Connection Test -->
-    <string name="title_connection_test">Тест на връзка</string>
+    <string name="title_connection_test">Тест на връзката</string>
     <string name="label_websocket">WebSocket</string>
     <string name="label_dns">DNS</string>
-    <string name="label_turn_relay">TURN ретранслатор</string>
-    <string name="label_peer">Участник</string>
-
-    <!-- Background Picker -->
+    <string name="label_turn_relay">TURN relay</string>
+    <string name="label_peer">Peer</string>
     <string name="title_background">Фон</string>
-    <string name="bg_custom">По избор</string>
-
-    <!-- Misc / Errors -->
+    <string name="bg_custom">Персонализиран</string>
     <string name="toast_file_not_available">Файлът не е наличен</string>
     <string name="toast_no_app_to_open_file">Няма приложение за отваряне на файла</string>
     <string name="toast_file_no_longer_available">Файлът вече не е наличен</string>
-    <string name="toast_maps_not_available">Картите не са налични</string>
+    <string name="toast_maps_not_available">Maps не е наличен</string>
     <string name="toast_downloading">Изтегляне…</string>
-    <string name="toast_cannot_play_voice">Не може да се възпроизведе гласово съобщение</string>
-    <string name="toast_location_error">Не може да се получи местоположение — провери GPS</string>
-
-    <!-- Find People / Search -->
+    <string name="toast_cannot_play_voice">Гласовото съобщение не може да се пусне</string>
+    <string name="toast_location_error">Местоположението не може да се получи — провери GPS</string>
     <string name="menu_find_people">Намери хора</string>
-
-    <!-- Menu items -->
     <string name="menu_server_info">Информация за сървъра</string>
     <string name="menu_voice_call">Гласово повикване</string>
     <string name="menu_video_call">Видео повикване</string>
     <string name="menu_group_info">Информация за групата</string>
+    <string name="menu_leave_group">Напусни група</string>
+    <string name="menu_delete_group">Изтрий група</string>
+    <string name="auto_location_off">Авт. местоположение: ИЗКЛ.</string>
+    <string name="auto_location_on">Авт. местоположение: ВКЛ.</string>
+    <string name="label_encrypted_message">[Криптирано съобщение]</string>
     <string name="menu_export_conversation">Експортирай разговор</string>
     <string name="menu_change_background">Промени фона</string>
     <string name="menu_new_todo_list">Нов списък задачи</string>
-    <string name="menu_share_location">📍 Сподели местоположение</string>
+    <string name="menu_share_location">📍 Сподели местоположението ми</string>
     <string name="menu_request_location">📍 Поискай местоположение</string>
-    <string name="menu_load_history">📜 Зареди история</string>
     <string name="menu_new_group">Нова група</string>
-    <string name="menu_admin_panel">Администраторски панел</string>
-    <string name="menu_reconnect">Повторно свързване</string>
+    <string name="menu_admin_panel">Административен панел</string>
+    <string name="menu_reconnect">Свържи отново</string>
     <string name="menu_settings">Настройки</string>
-    <string name="menu_set_my_nickname">Задай прякора ми</string>
-    <string name="menu_set_my_avatar">Задай аватара ми</string>
-    <string name="menu_view_crash_log">Преглед на записи за сривове</string>
-    <string name="menu_test_connection">Тест на връзка</string>
+    <string name="menu_set_my_nickname">Задай моя псевдоним</string>
+    <string name="menu_set_my_avatar">Задай моята снимка</string>
+    <string name="menu_view_crash_log">Виж журнала за сривове</string>
+    <string name="menu_test_connection">Тествай връзката</string>
     <string name="menu_emergency_call">🚨 Спешно повикване</string>
     <string name="menu_emergency_call_location">🆘 Спешно повикване + местоположение</string>
-    <string name="menu_set_nickname">Задай прякор</string>
-
-    <!-- Chat — group info photo buttons -->
-    <string name="group_info_change_photo">Смени снимката на групата</string>
-    <string name="group_info_set_personal_photo">Постави моя снимка за групата</string>
-
-    <!-- Notifications -->
-    <string name="notif_group_update">Групово събитие</string>
+    <string name="menu_set_nickname">Задай псевдоним</string>
+    <string name="group_info_change_photo">Промени снимката на групата</string>
+    <string name="group_info_set_personal_photo">Задай личната ми снимка за тази група</string>
+    <string name="notif_group_update">Обновяване на група</string>
     <string name="notif_connected">Свързан</string>
     <string name="notif_channel_service">4shu</string>
     <string name="notif_channel_messages">Съобщения</string>
     <string name="notif_channel_messages_desc">Известия за входящи съобщения</string>
-    <string name="notif_channel_calls">Обаждания</string>
-
-    <!-- Connection Test Sheet -->
-    <string name="connection_test_testing_with">Тестване с %s</string>
+    <string name="notif_channel_calls">Повиквания</string>
+    <string name="connection_test_testing_with">Тест с %s</string>
     <string name="connection_test_peer_label">Сървър → %s</string>
-
-    <!-- Permission Setup -->
     <string name="permission_step_indicator">Стъпка %1$d от %2$d</string>
     <string name="permission_notifications">Известия</string>
     <string name="permission_microphone">Микрофон</string>
     <string name="permission_camera">Камера</string>
-    <string name="permission_location">Споделяне на местоположение (по желание)</string>
-    <string name="permission_auto_location">Автоматично споделяне</string>
-    <string name="permission_push">Push известия (по желание)</string>
+    <string name="permission_location">Споделяне на местоположение (по избор)</string>
+    <string name="permission_auto_location">Авт. споделяне на местоположение</string>
+    <string name="permission_push">Push събуждане (по избор)</string>
     <string name="permission_battery">Оптимизация на батерията</string>
-    <string name="permission_overlay">Показване върху други приложения</string>
-    <string name="permission_fullscreen">Обаждания на цял екран</string>
-
-    <!-- Admin Panel — server info format -->
-    <string name="admin_server_info_format">Диск:\n%1$s\n\nФайлове: %2$d (%3$s)\nИсторически файлове: %4$d</string>
-
-    <!-- Favorites -->
+    <string name="permission_overlay">Показване над другите приложения</string>
+    <string name="permission_fullscreen">Повиквания на цял екран</string>
     <string name="label_favorites">Любими</string>
     <string name="label_other_contacts">Други контакти</string>
-
-    <!-- My Profile -->
     <string name="label_my_profile">Моят профил</string>
     <string name="desc_my_profile">Редактирай името, биото и контактната информация</string>
     <string name="label_display_name">Показвано име</string>
-    <string name="hint_display_name">Показвано име (по желание)</string>
+    <string name="hint_display_name">Показвано име (по избор)</string>
     <string name="label_about">За мен</string>
-    <string name="hint_bio">За мен (по желание)</string>
+    <string name="hint_bio">Био (по избор)</string>
     <string name="label_contact_info">Контактна информация</string>
-    <string name="hint_email_address">Имейл адрес (по желание)</string>
-    <string name="hint_phone_number">Телефонен номер (по желание)</string>
-    <string name="label_tap_to_change_photo">Докоснете за смяна на снимката</string>
+    <string name="hint_email_address">Имейл адрес (по избор)</string>
+    <string name="hint_phone_number">Телефонен номер (по избор)</string>
+    <string name="label_tap_to_change_photo">Докосни за промяна на снимката</string>
     <string name="btn_save_profile">Запази профила</string>
     <string name="toast_profile_saved">Профилът е запазен</string>
-
-    <!-- Contacts / Requests -->
     <string name="label_contact_requests">Заявки за контакт</string>
     <string name="title_contact_requests">Заявки за контакт</string>
     <string name="label_received">Получени</string>
     <string name="label_sent">Изпратени</string>
     <string name="label_no_pending_requests">Няма чакащи заявки</string>
-    <string name="btn_cancel_request">Отмени</string>
+    <string name="btn_cancel_request">Отказ</string>
     <string name="toast_request_accepted">Заявката е приета</string>
     <string name="toast_request_declined">Заявката е отхвърлена</string>
     <string name="toast_request_cancelled">Заявката е отменена</string>
-
-    <!-- Privacy Settings -->
     <string name="label_privacy_settings">Настройки за поверителност</string>
     <string name="title_privacy_settings">Настройки за поверителност</string>
     <string name="label_discoverable">Видим за търсене</string>
-    <string name="desc_discoverable">Позволи на всеки да ви намери по потребителско име.</string>
-    <string name="label_show_avatar">Показвай аватар на непознати</string>
-    <string name="desc_show_avatar">Показвай профилна снимка на потребители извън контактите ви.</string>
+    <string name="desc_discoverable">Позволи на всеки да те намери по потребителско име.</string>
+    <string name="label_show_avatar">Показвай снимка на непознати</string>
+    <string name="desc_show_avatar">Показвай профилната снимка на потребители извън контактите ти.</string>
     <string name="label_show_nickname">Показвай псевдоним на непознати</string>
-    <string name="desc_show_nickname">Показвай псевдонима ви на потребители извън контактите ви.</string>
-    <string name="label_email_searchable">Търсене по имейл</string>
-    <string name="desc_email_searchable">Позволи намиране на профила ви по имейл адрес.</string>
-    <string name="label_phone_searchable">Търсене по телефон</string>
-    <string name="desc_phone_searchable">Позволи намиране на профила ви по телефонен номер.</string>
+    <string name="desc_show_nickname">Показвай псевдонима на потребители извън контактите ти.</string>
+    <string name="label_email_searchable">Търсим по имейл</string>
+    <string name="desc_email_searchable">Позволи намирането на профила ти по имейл адрес.</string>
+    <string name="label_phone_searchable">Търсим по телефон</string>
+    <string name="desc_phone_searchable">Позволи намирането на профила ти по телефонен номер.</string>
     <string name="toast_privacy_saved">Настройките за поверителност са запазени</string>
-
-    <!-- Account Recovery -->
     <string name="label_account_recovery">Възстановяване на акаунт</string>
-    <string name="label_secret_question_set">Секретният въпрос е зададен</string>
-    <string name="label_secret_question_not_set">Няма зададен секретен въпрос</string>
-    <string name="btn_set_secret_question">Задай секретен въпрос</string>
-    <string name="toast_secret_question_saved">Секретният въпрос е запазен</string>
-    <string name="hint_secret_question">Вашият секретен въпрос…</string>
-    <string name="hint_secret_answer">Вашият отговор…</string>
-
-    <!-- Block List -->
+    <string name="label_secret_question_set">Тайният въпрос е зададен</string>
+    <string name="label_secret_question_not_set">Няма зададен таен въпрос</string>
+    <string name="btn_set_secret_question">Задай таен въпрос</string>
+    <string name="toast_secret_question_saved">Тайният въпрос е запазен</string>
+    <string name="hint_secret_question">Твоят таен въпрос…</string>
+    <string name="hint_secret_answer">Твоят отговор…</string>
     <string name="label_blocked_users">Блокирани потребители</string>
     <string name="title_blocked_users">Блокирани потребители</string>
     <string name="label_no_blocked_users">Няма блокирани потребители</string>
     <string name="btn_unblock">Деблокирай</string>
     <string name="toast_unblocked">%s е деблокиран</string>
-
+    <string name="admin_server_info_format">Диск:\n%1$s\n\nФайлове: %2$d (%3$s)\nФайлове с история: %4$d</string>
+    <string name="label_allow_emergency_calls">Позволи спешни повиквания</string>
+    <string name="desc_allow_emergency_calls">Може да те достигне при спешност независимо от другите настройки</string>
 </resources>

@@ -1,318 +1,1502 @@
 {
-  "app_name": { "en": "4shu β", "bg": "", "ru": "" },
-  "app_lock_title": { "en": "4shu", "bg": "", "ru": "" },
-  "app_version_format": { "en": "Fshu v%1$s (build %2$s)", "bg": "", "ru": "" },
-  "btn_ok": { "en": "OK", "bg": "", "ru": "" },
-  "btn_cancel": { "en": "Cancel", "bg": "", "ru": "" },
-  "btn_save": { "en": "Save", "bg": "", "ru": "" },
-  "btn_close": { "en": "Close", "bg": "", "ru": "" },
-  "btn_delete": { "en": "Delete", "bg": "", "ru": "" },
-  "btn_remove": { "en": "Remove", "bg": "", "ru": "" },
-  "btn_add": { "en": "Add", "bg": "", "ru": "" },
-  "btn_create": { "en": "Create", "bg": "", "ru": "" },
-  "btn_enable": { "en": "Enable", "bg": "", "ru": "" },
-  "btn_clear": { "en": "Clear", "bg": "", "ru": "" },
-  "btn_leave": { "en": "Leave", "bg": "", "ru": "" },
-  "btn_set": { "en": "Set", "bg": "", "ru": "" },
-  "btn_reset": { "en": "Reset", "bg": "", "ru": "" },
-  "btn_change": { "en": "Change", "bg": "", "ru": "" },
-  "btn_sync": { "en": "Sync", "bg": "", "ru": "" },
-  "btn_load": { "en": "Load", "bg": "", "ru": "" },
-  "btn_skip": { "en": "Skip", "bg": "", "ru": "" },
-  "btn_copy_all": { "en": "Copy all", "bg": "", "ru": "" },
-  "btn_connect": { "en": "Connect", "bg": "", "ru": "" },
-  "forgot_password": { "en": "Forgot password?", "bg": "", "ru": "" },
-  "toast_server_url_required": { "en": "Please set server URL first", "bg": "", "ru": "" },
-  "btn_send_emergency": { "en": "Send Emergency", "bg": "", "ru": "" },
-  "btn_add_member": { "en": "Add member", "bg": "", "ru": "" },
-  "btn_delete_group": { "en": "Delete group", "bg": "", "ru": "" },
-  "btn_leave_group": { "en": "Leave group", "bg": "", "ru": "" },
-  "btn_reset_to_default": { "en": "Reset to default", "bg": "", "ru": "" },
-  "btn_add_item": { "en": "+ Add item", "bg": "", "ru": "" },
-  "btn_row_delete": { "en": "×", "bg": "", "ru": "" },
-  "toast_done": { "en": "Done", "bg": "", "ru": "" },
-  "toast_error": { "en": "Error", "bg": "", "ru": "" },
-  "toast_no_response": { "en": "No response", "bg": "", "ru": "" },
-  "label_loading": { "en": "Loading…", "bg": "", "ru": "" },
-  "hint_username": { "en": "Username", "bg": "", "ru": "" },
-  "hint_password": { "en": "Password", "bg": "", "ru": "" },
-  "hint_server_url": { "en": "Server URL (wss://…)", "bg": "", "ru": "" },
-  "toast_location_permission_required": { "en": "Location permission required for this feature", "bg": "", "ru": "" },
-  "toast_avatar_upload_failed": { "en": "Failed to upload avatar", "bg": "", "ru": "" },
-  "toast_reconnecting": { "en": "Reconnecting…", "bg": "", "ru": "" },
-  "toast_connected": { "en": "Connected ✓", "bg": "", "ru": "" },
-  "toast_failed": { "en": "Failed ✗", "bg": "", "ru": "" },
-  "dialog_emergency_call_title": { "en": "Emergency call", "bg": "", "ru": "" },
-  "dialog_emergency_call_message": { "en": "Send emergency call to %s?\\nThis will override silent mode on their device.", "bg": "", "ru": "" },
-  "dialog_emergency_location_title": { "en": "Emergency call + location", "bg": "", "ru": "" },
-  "dialog_emergency_location_message": { "en": "This will call %s AND immediately share your current location.\\nOnly use in genuine emergencies.", "bg": "", "ru": "" },
-  "dialog_set_nickname_title": { "en": "Set my nickname", "bg": "", "ru": "" },
-  "dialog_set_nickname_message": { "en": "This will be visible to everyone. Leave empty to use your username.", "bg": "", "ru": "" },
-  "dialog_nickname_for_title": { "en": "Nickname for %s", "bg": "", "ru": "" },
-  "hint_your_nickname": { "en": "Your nickname (max 20 chars)", "bg": "", "ru": "" },
-  "hint_nickname_for_contact": { "en": "Nickname for %s (leave empty to clear)", "bg": "", "ru": "" },
-  "toast_nickname_cleared": { "en": "Nickname cleared", "bg": "", "ru": "" },
-  "toast_nickname_set": { "en": "Nickname set to \"%s\"", "bg": "", "ru": "" },
-  "toast_no_crash_logs": { "en": "No crash logs found", "bg": "", "ru": "" },
-  "dialog_crash_logs_title": { "en": "Crash logs (%d)", "bg": "", "ru": "" },
-  "toast_copied_to_clipboard": { "en": "Copied to clipboard", "bg": "", "ru": "" },
-  "toast_logs_cleared": { "en": "Logs cleared", "bg": "", "ru": "" },
-  "dialog_new_group_title": { "en": "New group", "bg": "", "ru": "" },
-  "hint_group_name": { "en": "Group name", "bg": "", "ru": "" },
-  "toast_group_name_required": { "en": "Group name required", "bg": "", "ru": "" },
-  "toast_select_at_least_one_member": { "en": "Select at least one member", "bg": "", "ru": "" },
-  "toast_group_created": { "en": "Group \"%s\" created", "bg": "", "ru": "" },
-  "hint_message": { "en": "Message", "bg": "", "ru": "" },
-  "label_0_selected": { "en": "0 selected", "bg": "", "ru": "" },
-  "label_n_selected": { "en": "%d selected", "bg": "", "ru": "" },
-  "label_voice_recording": { "en": "🎤 0:00", "bg": "", "ru": "" },
-  "typing_indicator": { "en": "typing…", "bg": "", "ru": "" },
-  "toast_group_photo_updated": { "en": "Group photo updated", "bg": "", "ru": "" },
-  "toast_failed_to_upload_photo": { "en": "Failed to upload photo", "bg": "", "ru": "" },
-  "toast_failed_to_set_personal_photo": { "en": "Failed to set personal photo", "bg": "", "ru": "" },
-  "toast_image_copied": { "en": "Image copied", "bg": "", "ru": "" },
-  "toast_filename_copied": { "en": "Filename copied", "bg": "", "ru": "" },
-  "toast_copied": { "en": "Copied", "bg": "", "ru": "" },
-  "toast_list_copied": { "en": "List copied as text", "bg": "", "ru": "" },
-  "toast_location_link_copied": { "en": "Location link copied", "bg": "", "ru": "" },
-  "toast_hold_longer_to_record": { "en": "Hold longer to record", "bg": "", "ru": "" },
-  "toast_mic_permission_granted": { "en": "Microphone permission granted. Hold mic to record.", "bg": "", "ru": "" },
-  "toast_nothing_to_export": { "en": "Nothing to export", "bg": "", "ru": "" },
-  "toast_export_failed": { "en": "Export failed", "bg": "", "ru": "" },
-  "btn_remove_contact": { "en": "Remove contact", "bg": "", "ru": "" },
-  "remove_contact_title": { "en": "Remove contact?", "bg": "", "ru": "" },
-  "remove_contact_message": { "en": "Remove %s from contacts? You can send them a new contact request later.", "bg": "", "ru": "" },
-  "toast_contact_removed": { "en": "Contact removed", "bg": "", "ru": "" },
-  "export_data_title": { "en": "Export your data", "bg": "", "ru": "" },
-  "export_data_message_local": { "en": "Your conversations will be exported as a readable JSON file and saved to your Downloads folder.", "bg": "", "ru": "" },
-  "export_confirm": { "en": "Export", "bg": "", "ru": "" },
-  "export_in_progress": { "en": "Exporting your data…", "bg": "", "ru": "" },
-  "export_share_title": { "en": "Save export file", "bg": "", "ru": "" },
-  "export_failed": { "en": "Export failed. Please try again.", "bg": "", "ru": "" },
-  "dialog_edit_message_title": { "en": "Edit message", "bg": "", "ru": "" },
-  "dialog_react_title": { "en": "React", "bg": "", "ru": "" },
-  "dialog_delete_message_title": { "en": "Delete message?", "bg": "", "ru": "" },
-  "delete_option_for_everyone": { "en": "Delete for everyone", "bg": "", "ru": "" },
-  "delete_option_for_me": { "en": "Delete for me only", "bg": "", "ru": "" },
-  "dialog_load_history_title": { "en": "Load history", "bg": "", "ru": "" },
-  "history_option_7_days": { "en": "Last 7 days", "bg": "", "ru": "" },
-  "history_option_30_days": { "en": "Last 30 days", "bg": "", "ru": "" },
-  "history_option_90_days": { "en": "Last 90 days", "bg": "", "ru": "" },
-  "history_option_custom": { "en": "Custom…", "bg": "", "ru": "" },
-  "dialog_custom_period_title": { "en": "Custom period", "bg": "", "ru": "" },
-  "hint_days": { "en": "Days (1–90)", "bg": "", "ru": "" },
-  "label_todo_list": { "en": "☑ Todo list", "bg": "", "ru": "" },
-  "dialog_new_todo_title": { "en": "New todo list", "bg": "", "ru": "" },
-  "dialog_edit_todo_title": { "en": "Edit todo list", "bg": "", "ru": "" },
-  "dialog_removed_from_group_title": { "en": "Removed from group", "bg": "", "ru": "" },
-  "dialog_removed_from_group_message": { "en": "You were removed from this group by an admin.", "bg": "", "ru": "" },
-  "dialog_group_deleted_title": { "en": "Group deleted", "bg": "", "ru": "" },
-  "dialog_group_deleted_message": { "en": "This group was deleted.", "bg": "", "ru": "" },
-  "toast_you_left_group": { "en": "You left the group", "bg": "", "ru": "" },
-  "dialog_remove_member_title": { "en": "Remove %s?", "bg": "", "ru": "" },
-  "dialog_delete_group_title": { "en": "Delete \"%s\"?", "bg": "", "ru": "" },
-  "dialog_delete_group_message": { "en": "This will delete the group for all members.", "bg": "", "ru": "" },
-  "dialog_leave_group_title": { "en": "Leave \"%s\"?", "bg": "", "ru": "" },
-  "dialog_leave_group_confirm": { "en": "You will no longer receive messages from this group.", "bg": "", "ru": "" },
-  "toast_owner_cannot_leave": { "en": "You are the group owner. Transfer ownership or delete the group first.", "bg": "", "ru": "" },
-  "dialog_add_member_title": { "en": "Add member", "bg": "", "ru": "" },
-  "hint_username_to_add": { "en": "Username to add", "bg": "", "ru": "" },
-  "toast_group_key_not_available": { "en": "Group key not available", "bg": "", "ru": "" },
-  "toast_cannot_invite_no_key": { "en": "Cannot invite: public key not found for %s", "bg": "", "ru": "" },
-  "toast_no_contacts_to_add": { "en": "No contacts to add", "bg": "", "ru": "" },
-  "error_group_unauthorized": { "en": "Not authorized", "bg": "", "ru": "" },
-  "error_user_not_found": { "en": "User not found", "bg": "", "ru": "" },
-  "error_already_member": { "en": "Already a member", "bg": "", "ru": "" },
-  "error_owner_cannot_leave": { "en": "You are the group owner. Transfer ownership or delete the group first.", "bg": "", "ru": "" },
-  "error_generic": { "en": "An error occurred", "bg": "", "ru": "" },
-  "error_username_empty": { "en": "Username cannot be empty", "bg": "", "ru": "" },
-  "label_location_shared_auto": { "en": "📍 Location shared automatically", "bg": "", "ru": "" },
-  "label_location_requested_by": { "en": "📍 %s requested your location", "bg": "", "ru": "" },
-  "label_location_coords": { "en": "📍 %s", "bg": "", "ru": "" },
-  "label_location_fallback": { "en": "📍 Location", "bg": "", "ru": "" },
-  "location_accuracy_format": { "en": "±%.0fm", "bg": "", "ru": "" },
-  "btn_open_in_maps": { "en": "Open in Maps", "bg": "", "ru": "" },
-  "label_emergency_call_banner": { "en": "🚨 EMERGENCY CALL", "bg": "", "ru": "" },
-  "btn_silence": { "en": "Silence", "bg": "", "ru": "" },
-  "btn_decline": { "en": "Decline", "bg": "", "ru": "" },
-  "btn_accept": { "en": "Accept", "bg": "", "ru": "" },
-  "label_server_url": { "en": "Server URL", "bg": "", "ru": "" },
-  "label_device_name": { "en": "Device name", "bg": "", "ru": "" },
-  "label_location_sharing": { "en": "📍 Location sharing", "bg": "", "ru": "" },
-  "desc_location_sharing": { "en": "Auto-respond to location requests from family contacts only.", "bg": "", "ru": "" },
-  "label_push_fcm": { "en": "🔔 Push wake-up (FCM)", "bg": "", "ru": "" },
-  "desc_push_fcm": { "en": "Uses Google Firebase to wake the app when a message or call arrives while Fshu is not running. Disable for maximum privacy.", "bg": "", "ru": "" },
-  "label_app_lock": { "en": "🔒 App lock", "bg": "", "ru": "" },
-  "desc_app_lock": { "en": "Require biometric or device PIN to open the app.", "bg": "", "ru": "" },
-  "label_unlock_to_continue": { "en": "Unlock to continue", "bg": "", "ru": "" },
-  "btn_change_password": { "en": "Change password", "bg": "", "ru": "" },
-  "label_history": { "en": "History", "bg": "", "ru": "" },
-  "label_sync_all_history": { "en": "Sync all chat history", "bg": "", "ru": "" },
-  "desc_sync_all_history": { "en": "Download missing messages from the server for all conversations.", "bg": "", "ru": "" },
-  "label_permissions": { "en": "Permissions", "bg": "", "ru": "" },
-  "dialog_device_name_title": { "en": "Device name", "bg": "", "ru": "" },
-  "dialog_server_url_title": { "en": "Server URL", "bg": "", "ru": "" },
-  "toast_url_invalid": { "en": "URL must start with wss:// or ws://", "bg": "", "ru": "" },
-  "toast_server_url_updated": { "en": "Server URL updated — reconnecting", "bg": "", "ru": "" },
-  "toast_reset_to_default_reconnecting": { "en": "Reset to default — reconnecting", "bg": "", "ru": "" },
-  "dialog_enable_location_title": { "en": "Enable location sharing?", "bg": "", "ru": "" },
-  "dialog_enable_location_message": { "en": "When enabled, Fshu will automatically reply with your current GPS position whenever someone requests your location.\\n\\nYou can disable this at any time from Settings.", "bg": "", "ru": "" },
-  "toast_push_enabled": { "en": "Push wake-up enabled", "bg": "", "ru": "" },
-  "toast_push_disabled": { "en": "Push wake-up disabled", "bg": "", "ru": "" },
-  "toast_app_lock_enabled": { "en": "App lock enabled", "bg": "", "ru": "" },
-  "toast_app_lock_disabled": { "en": "App lock disabled", "bg": "", "ru": "" },
-  "app_lock_timeout_title": { "en": "Lock after", "bg": "", "ru": "" },
-  "app_lock_timeout_30s": { "en": "30 seconds", "bg": "", "ru": "" },
-  "app_lock_timeout_1m": { "en": "1 minute", "bg": "", "ru": "" },
-  "app_lock_timeout_5m": { "en": "5 minutes", "bg": "", "ru": "" },
-  "app_lock_timeout_30m": { "en": "30 minutes", "bg": "", "ru": "" },
-  "label_trust_level": { "en": "Trust level", "bg": "", "ru": "" },
-  "trust_family": { "en": "Family", "bg": "", "ru": "" },
-  "trust_trusted": { "en": "Trusted", "bg": "", "ru": "" },
-  "trust_contact": { "en": "Contact", "bg": "", "ru": "" },
-  "trust_stranger": { "en": "Stranger", "bg": "", "ru": "" },
-  "action_mute": { "en": "Mute", "bg": "", "ru": "" },
-  "action_unmute": { "en": "Unmute", "bg": "", "ru": "" },
-  "toast_muted": { "en": "Muted", "bg": "", "ru": "" },
-  "toast_unmuted": { "en": "Unmuted", "bg": "", "ru": "" },
-  "dialog_sync_history_title": { "en": "Sync all chat history", "bg": "", "ru": "" },
-  "toast_no_known_peers": { "en": "No known peers", "bg": "", "ru": "" },
-  "toast_syncing_history": { "en": "Syncing history…", "bg": "", "ru": "" },
-  "toast_history_requests_sent": { "en": "History requests sent", "bg": "", "ru": "" },
-  "title_admin_panel": { "en": "Admin Panel", "bg": "", "ru": "" },
-  "label_access_denied": { "en": "Access denied", "bg": "", "ru": "" },
-  "dialog_server_info_title": { "en": "Server info", "bg": "", "ru": "" },
-  "label_no_response_server": { "en": "No response from server", "bg": "", "ru": "" },
-  "label_invalid_response": { "en": "Invalid response", "bg": "", "ru": "" },
-  "toast_no_response_from_server": { "en": "No response from server", "bg": "", "ru": "" },
-  "dialog_add_user_title": { "en": "Add user", "bg": "", "ru": "" },
-  "toast_username_password_required": { "en": "Username and password required", "bg": "", "ru": "" },
-  "dialog_reset_password_title": { "en": "Reset password for %s", "bg": "", "ru": "" },
-  "toast_password_required": { "en": "Password required", "bg": "", "ru": "" },
-  "dialog_remove_user_title": { "en": "Remove user", "bg": "", "ru": "" },
-  "dialog_remove_user_message": { "en": "Remove %s? This cannot be undone.", "bg": "", "ru": "" },
-  "dialog_trust_level_title": { "en": "Trust level for %s", "bg": "", "ru": "" },
-  "item_admin_badge": { "en": "ADMIN", "bg": "", "ru": "" },
-  "item_trust_default": { "en": "contact", "bg": "", "ru": "" },
-  "btn_reset_password": { "en": "Reset password", "bg": "", "ru": "" },
-  "btn_trust": { "en": "Trust", "bg": "", "ru": "" },
-  "dialog_change_password_title": { "en": "Change password", "bg": "", "ru": "" },
-  "toast_all_fields_required": { "en": "All fields required", "bg": "", "ru": "" },
-  "toast_passwords_dont_match": { "en": "Passwords don't match", "bg": "", "ru": "" },
-  "toast_password_changed": { "en": "Password changed", "bg": "", "ru": "" },
-  "hint_current_password": { "en": "Current password", "bg": "", "ru": "" },
-  "hint_new_password": { "en": "New password", "bg": "", "ru": "" },
-  "hint_confirm_new_password": { "en": "Confirm new password", "bg": "", "ru": "" },
-  "title_connection_test": { "en": "Connection Test", "bg": "", "ru": "" },
-  "label_websocket": { "en": "WebSocket", "bg": "", "ru": "" },
-  "label_dns": { "en": "DNS", "bg": "", "ru": "" },
-  "label_turn_relay": { "en": "TURN relay", "bg": "", "ru": "" },
-  "label_peer": { "en": "Peer", "bg": "", "ru": "" },
-  "title_background": { "en": "Background", "bg": "", "ru": "" },
-  "bg_custom": { "en": "Custom", "bg": "", "ru": "" },
-  "toast_file_not_available": { "en": "File not available", "bg": "", "ru": "" },
-  "toast_no_app_to_open_file": { "en": "No app found to open this file", "bg": "", "ru": "" },
-  "toast_file_no_longer_available": { "en": "File no longer available", "bg": "", "ru": "" },
-  "toast_maps_not_available": { "en": "Maps not available", "bg": "", "ru": "" },
-  "toast_downloading": { "en": "Downloading…", "bg": "", "ru": "" },
-  "toast_cannot_play_voice": { "en": "Cannot play voice message", "bg": "", "ru": "" },
-  "toast_location_error": { "en": "Could not get location — check GPS", "bg": "", "ru": "" },
-  "menu_find_people": { "en": "Find People", "bg": "", "ru": "" },
-  "menu_server_info": { "en": "Server info", "bg": "", "ru": "" },
-  "menu_voice_call": { "en": "Voice call", "bg": "", "ru": "" },
-  "menu_video_call": { "en": "Video call", "bg": "", "ru": "" },
-  "menu_group_info": { "en": "Group info", "bg": "", "ru": "" },
-  "menu_leave_group": { "en": "Leave group", "bg": "", "ru": "" },
-  "menu_delete_group": { "en": "Delete group", "bg": "", "ru": "" },
-  "auto_location_off": { "en": "Auto-share location: OFF", "bg": "", "ru": "" },
-  "auto_location_on": { "en": "Auto-share location: ON", "bg": "", "ru": "" },
-  "label_encrypted_message": { "en": "[Encrypted message]", "bg": "", "ru": "" },
-  "menu_export_conversation": { "en": "Export conversation", "bg": "", "ru": "" },
-  "menu_change_background": { "en": "Change background", "bg": "", "ru": "" },
-  "menu_new_todo_list": { "en": "New todo list", "bg": "", "ru": "" },
-  "menu_share_location": { "en": "📍 Share my location", "bg": "", "ru": "" },
-  "menu_request_location": { "en": "📍 Request location", "bg": "", "ru": "" },
-  "menu_load_history": { "en": "📜 Load history", "bg": "", "ru": "" },
-  "menu_new_group": { "en": "New group", "bg": "", "ru": "" },
-  "menu_admin_panel": { "en": "Admin panel", "bg": "", "ru": "" },
-  "menu_reconnect": { "en": "Reconnect", "bg": "", "ru": "" },
-  "menu_settings": { "en": "Settings", "bg": "", "ru": "" },
-  "menu_set_my_nickname": { "en": "Set my nickname", "bg": "", "ru": "" },
-  "menu_set_my_avatar": { "en": "Set my avatar", "bg": "", "ru": "" },
-  "menu_view_crash_log": { "en": "View crash log", "bg": "", "ru": "" },
-  "menu_test_connection": { "en": "Test connection", "bg": "", "ru": "" },
-  "menu_emergency_call": { "en": "🚨 Emergency call", "bg": "", "ru": "" },
-  "menu_emergency_call_location": { "en": "🆘 Emergency call + location", "bg": "", "ru": "" },
-  "menu_set_nickname": { "en": "Set nickname", "bg": "", "ru": "" },
-  "group_info_change_photo": { "en": "Change group photo", "bg": "", "ru": "" },
-  "group_info_set_personal_photo": { "en": "Set my photo for this group", "bg": "", "ru": "" },
-  "notif_group_update": { "en": "Group update", "bg": "", "ru": "" },
-  "notif_connected": { "en": "Connected", "bg": "", "ru": "" },
-  "notif_channel_service": { "en": "4shu", "bg": "", "ru": "" },
-  "notif_channel_messages": { "en": "Messages", "bg": "", "ru": "" },
-  "notif_channel_messages_desc": { "en": "Incoming message notifications", "bg": "", "ru": "" },
-  "notif_channel_calls": { "en": "Calls", "bg": "", "ru": "" },
-  "connection_test_testing_with": { "en": "Testing with %s", "bg": "", "ru": "" },
-  "connection_test_peer_label": { "en": "Server → %s", "bg": "", "ru": "" },
-  "permission_step_indicator": { "en": "Step %1$d of %2$d", "bg": "", "ru": "" },
-  "permission_notifications": { "en": "Notifications", "bg": "", "ru": "" },
-  "permission_microphone": { "en": "Microphone", "bg": "", "ru": "" },
-  "permission_camera": { "en": "Camera", "bg": "", "ru": "" },
-  "permission_location": { "en": "Location sharing (optional)", "bg": "", "ru": "" },
-  "permission_auto_location": { "en": "Auto-share location", "bg": "", "ru": "" },
-  "permission_push": { "en": "Push wake-up (optional)", "bg": "", "ru": "" },
-  "permission_battery": { "en": "Battery Optimization", "bg": "", "ru": "" },
-  "permission_overlay": { "en": "Display Over Other Apps", "bg": "", "ru": "" },
-  "permission_fullscreen": { "en": "Full Screen Calls", "bg": "", "ru": "" },
-  "label_favorites": { "en": "Favorites", "bg": "", "ru": "" },
-  "label_other_contacts": { "en": "Other contacts", "bg": "", "ru": "" },
-  "label_my_profile": { "en": "My Profile", "bg": "", "ru": "" },
-  "desc_my_profile": { "en": "Edit your name, bio and contact info", "bg": "", "ru": "" },
-  "label_display_name": { "en": "Display Name", "bg": "", "ru": "" },
-  "hint_display_name": { "en": "Display name (optional)", "bg": "", "ru": "" },
-  "label_about": { "en": "About", "bg": "", "ru": "" },
-  "hint_bio": { "en": "Bio (optional)", "bg": "", "ru": "" },
-  "label_contact_info": { "en": "Contact Info", "bg": "", "ru": "" },
-  "hint_email_address": { "en": "Email address (optional)", "bg": "", "ru": "" },
-  "hint_phone_number": { "en": "Phone number (optional)", "bg": "", "ru": "" },
-  "label_tap_to_change_photo": { "en": "Tap to change photo", "bg": "", "ru": "" },
-  "btn_save_profile": { "en": "Save Profile", "bg": "", "ru": "" },
-  "toast_profile_saved": { "en": "Profile saved", "bg": "", "ru": "" },
-  "label_contact_requests": { "en": "Contact Requests", "bg": "", "ru": "" },
-  "title_contact_requests": { "en": "Contact Requests", "bg": "", "ru": "" },
-  "label_received": { "en": "Received", "bg": "", "ru": "" },
-  "label_sent": { "en": "Sent", "bg": "", "ru": "" },
-  "label_no_pending_requests": { "en": "No pending requests", "bg": "", "ru": "" },
-  "btn_cancel_request": { "en": "Cancel", "bg": "", "ru": "" },
-  "toast_request_accepted": { "en": "Request accepted", "bg": "", "ru": "" },
-  "toast_request_declined": { "en": "Request declined", "bg": "", "ru": "" },
-  "toast_request_cancelled": { "en": "Request cancelled", "bg": "", "ru": "" },
-  "label_privacy_settings": { "en": "Privacy Settings", "bg": "", "ru": "" },
-  "title_privacy_settings": { "en": "Privacy Settings", "bg": "", "ru": "" },
-  "label_discoverable": { "en": "Discoverable", "bg": "", "ru": "" },
-  "desc_discoverable": { "en": "Allow anyone to find you by username search.", "bg": "", "ru": "" },
-  "label_show_avatar": { "en": "Show avatar to non-contacts", "bg": "", "ru": "" },
-  "desc_show_avatar": { "en": "Show your profile photo to users outside your contacts.", "bg": "", "ru": "" },
-  "label_show_nickname": { "en": "Show nickname to non-contacts", "bg": "", "ru": "" },
-  "desc_show_nickname": { "en": "Show your nickname to users outside your contacts.", "bg": "", "ru": "" },
-  "label_email_searchable": { "en": "Email searchable", "bg": "", "ru": "" },
-  "desc_email_searchable": { "en": "Allow finding your account by email address.", "bg": "", "ru": "" },
-  "label_phone_searchable": { "en": "Phone searchable", "bg": "", "ru": "" },
-  "desc_phone_searchable": { "en": "Allow finding your account by phone number.", "bg": "", "ru": "" },
-  "toast_privacy_saved": { "en": "Privacy settings saved", "bg": "", "ru": "" },
-  "label_account_recovery": { "en": "Account Recovery", "bg": "", "ru": "" },
-  "label_secret_question_set": { "en": "Secret question is set", "bg": "", "ru": "" },
-  "label_secret_question_not_set": { "en": "No secret question set", "bg": "", "ru": "" },
-  "btn_set_secret_question": { "en": "Set Secret Question", "bg": "", "ru": "" },
-  "toast_secret_question_saved": { "en": "Secret question saved", "bg": "", "ru": "" },
-  "hint_secret_question": { "en": "Your secret question…", "bg": "", "ru": "" },
-  "hint_secret_answer": { "en": "Your answer…", "bg": "", "ru": "" },
-  "label_blocked_users": { "en": "Blocked Users", "bg": "", "ru": "" },
-  "title_blocked_users": { "en": "Blocked Users", "bg": "", "ru": "" },
-  "label_no_blocked_users": { "en": "No blocked users", "bg": "", "ru": "" },
-  "btn_unblock": { "en": "Unblock", "bg": "", "ru": "" },
-  "toast_unblocked": { "en": "%s unblocked", "bg": "", "ru": "" },
-  "admin_server_info_format": { "en": "Disk:\\n%1$s\\n\\nFiles: %2$d (%3$s)\\nHistory files: %4$d", "bg": "", "ru": "" },
-  "label_allow_emergency_calls": { "en": "Allow emergency calls", "bg": "", "ru": "" },
-  "desc_allow_emergency_calls": { "en": "Can reach you in an emergency regardless of other settings", "bg": "", "ru": "" }
+  "app_name": {
+    "en": "4shu β",
+    "bg": "4shu β",
+    "ru": ""
+  },
+  "app_lock_title": {
+    "en": "4shu",
+    "bg": "4shu",
+    "ru": ""
+  },
+  "app_version_format": {
+    "en": "Fshu v%1$s (build %2$s)",
+    "bg": "Fshu v%1$s (build %2$s)",
+    "ru": ""
+  },
+  "btn_ok": {
+    "en": "OK",
+    "bg": "OK",
+    "ru": ""
+  },
+  "btn_cancel": {
+    "en": "Cancel",
+    "bg": "Отказ",
+    "ru": ""
+  },
+  "btn_save": {
+    "en": "Save",
+    "bg": "Запази",
+    "ru": ""
+  },
+  "btn_close": {
+    "en": "Close",
+    "bg": "Затвори",
+    "ru": ""
+  },
+  "btn_delete": {
+    "en": "Delete",
+    "bg": "Изтрий",
+    "ru": ""
+  },
+  "btn_remove": {
+    "en": "Remove",
+    "bg": "Премахни",
+    "ru": ""
+  },
+  "btn_add": {
+    "en": "Add",
+    "bg": "Добави",
+    "ru": ""
+  },
+  "btn_create": {
+    "en": "Create",
+    "bg": "Създай",
+    "ru": ""
+  },
+  "btn_enable": {
+    "en": "Enable",
+    "bg": "Включи",
+    "ru": ""
+  },
+  "btn_clear": {
+    "en": "Clear",
+    "bg": "Изчисти",
+    "ru": ""
+  },
+  "btn_leave": {
+    "en": "Leave",
+    "bg": "Напусни",
+    "ru": ""
+  },
+  "btn_set": {
+    "en": "Set",
+    "bg": "Задай",
+    "ru": ""
+  },
+  "btn_reset": {
+    "en": "Reset",
+    "bg": "Нулирай",
+    "ru": ""
+  },
+  "btn_change": {
+    "en": "Change",
+    "bg": "Промени",
+    "ru": ""
+  },
+  "btn_skip": {
+    "en": "Skip",
+    "bg": "Пропусни",
+    "ru": ""
+  },
+  "btn_copy_all": {
+    "en": "Copy all",
+    "bg": "Копирай всичко",
+    "ru": ""
+  },
+  "btn_connect": {
+    "en": "Connect",
+    "bg": "Свържи",
+    "ru": ""
+  },
+  "forgot_password": {
+    "en": "Forgot password?",
+    "bg": "Забравена парола?",
+    "ru": ""
+  },
+  "toast_server_url_required": {
+    "en": "Please set server URL first",
+    "bg": "Моля, задай URL на сървъра",
+    "ru": ""
+  },
+  "btn_send_emergency": {
+    "en": "Send Emergency",
+    "bg": "Изпрати спешен сигнал",
+    "ru": ""
+  },
+  "btn_add_member": {
+    "en": "Add member",
+    "bg": "Добави член",
+    "ru": ""
+  },
+  "btn_delete_group": {
+    "en": "Delete group",
+    "bg": "Изтрий група",
+    "ru": ""
+  },
+  "btn_leave_group": {
+    "en": "Leave group",
+    "bg": "Напусни група",
+    "ru": ""
+  },
+  "btn_reset_to_default": {
+    "en": "Reset to default",
+    "bg": "Върни по подразбиране",
+    "ru": ""
+  },
+  "btn_add_item": {
+    "en": "+ Add item",
+    "bg": "+ Добави елемент",
+    "ru": ""
+  },
+  "btn_row_delete": {
+    "en": "×",
+    "bg": "×",
+    "ru": ""
+  },
+  "toast_done": {
+    "en": "Done",
+    "bg": "Готово",
+    "ru": ""
+  },
+  "toast_error": {
+    "en": "Error",
+    "bg": "Грешка",
+    "ru": ""
+  },
+  "toast_no_response": {
+    "en": "No response",
+    "bg": "Няма отговор",
+    "ru": ""
+  },
+  "label_loading": {
+    "en": "Loading…",
+    "bg": "Зареждане…",
+    "ru": ""
+  },
+  "hint_username": {
+    "en": "Username",
+    "bg": "Потребителско име",
+    "ru": ""
+  },
+  "hint_password": {
+    "en": "Password",
+    "bg": "Парола",
+    "ru": ""
+  },
+  "hint_server_url": {
+    "en": "Server URL (wss://…)",
+    "bg": "URL на сървъра (wss://…)",
+    "ru": ""
+  },
+  "toast_location_permission_required": {
+    "en": "Location permission required for this feature",
+    "bg": "Нужно е разрешение за местоположение",
+    "ru": ""
+  },
+  "toast_avatar_upload_failed": {
+    "en": "Failed to upload avatar",
+    "bg": "Неуспешно качване на снимка",
+    "ru": ""
+  },
+  "toast_reconnecting": {
+    "en": "Reconnecting…",
+    "bg": "Свързване отново…",
+    "ru": ""
+  },
+  "toast_connected": {
+    "en": "Connected ✓",
+    "bg": "Свързан ✓",
+    "ru": ""
+  },
+  "toast_failed": {
+    "en": "Failed ✗",
+    "bg": "Неуспешно ✗",
+    "ru": ""
+  },
+  "dialog_emergency_call_title": {
+    "en": "Emergency call",
+    "bg": "Спешно повикване",
+    "ru": ""
+  },
+  "dialog_emergency_call_message": {
+    "en": "Send emergency call to %s?\\nThis will override silent mode on their device.",
+    "bg": "Да изпратиш спешно повикване до %s?\\nТова ще отмени тихия режим на устройството им.",
+    "ru": ""
+  },
+  "dialog_emergency_location_title": {
+    "en": "Emergency call + location",
+    "bg": "Спешно повикване + местоположение",
+    "ru": ""
+  },
+  "dialog_emergency_location_message": {
+    "en": "This will call %s AND immediately share your current location.\\nOnly use in genuine emergencies.",
+    "bg": "Ще се обадиш на %s И ще споделиш местоположението си незабавно.\\nИзползвай само при истинска спешност.",
+    "ru": ""
+  },
+  "dialog_set_nickname_title": {
+    "en": "Set my nickname",
+    "bg": "Задай псевдоним",
+    "ru": ""
+  },
+  "dialog_set_nickname_message": {
+    "en": "This will be visible to everyone. Leave empty to use your username.",
+    "bg": "Ще е видим за всички. Остави празно за да използваш потребителското име.",
+    "ru": ""
+  },
+  "dialog_nickname_for_title": {
+    "en": "Nickname for %s",
+    "bg": "Псевдоним за %s",
+    "ru": ""
+  },
+  "hint_your_nickname": {
+    "en": "Your nickname (max 20 chars)",
+    "bg": "Твоят псевдоним (макс. 20 знака)",
+    "ru": ""
+  },
+  "hint_nickname_for_contact": {
+    "en": "Nickname for %s (leave empty to clear)",
+    "bg": "Псевдоним за %s (остави празно за изчистване)",
+    "ru": ""
+  },
+  "toast_nickname_cleared": {
+    "en": "Nickname cleared",
+    "bg": "Псевдонимът е изчистен",
+    "ru": ""
+  },
+  "toast_nickname_set": {
+    "en": "Nickname set to \"%s\"",
+    "bg": "Псевдонимът е зададен на \"%s\"",
+    "ru": ""
+  },
+  "toast_no_crash_logs": {
+    "en": "No crash logs found",
+    "bg": "Няма намерени журнали за сривове",
+    "ru": ""
+  },
+  "dialog_crash_logs_title": {
+    "en": "Crash logs (%d)",
+    "bg": "Журнали за сривове (%d)",
+    "ru": ""
+  },
+  "toast_copied_to_clipboard": {
+    "en": "Copied to clipboard",
+    "bg": "Копирано в клипборда",
+    "ru": ""
+  },
+  "toast_logs_cleared": {
+    "en": "Logs cleared",
+    "bg": "Журналите са изчистени",
+    "ru": ""
+  },
+  "dialog_new_group_title": {
+    "en": "New group",
+    "bg": "Нова група",
+    "ru": ""
+  },
+  "hint_group_name": {
+    "en": "Group name",
+    "bg": "Име на групата",
+    "ru": ""
+  },
+  "toast_group_name_required": {
+    "en": "Group name required",
+    "bg": "Нужно е име на групата",
+    "ru": ""
+  },
+  "toast_select_at_least_one_member": {
+    "en": "Select at least one member",
+    "bg": "Избери поне един член",
+    "ru": ""
+  },
+  "toast_group_created": {
+    "en": "Group \"%s\" created",
+    "bg": "Групата \"%s\" е създадена",
+    "ru": ""
+  },
+  "hint_message": {
+    "en": "Message",
+    "bg": "Съобщение",
+    "ru": ""
+  },
+  "label_0_selected": {
+    "en": "0 selected",
+    "bg": "0 избрани",
+    "ru": ""
+  },
+  "label_n_selected": {
+    "en": "%d selected",
+    "bg": "%d избрани",
+    "ru": ""
+  },
+  "label_voice_recording": {
+    "en": "🎤 0:00",
+    "bg": "🎤 0:00",
+    "ru": ""
+  },
+  "typing_indicator": {
+    "en": "typing…",
+    "bg": "пише…",
+    "ru": ""
+  },
+  "toast_group_photo_updated": {
+    "en": "Group photo updated",
+    "bg": "Снимката на групата е обновена",
+    "ru": ""
+  },
+  "toast_failed_to_upload_photo": {
+    "en": "Failed to upload photo",
+    "bg": "Неуспешно качване на снимка",
+    "ru": ""
+  },
+  "toast_failed_to_set_personal_photo": {
+    "en": "Failed to set personal photo",
+    "bg": "Неуспешно задаване на лична снимка",
+    "ru": ""
+  },
+  "toast_image_copied": {
+    "en": "Image copied",
+    "bg": "Снимката е копирана",
+    "ru": ""
+  },
+  "toast_filename_copied": {
+    "en": "Filename copied",
+    "bg": "Името на файла е копирано",
+    "ru": ""
+  },
+  "toast_copied": {
+    "en": "Copied",
+    "bg": "Копирано",
+    "ru": ""
+  },
+  "toast_list_copied": {
+    "en": "List copied as text",
+    "bg": "Списъкът е копиран като текст",
+    "ru": ""
+  },
+  "toast_location_link_copied": {
+    "en": "Location link copied",
+    "bg": "Линкът за местоположение е копиран",
+    "ru": ""
+  },
+  "toast_hold_longer_to_record": {
+    "en": "Hold longer to record",
+    "bg": "Задръж по-дълго за запис",
+    "ru": ""
+  },
+  "toast_mic_permission_granted": {
+    "en": "Microphone permission granted. Hold mic to record.",
+    "bg": "Разрешението за микрофон е дадено. Задръж за запис.",
+    "ru": ""
+  },
+  "toast_nothing_to_export": {
+    "en": "Nothing to export",
+    "bg": "Няма какво да се експортира",
+    "ru": ""
+  },
+  "toast_export_failed": {
+    "en": "Export failed",
+    "bg": "Неуспешно експортиране",
+    "ru": ""
+  },
+  "btn_remove_contact": {
+    "en": "Remove contact",
+    "bg": "Премахни контакт",
+    "ru": ""
+  },
+  "remove_contact_title": {
+    "en": "Remove contact?",
+    "bg": "Премахни контакт?",
+    "ru": ""
+  },
+  "remove_contact_message": {
+    "en": "Remove %s from contacts? You can send them a new contact request later.",
+    "bg": "Да премахнеш %s от контактите? Можеш да изпратиш нова заявка по-късно.",
+    "ru": ""
+  },
+  "toast_contact_removed": {
+    "en": "Contact removed",
+    "bg": "Контактът е премахнат",
+    "ru": ""
+  },
+  "export_data_title": {
+    "en": "Export your data",
+    "bg": "Експортирай данните",
+    "ru": ""
+  },
+  "export_data_message_local": {
+    "en": "Your conversations will be exported as a readable JSON file and saved to your Downloads folder.",
+    "bg": "Разговорите ти ще бъдат запазени като JSON файл в папката Изтегляния.",
+    "ru": ""
+  },
+  "export_confirm": {
+    "en": "Export",
+    "bg": "Експортирай",
+    "ru": ""
+  },
+  "export_in_progress": {
+    "en": "Exporting your data…",
+    "bg": "Експортиране на данните…",
+    "ru": ""
+  },
+  "export_share_title": {
+    "en": "Save export file",
+    "bg": "Запази файла с данни",
+    "ru": ""
+  },
+  "export_failed": {
+    "en": "Export failed. Please try again.",
+    "bg": "Неуспешно експортиране. Опитай отново.",
+    "ru": ""
+  },
+  "dialog_edit_message_title": {
+    "en": "Edit message",
+    "bg": "Редактирай съобщение",
+    "ru": ""
+  },
+  "dialog_react_title": {
+    "en": "React",
+    "bg": "Реакция",
+    "ru": ""
+  },
+  "dialog_delete_message_title": {
+    "en": "Delete message?",
+    "bg": "Изтрий съобщение?",
+    "ru": ""
+  },
+  "delete_option_for_everyone": {
+    "en": "Delete for everyone",
+    "bg": "Изтрий за всички",
+    "ru": ""
+  },
+  "delete_option_for_me": {
+    "en": "Delete for me only",
+    "bg": "Изтрий само за мен",
+    "ru": ""
+  },
+  "label_todo_list": {
+    "en": "☑ Todo list",
+    "bg": "☑ Списък задачи",
+    "ru": ""
+  },
+  "dialog_new_todo_title": {
+    "en": "New todo list",
+    "bg": "Нов списък задачи",
+    "ru": ""
+  },
+  "dialog_edit_todo_title": {
+    "en": "Edit todo list",
+    "bg": "Редактирай списък задачи",
+    "ru": ""
+  },
+  "dialog_removed_from_group_title": {
+    "en": "Removed from group",
+    "bg": "Премахнат от групата",
+    "ru": ""
+  },
+  "dialog_removed_from_group_message": {
+    "en": "You were removed from this group by an admin.",
+    "bg": "Беше премахнат от тази група от администратор.",
+    "ru": ""
+  },
+  "dialog_group_deleted_title": {
+    "en": "Group deleted",
+    "bg": "Групата е изтрита",
+    "ru": ""
+  },
+  "dialog_group_deleted_message": {
+    "en": "This group was deleted.",
+    "bg": "Тази група е изтрита.",
+    "ru": ""
+  },
+  "toast_you_left_group": {
+    "en": "You left the group",
+    "bg": "Напусна групата",
+    "ru": ""
+  },
+  "dialog_remove_member_title": {
+    "en": "Remove %s?",
+    "bg": "Премахни %s?",
+    "ru": ""
+  },
+  "dialog_delete_group_title": {
+    "en": "Delete \"%s\"?",
+    "bg": "Изтрий \"%s\"?",
+    "ru": ""
+  },
+  "dialog_delete_group_message": {
+    "en": "This will delete the group for all members.",
+    "bg": "Това ще изтрие групата за всички членове.",
+    "ru": ""
+  },
+  "dialog_leave_group_title": {
+    "en": "Leave \"%s\"?",
+    "bg": "Напусни \"%s\"?",
+    "ru": ""
+  },
+  "dialog_leave_group_confirm": {
+    "en": "You will no longer receive messages from this group.",
+    "bg": "Няма да получаваш повече съобщения от тази група.",
+    "ru": ""
+  },
+  "toast_owner_cannot_leave": {
+    "en": "You are the group owner. Transfer ownership or delete the group first.",
+    "bg": "Ти си собственикът на групата. Прехвърли собствеността или изтрий групата.",
+    "ru": ""
+  },
+  "dialog_add_member_title": {
+    "en": "Add member",
+    "bg": "Добави член",
+    "ru": ""
+  },
+  "hint_username_to_add": {
+    "en": "Username to add",
+    "bg": "Потребителско име за добавяне",
+    "ru": ""
+  },
+  "toast_group_key_not_available": {
+    "en": "Group key not available",
+    "bg": "Груповият ключ не е наличен",
+    "ru": ""
+  },
+  "toast_cannot_invite_no_key": {
+    "en": "Cannot invite: public key not found for %s",
+    "bg": "Не може да поканиш: публичният ключ на %s не е намерен",
+    "ru": ""
+  },
+  "toast_no_contacts_to_add": {
+    "en": "No contacts to add",
+    "bg": "Няма контакти за добавяне",
+    "ru": ""
+  },
+  "error_group_unauthorized": {
+    "en": "Not authorized",
+    "bg": "Нямаш разрешение",
+    "ru": ""
+  },
+  "error_user_not_found": {
+    "en": "User not found",
+    "bg": "Потребителят не е намерен",
+    "ru": ""
+  },
+  "error_already_member": {
+    "en": "Already a member",
+    "bg": "Вече е член",
+    "ru": ""
+  },
+  "error_owner_cannot_leave": {
+    "en": "You are the group owner. Transfer ownership or delete the group first.",
+    "bg": "Ти си собственикът на групата. Прехвърли собствеността или изтрий групата.",
+    "ru": ""
+  },
+  "error_generic": {
+    "en": "An error occurred",
+    "bg": "Възникна грешка",
+    "ru": ""
+  },
+  "error_username_empty": {
+    "en": "Username cannot be empty",
+    "bg": "Потребителското име не може да е празно",
+    "ru": ""
+  },
+  "label_location_shared_auto": {
+    "en": "📍 Location shared automatically",
+    "bg": "📍 Местоположението е споделено автоматично",
+    "ru": ""
+  },
+  "label_location_requested_by": {
+    "en": "📍 %s requested your location",
+    "bg": "📍 %s поиска твоето местоположение",
+    "ru": ""
+  },
+  "label_location_coords": {
+    "en": "📍 %s",
+    "bg": "📍 %s",
+    "ru": ""
+  },
+  "label_location_fallback": {
+    "en": "📍 Location",
+    "bg": "📍 Местоположение",
+    "ru": ""
+  },
+  "location_accuracy_format": {
+    "en": "±%.0fm",
+    "bg": "±%.0fm",
+    "ru": ""
+  },
+  "btn_open_in_maps": {
+    "en": "Open in Maps",
+    "bg": "Отвори в Maps",
+    "ru": ""
+  },
+  "label_emergency_call_banner": {
+    "en": "🚨 EMERGENCY CALL",
+    "bg": "🚨 СПЕШНО ПОВИКВАНЕ",
+    "ru": ""
+  },
+  "btn_silence": {
+    "en": "Silence",
+    "bg": "Заглуши",
+    "ru": ""
+  },
+  "btn_decline": {
+    "en": "Decline",
+    "bg": "Откажи",
+    "ru": ""
+  },
+  "btn_accept": {
+    "en": "Accept",
+    "bg": "Приеми",
+    "ru": ""
+  },
+  "label_server_url": {
+    "en": "Server URL",
+    "bg": "URL на сървъра",
+    "ru": ""
+  },
+  "label_device_name": {
+    "en": "Device name",
+    "bg": "Име на устройството",
+    "ru": ""
+  },
+  "label_location_sharing": {
+    "en": "📍 Location sharing",
+    "bg": "📍 Споделяне на местоположение",
+    "ru": ""
+  },
+  "desc_location_sharing": {
+    "en": "Auto-respond to location requests from family contacts only.",
+    "bg": "Автоматично отговаряй на заявки за местоположение само от семейни контакти.",
+    "ru": ""
+  },
+  "label_push_fcm": {
+    "en": "🔔 Push wake-up (FCM)",
+    "bg": "🔔 Push известия (FCM)",
+    "ru": ""
+  },
+  "desc_push_fcm": {
+    "en": "Uses Google Firebase to wake the app when a message or call arrives while Fshu is not running. Disable for maximum privacy.",
+    "bg": "Използва Google Firebase за събуждане на приложението при съобщение или повикване. Изключи за максимална поверителност.",
+    "ru": ""
+  },
+  "label_app_lock": {
+    "en": "🔒 App lock",
+    "bg": "🔒 Заключване на приложението",
+    "ru": ""
+  },
+  "desc_app_lock": {
+    "en": "Require biometric or device PIN to open the app.",
+    "bg": "Изисква биометрично или PIN за отваряне на приложението.",
+    "ru": ""
+  },
+  "label_unlock_to_continue": {
+    "en": "Unlock to continue",
+    "bg": "Отключи за да продължиш",
+    "ru": ""
+  },
+  "btn_change_password": {
+    "en": "Change password",
+    "bg": "Промени паролата",
+    "ru": ""
+  },
+  "label_permissions": {
+    "en": "Permissions",
+    "bg": "Разрешения",
+    "ru": ""
+  },
+  "dialog_device_name_title": {
+    "en": "Device name",
+    "bg": "Име на устройството",
+    "ru": ""
+  },
+  "dialog_server_url_title": {
+    "en": "Server URL",
+    "bg": "URL на сървъра",
+    "ru": ""
+  },
+  "toast_url_invalid": {
+    "en": "URL must start with wss:// or ws://",
+    "bg": "URL трябва да започва с wss:// или ws://",
+    "ru": ""
+  },
+  "toast_server_url_updated": {
+    "en": "Server URL updated — reconnecting",
+    "bg": "URL на сървъра е обновен — свързване отново",
+    "ru": ""
+  },
+  "toast_reset_to_default_reconnecting": {
+    "en": "Reset to default — reconnecting",
+    "bg": "Нулирано по подразбиране — свързване отново",
+    "ru": ""
+  },
+  "dialog_enable_location_title": {
+    "en": "Enable location sharing?",
+    "bg": "Включи споделяне на местоположение?",
+    "ru": ""
+  },
+  "dialog_enable_location_message": {
+    "en": "When enabled, Fshu will automatically reply with your current GPS position whenever someone requests your location.\\n\\nYou can disable this at any time from Settings.",
+    "bg": "Когато е включено, Fshu автоматично ще отговаря с текущото ти GPS местоположение.\\n\\nМожеш да го изключиш по всяко време от Настройките.",
+    "ru": ""
+  },
+  "toast_push_enabled": {
+    "en": "Push wake-up enabled",
+    "bg": "Push известията са включени",
+    "ru": ""
+  },
+  "toast_push_disabled": {
+    "en": "Push wake-up disabled",
+    "bg": "Push известията са изключени",
+    "ru": ""
+  },
+  "toast_app_lock_enabled": {
+    "en": "App lock enabled",
+    "bg": "Заключването на приложението е включено",
+    "ru": ""
+  },
+  "toast_app_lock_disabled": {
+    "en": "App lock disabled",
+    "bg": "Заключването на приложението е изключено",
+    "ru": ""
+  },
+  "app_lock_timeout_title": {
+    "en": "Lock after",
+    "bg": "Заключи след",
+    "ru": ""
+  },
+  "app_lock_timeout_30s": {
+    "en": "30 seconds",
+    "bg": "30 секунди",
+    "ru": ""
+  },
+  "app_lock_timeout_1m": {
+    "en": "1 minute",
+    "bg": "1 минута",
+    "ru": ""
+  },
+  "app_lock_timeout_5m": {
+    "en": "5 minutes",
+    "bg": "5 минути",
+    "ru": ""
+  },
+  "app_lock_timeout_30m": {
+    "en": "30 minutes",
+    "bg": "30 минути",
+    "ru": ""
+  },
+  "label_trust_level": {
+    "en": "Trust level",
+    "bg": "Ниво на доверие",
+    "ru": ""
+  },
+  "trust_family": {
+    "en": "Family",
+    "bg": "Семейство",
+    "ru": ""
+  },
+  "trust_trusted": {
+    "en": "Trusted",
+    "bg": "Доверен",
+    "ru": ""
+  },
+  "trust_contact": {
+    "en": "Contact",
+    "bg": "Контакт",
+    "ru": ""
+  },
+  "trust_stranger": {
+    "en": "Stranger",
+    "bg": "Непознат",
+    "ru": ""
+  },
+  "action_mute": {
+    "en": "Mute",
+    "bg": "Заглуши",
+    "ru": ""
+  },
+  "action_unmute": {
+    "en": "Unmute",
+    "bg": "Включи звука",
+    "ru": ""
+  },
+  "toast_muted": {
+    "en": "Muted",
+    "bg": "Заглушен",
+    "ru": ""
+  },
+  "toast_unmuted": {
+    "en": "Unmuted",
+    "bg": "Звукът е включен",
+    "ru": ""
+  },
+  "toast_no_known_peers": {
+    "en": "No known peers",
+    "bg": "Няма познати потребители",
+    "ru": ""
+  },
+  "title_admin_panel": {
+    "en": "Admin Panel",
+    "bg": "Административен панел",
+    "ru": ""
+  },
+  "label_access_denied": {
+    "en": "Access denied",
+    "bg": "Достъпът е отказан",
+    "ru": ""
+  },
+  "dialog_server_info_title": {
+    "en": "Server info",
+    "bg": "Информация за сървъра",
+    "ru": ""
+  },
+  "label_no_response_server": {
+    "en": "No response from server",
+    "bg": "Няма отговор от сървъра",
+    "ru": ""
+  },
+  "label_invalid_response": {
+    "en": "Invalid response",
+    "bg": "Невалиден отговор",
+    "ru": ""
+  },
+  "toast_no_response_from_server": {
+    "en": "No response from server",
+    "bg": "Няма отговор от сървъра",
+    "ru": ""
+  },
+  "dialog_add_user_title": {
+    "en": "Add user",
+    "bg": "Добави потребител",
+    "ru": ""
+  },
+  "toast_username_password_required": {
+    "en": "Username and password required",
+    "bg": "Нужни са потребителско име и парола",
+    "ru": ""
+  },
+  "dialog_reset_password_title": {
+    "en": "Reset password for %s",
+    "bg": "Нулиране на парола за %s",
+    "ru": ""
+  },
+  "toast_password_required": {
+    "en": "Password required",
+    "bg": "Нужна е парола",
+    "ru": ""
+  },
+  "dialog_remove_user_title": {
+    "en": "Remove user",
+    "bg": "Премахни потребител",
+    "ru": ""
+  },
+  "dialog_remove_user_message": {
+    "en": "Remove %s? This cannot be undone.",
+    "bg": "Да премахнеш %s? Това не може да се отмени.",
+    "ru": ""
+  },
+  "dialog_trust_level_title": {
+    "en": "Trust level for %s",
+    "bg": "Ниво на доверие за %s",
+    "ru": ""
+  },
+  "item_admin_badge": {
+    "en": "ADMIN",
+    "bg": "ADMIN",
+    "ru": ""
+  },
+  "item_trust_default": {
+    "en": "contact",
+    "bg": "контакт",
+    "ru": ""
+  },
+  "btn_reset_password": {
+    "en": "Reset password",
+    "bg": "Нулирай паролата",
+    "ru": ""
+  },
+  "btn_trust": {
+    "en": "Trust",
+    "bg": "Довери",
+    "ru": ""
+  },
+  "dialog_change_password_title": {
+    "en": "Change password",
+    "bg": "Промени паролата",
+    "ru": ""
+  },
+  "toast_all_fields_required": {
+    "en": "All fields required",
+    "bg": "Всички полета са задължителни",
+    "ru": ""
+  },
+  "toast_passwords_dont_match": {
+    "en": "Passwords don't match",
+    "bg": "Паролите не съвпадат",
+    "ru": ""
+  },
+  "toast_password_changed": {
+    "en": "Password changed",
+    "bg": "Паролата е променена",
+    "ru": ""
+  },
+  "hint_current_password": {
+    "en": "Current password",
+    "bg": "Текуща парола",
+    "ru": ""
+  },
+  "hint_new_password": {
+    "en": "New password",
+    "bg": "Нова парола",
+    "ru": ""
+  },
+  "hint_confirm_new_password": {
+    "en": "Confirm new password",
+    "bg": "Потвърди новата парола",
+    "ru": ""
+  },
+  "title_connection_test": {
+    "en": "Connection Test",
+    "bg": "Тест на връзката",
+    "ru": ""
+  },
+  "label_websocket": {
+    "en": "WebSocket",
+    "bg": "WebSocket",
+    "ru": ""
+  },
+  "label_dns": {
+    "en": "DNS",
+    "bg": "DNS",
+    "ru": ""
+  },
+  "label_turn_relay": {
+    "en": "TURN relay",
+    "bg": "TURN relay",
+    "ru": ""
+  },
+  "label_peer": {
+    "en": "Peer",
+    "bg": "Peer",
+    "ru": ""
+  },
+  "title_background": {
+    "en": "Background",
+    "bg": "Фон",
+    "ru": ""
+  },
+  "bg_custom": {
+    "en": "Custom",
+    "bg": "Персонализиран",
+    "ru": ""
+  },
+  "toast_file_not_available": {
+    "en": "File not available",
+    "bg": "Файлът не е наличен",
+    "ru": ""
+  },
+  "toast_no_app_to_open_file": {
+    "en": "No app found to open this file",
+    "bg": "Няма приложение за отваряне на файла",
+    "ru": ""
+  },
+  "toast_file_no_longer_available": {
+    "en": "File no longer available",
+    "bg": "Файлът вече не е наличен",
+    "ru": ""
+  },
+  "toast_maps_not_available": {
+    "en": "Maps not available",
+    "bg": "Maps не е наличен",
+    "ru": ""
+  },
+  "toast_downloading": {
+    "en": "Downloading…",
+    "bg": "Изтегляне…",
+    "ru": ""
+  },
+  "toast_cannot_play_voice": {
+    "en": "Cannot play voice message",
+    "bg": "Гласовото съобщение не може да се пусне",
+    "ru": ""
+  },
+  "toast_location_error": {
+    "en": "Could not get location — check GPS",
+    "bg": "Местоположението не може да се получи — провери GPS",
+    "ru": ""
+  },
+  "menu_find_people": {
+    "en": "Find People",
+    "bg": "Намери хора",
+    "ru": ""
+  },
+  "menu_server_info": {
+    "en": "Server info",
+    "bg": "Информация за сървъра",
+    "ru": ""
+  },
+  "menu_voice_call": {
+    "en": "Voice call",
+    "bg": "Гласово повикване",
+    "ru": ""
+  },
+  "menu_video_call": {
+    "en": "Video call",
+    "bg": "Видео повикване",
+    "ru": ""
+  },
+  "menu_group_info": {
+    "en": "Group info",
+    "bg": "Информация за групата",
+    "ru": ""
+  },
+  "menu_leave_group": {
+    "en": "Leave group",
+    "bg": "Напусни група",
+    "ru": ""
+  },
+  "menu_delete_group": {
+    "en": "Delete group",
+    "bg": "Изтрий група",
+    "ru": ""
+  },
+  "auto_location_off": {
+    "en": "Auto-share location: OFF",
+    "bg": "Авт. местоположение: ИЗКЛ.",
+    "ru": ""
+  },
+  "auto_location_on": {
+    "en": "Auto-share location: ON",
+    "bg": "Авт. местоположение: ВКЛ.",
+    "ru": ""
+  },
+  "label_encrypted_message": {
+    "en": "[Encrypted message]",
+    "bg": "[Криптирано съобщение]",
+    "ru": ""
+  },
+  "menu_export_conversation": {
+    "en": "Export conversation",
+    "bg": "Експортирай разговор",
+    "ru": ""
+  },
+  "menu_change_background": {
+    "en": "Change background",
+    "bg": "Промени фона",
+    "ru": ""
+  },
+  "menu_new_todo_list": {
+    "en": "New todo list",
+    "bg": "Нов списък задачи",
+    "ru": ""
+  },
+  "menu_share_location": {
+    "en": "📍 Share my location",
+    "bg": "📍 Сподели местоположението ми",
+    "ru": ""
+  },
+  "menu_request_location": {
+    "en": "📍 Request location",
+    "bg": "📍 Поискай местоположение",
+    "ru": ""
+  },
+  "menu_new_group": {
+    "en": "New group",
+    "bg": "Нова група",
+    "ru": ""
+  },
+  "menu_admin_panel": {
+    "en": "Admin panel",
+    "bg": "Административен панел",
+    "ru": ""
+  },
+  "menu_reconnect": {
+    "en": "Reconnect",
+    "bg": "Свържи отново",
+    "ru": ""
+  },
+  "menu_settings": {
+    "en": "Settings",
+    "bg": "Настройки",
+    "ru": ""
+  },
+  "menu_set_my_nickname": {
+    "en": "Set my nickname",
+    "bg": "Задай моя псевдоним",
+    "ru": ""
+  },
+  "menu_set_my_avatar": {
+    "en": "Set my avatar",
+    "bg": "Задай моята снимка",
+    "ru": ""
+  },
+  "menu_view_crash_log": {
+    "en": "View crash log",
+    "bg": "Виж журнала за сривове",
+    "ru": ""
+  },
+  "menu_test_connection": {
+    "en": "Test connection",
+    "bg": "Тествай връзката",
+    "ru": ""
+  },
+  "menu_emergency_call": {
+    "en": "🚨 Emergency call",
+    "bg": "🚨 Спешно повикване",
+    "ru": ""
+  },
+  "menu_emergency_call_location": {
+    "en": "🆘 Emergency call + location",
+    "bg": "🆘 Спешно повикване + местоположение",
+    "ru": ""
+  },
+  "menu_set_nickname": {
+    "en": "Set nickname",
+    "bg": "Задай псевдоним",
+    "ru": ""
+  },
+  "group_info_change_photo": {
+    "en": "Change group photo",
+    "bg": "Промени снимката на групата",
+    "ru": ""
+  },
+  "group_info_set_personal_photo": {
+    "en": "Set my photo for this group",
+    "bg": "Задай личната ми снимка за тази група",
+    "ru": ""
+  },
+  "notif_group_update": {
+    "en": "Group update",
+    "bg": "Обновяване на група",
+    "ru": ""
+  },
+  "notif_connected": {
+    "en": "Connected",
+    "bg": "Свързан",
+    "ru": ""
+  },
+  "notif_channel_service": {
+    "en": "4shu",
+    "bg": "4shu",
+    "ru": ""
+  },
+  "notif_channel_messages": {
+    "en": "Messages",
+    "bg": "Съобщения",
+    "ru": ""
+  },
+  "notif_channel_messages_desc": {
+    "en": "Incoming message notifications",
+    "bg": "Известия за входящи съобщения",
+    "ru": ""
+  },
+  "notif_channel_calls": {
+    "en": "Calls",
+    "bg": "Повиквания",
+    "ru": ""
+  },
+  "connection_test_testing_with": {
+    "en": "Testing with %s",
+    "bg": "Тест с %s",
+    "ru": ""
+  },
+  "connection_test_peer_label": {
+    "en": "Server → %s",
+    "bg": "Сървър → %s",
+    "ru": ""
+  },
+  "permission_step_indicator": {
+    "en": "Step %1$d of %2$d",
+    "bg": "Стъпка %1$d от %2$d",
+    "ru": ""
+  },
+  "permission_notifications": {
+    "en": "Notifications",
+    "bg": "Известия",
+    "ru": ""
+  },
+  "permission_microphone": {
+    "en": "Microphone",
+    "bg": "Микрофон",
+    "ru": ""
+  },
+  "permission_camera": {
+    "en": "Camera",
+    "bg": "Камера",
+    "ru": ""
+  },
+  "permission_location": {
+    "en": "Location sharing (optional)",
+    "bg": "Споделяне на местоположение (по избор)",
+    "ru": ""
+  },
+  "permission_auto_location": {
+    "en": "Auto-share location",
+    "bg": "Авт. споделяне на местоположение",
+    "ru": ""
+  },
+  "permission_push": {
+    "en": "Push wake-up (optional)",
+    "bg": "Push събуждане (по избор)",
+    "ru": ""
+  },
+  "permission_battery": {
+    "en": "Battery Optimization",
+    "bg": "Оптимизация на батерията",
+    "ru": ""
+  },
+  "permission_overlay": {
+    "en": "Display Over Other Apps",
+    "bg": "Показване над другите приложения",
+    "ru": ""
+  },
+  "permission_fullscreen": {
+    "en": "Full Screen Calls",
+    "bg": "Повиквания на цял екран",
+    "ru": ""
+  },
+  "label_favorites": {
+    "en": "Favorites",
+    "bg": "Любими",
+    "ru": ""
+  },
+  "label_other_contacts": {
+    "en": "Other contacts",
+    "bg": "Други контакти",
+    "ru": ""
+  },
+  "label_my_profile": {
+    "en": "My Profile",
+    "bg": "Моят профил",
+    "ru": ""
+  },
+  "desc_my_profile": {
+    "en": "Edit your name, bio and contact info",
+    "bg": "Редактирай името, биото и контактната информация",
+    "ru": ""
+  },
+  "label_display_name": {
+    "en": "Display Name",
+    "bg": "Показвано име",
+    "ru": ""
+  },
+  "hint_display_name": {
+    "en": "Display name (optional)",
+    "bg": "Показвано име (по избор)",
+    "ru": ""
+  },
+  "label_about": {
+    "en": "About",
+    "bg": "За мен",
+    "ru": ""
+  },
+  "hint_bio": {
+    "en": "Bio (optional)",
+    "bg": "Био (по избор)",
+    "ru": ""
+  },
+  "label_contact_info": {
+    "en": "Contact Info",
+    "bg": "Контактна информация",
+    "ru": ""
+  },
+  "hint_email_address": {
+    "en": "Email address (optional)",
+    "bg": "Имейл адрес (по избор)",
+    "ru": ""
+  },
+  "hint_phone_number": {
+    "en": "Phone number (optional)",
+    "bg": "Телефонен номер (по избор)",
+    "ru": ""
+  },
+  "label_tap_to_change_photo": {
+    "en": "Tap to change photo",
+    "bg": "Докосни за промяна на снимката",
+    "ru": ""
+  },
+  "btn_save_profile": {
+    "en": "Save Profile",
+    "bg": "Запази профила",
+    "ru": ""
+  },
+  "toast_profile_saved": {
+    "en": "Profile saved",
+    "bg": "Профилът е запазен",
+    "ru": ""
+  },
+  "label_contact_requests": {
+    "en": "Contact Requests",
+    "bg": "Заявки за контакт",
+    "ru": ""
+  },
+  "title_contact_requests": {
+    "en": "Contact Requests",
+    "bg": "Заявки за контакт",
+    "ru": ""
+  },
+  "label_received": {
+    "en": "Received",
+    "bg": "Получени",
+    "ru": ""
+  },
+  "label_sent": {
+    "en": "Sent",
+    "bg": "Изпратени",
+    "ru": ""
+  },
+  "label_no_pending_requests": {
+    "en": "No pending requests",
+    "bg": "Няма чакащи заявки",
+    "ru": ""
+  },
+  "btn_cancel_request": {
+    "en": "Cancel",
+    "bg": "Отказ",
+    "ru": ""
+  },
+  "toast_request_accepted": {
+    "en": "Request accepted",
+    "bg": "Заявката е приета",
+    "ru": ""
+  },
+  "toast_request_declined": {
+    "en": "Request declined",
+    "bg": "Заявката е отхвърлена",
+    "ru": ""
+  },
+  "toast_request_cancelled": {
+    "en": "Request cancelled",
+    "bg": "Заявката е отменена",
+    "ru": ""
+  },
+  "label_privacy_settings": {
+    "en": "Privacy Settings",
+    "bg": "Настройки за поверителност",
+    "ru": ""
+  },
+  "title_privacy_settings": {
+    "en": "Privacy Settings",
+    "bg": "Настройки за поверителност",
+    "ru": ""
+  },
+  "label_discoverable": {
+    "en": "Discoverable",
+    "bg": "Видим за търсене",
+    "ru": ""
+  },
+  "desc_discoverable": {
+    "en": "Allow anyone to find you by username search.",
+    "bg": "Позволи на всеки да те намери по потребителско име.",
+    "ru": ""
+  },
+  "label_show_avatar": {
+    "en": "Show avatar to non-contacts",
+    "bg": "Показвай снимка на непознати",
+    "ru": ""
+  },
+  "desc_show_avatar": {
+    "en": "Show your profile photo to users outside your contacts.",
+    "bg": "Показвай профилната снимка на потребители извън контактите ти.",
+    "ru": ""
+  },
+  "label_show_nickname": {
+    "en": "Show nickname to non-contacts",
+    "bg": "Показвай псевдоним на непознати",
+    "ru": ""
+  },
+  "desc_show_nickname": {
+    "en": "Show your nickname to users outside your contacts.",
+    "bg": "Показвай псевдонима на потребители извън контактите ти.",
+    "ru": ""
+  },
+  "label_email_searchable": {
+    "en": "Email searchable",
+    "bg": "Търсим по имейл",
+    "ru": ""
+  },
+  "desc_email_searchable": {
+    "en": "Allow finding your account by email address.",
+    "bg": "Позволи намирането на профила ти по имейл адрес.",
+    "ru": ""
+  },
+  "label_phone_searchable": {
+    "en": "Phone searchable",
+    "bg": "Търсим по телефон",
+    "ru": ""
+  },
+  "desc_phone_searchable": {
+    "en": "Allow finding your account by phone number.",
+    "bg": "Позволи намирането на профила ти по телефонен номер.",
+    "ru": ""
+  },
+  "toast_privacy_saved": {
+    "en": "Privacy settings saved",
+    "bg": "Настройките за поверителност са запазени",
+    "ru": ""
+  },
+  "label_account_recovery": {
+    "en": "Account Recovery",
+    "bg": "Възстановяване на акаунт",
+    "ru": ""
+  },
+  "label_secret_question_set": {
+    "en": "Secret question is set",
+    "bg": "Тайният въпрос е зададен",
+    "ru": ""
+  },
+  "label_secret_question_not_set": {
+    "en": "No secret question set",
+    "bg": "Няма зададен таен въпрос",
+    "ru": ""
+  },
+  "btn_set_secret_question": {
+    "en": "Set Secret Question",
+    "bg": "Задай таен въпрос",
+    "ru": ""
+  },
+  "toast_secret_question_saved": {
+    "en": "Secret question saved",
+    "bg": "Тайният въпрос е запазен",
+    "ru": ""
+  },
+  "hint_secret_question": {
+    "en": "Your secret question…",
+    "bg": "Твоят таен въпрос…",
+    "ru": ""
+  },
+  "hint_secret_answer": {
+    "en": "Your answer…",
+    "bg": "Твоят отговор…",
+    "ru": ""
+  },
+  "label_blocked_users": {
+    "en": "Blocked Users",
+    "bg": "Блокирани потребители",
+    "ru": ""
+  },
+  "title_blocked_users": {
+    "en": "Blocked Users",
+    "bg": "Блокирани потребители",
+    "ru": ""
+  },
+  "label_no_blocked_users": {
+    "en": "No blocked users",
+    "bg": "Няма блокирани потребители",
+    "ru": ""
+  },
+  "btn_unblock": {
+    "en": "Unblock",
+    "bg": "Деблокирай",
+    "ru": ""
+  },
+  "toast_unblocked": {
+    "en": "%s unblocked",
+    "bg": "%s е деблокиран",
+    "ru": ""
+  },
+  "admin_server_info_format": {
+    "en": "Disk:\\n%1$s\\n\\nFiles: %2$d (%3$s)\\nHistory files: %4$d",
+    "bg": "Диск:\\n%1$s\\n\\nФайлове: %2$d (%3$s)\\nФайлове с история: %4$d",
+    "ru": ""
+  },
+  "label_allow_emergency_calls": {
+    "en": "Allow emergency calls",
+    "bg": "Позволи спешни повиквания",
+    "ru": ""
+  },
+  "desc_allow_emergency_calls": {
+    "en": "Can reach you in an emergency regardless of other settings",
+    "bg": "Може да те достигне при спешност независимо от другите настройки",
+    "ru": ""
+  }
 }

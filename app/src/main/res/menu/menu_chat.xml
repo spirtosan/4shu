@@ -58,11 +58,6 @@
         app:showAsAction="never" />
 
     <item
-        android:id="@+id/action_load_history"
-        android:title="@string/menu_load_history"
-        app:showAsAction="never" />
-
-    <item
         android:id="@+id/action_auto_location"
         android:title="@string/auto_location_off"
         android:orderInCategory="150"

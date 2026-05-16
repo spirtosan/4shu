@@ -395,30 +395,6 @@ class FshuService : Service() {
 
                     val me = Prefs.getUsername(this@FshuService)
 
-                    // On every auth-ok, request history per peer since the last message we have.
-                    val peers = try {
-                        com.google.gson.JsonParser.parseString(Prefs.getCachedUsers(this@FshuService)).asJsonArray
-                            .mapNotNull { it.asJsonObject.get("username")?.asString }
-                            .filter { it != me && !it.startsWith("_") }
-                    } catch (_: Exception) { emptyList() }
-                    for (peer in peers) {
-                        val since = db.messageDao().getLastMessage(peer, me)?.timestamp ?: continue
-                        WebSocketClient.send(mapOf(
-                            "type" to "history-request", "from" to me, "to" to peer, "since" to since
-                        ))
-                    }
-
-                    // Request missed group messages since the last stored message per group.
-                    val groups = db.groupDao().getAllGroupsDirect()
-                    for (group in groups) {
-                        val since = db.messageDao().getLastGroupMessage(group.groupId)?.timestamp ?: continue
-                        WebSocketClient.send(mapOf(
-                            "type"    to "group-history-request",
-                            "groupId" to group.groupId,
-                            "since"   to since
-                        ))
-                    }
-
                     // Request all lists we may have missed while offline.
                     val versions = db.messageDao().getAllLists()
                         .filter { it.listId != null && it.listVersion != null }
@@ -478,7 +454,6 @@ class FshuService : Service() {
             "missed-call"             -> persistMissedCall(json)
             "list-state"              -> persistListState(json)
             "list-ack"                -> handleListAck(json)
-            "history-response"        -> persistHistoryResponse(json)
             "public-key-response"     -> {
                 val uname  = json.get("username")?.asString ?: return
                 val pubHex = json.get("publicKey")?.asString ?: return
@@ -527,7 +502,6 @@ class FshuService : Service() {
             "group-key-update"        -> handleGroupKeyUpdate(json)
             "group-key-needed"        -> handleGroupKeyNeeded(json)
             "mute-updated"            -> handleMuteUpdated(json)
-            "group-history-response"  -> handleGroupHistoryResponse(json)
             "group-avatar"            -> handleGroupAvatar(json)
             "group-error"             -> MessageBus.emit(json)
             "ack"                     -> handleAck(json)
@@ -1550,63 +1524,6 @@ class FshuService : Service() {
         scheduleStep()
     }
 
-    private suspend fun persistHistoryResponse(json: JsonObject) {
-        val messagesEl = json.getAsJsonArray("messages") ?: return
-        val me = Prefs.getUsername(this)
-        val responsePeer = json.get("from")?.asString ?: ""
-        var inserted = 0
-
-        for (el in messagesEl) {
-            try {
-                val obj = el.asJsonObject
-                // Safe msgId: JsonNull.asLong() throws, so guard explicitly
-                val msgId = obj.get("messageId")
-                    ?.takeIf { !it.isJsonNull }?.asDouble?.toLong() ?: 0L
-                val from = obj.get("from")?.asString ?: continue
-                val to   = obj.get("to")?.asString   ?: continue
-                val rawContent = obj.get("content")?.asString ?: continue
-                val ts   = obj.get("timestamp")?.asDouble?.toLong() ?: continue
-                val replyToId      = obj.get("replyToId")?.takeIf { !it.isJsonNull }?.asDouble?.toLong()
-                val replyToSender  = obj.get("replyToSender")?.takeIf { !it.isJsonNull }?.asString?.takeIf { it.isNotEmpty() }
-                val replyToContent = obj.get("replyToContent")?.takeIf { !it.isJsonNull }?.asString?.takeIf { it.isNotEmpty() }
-
-                // Deduplication
-                val alreadyExists = if (from == me) {
-                    db.messageDao().getSentNear(to, ts - 1000, ts + 1000) != null
-                } else {
-                    msgId > 0 && db.messageDao().getByRemoteId(msgId, from) != null
-                }
-                if (alreadyExists) continue
-
-                val peer    = if (from == me) to else from
-                val histKey = CryptoHelper.getKey(this, peer)
-                val content = if (histKey != null && msgId > 0) {
-                    CryptoHelper.decrypt(histKey, msgId, ts, rawContent) ?: rawContent
-                } else rawContent
-
-                db.messageDao().insert(
-                    Message(
-                        from = from, to = to, content = content, type = "text",
-                        timestamp = ts, isSent = from == me, status = "READ",
-                        remoteId = msgId, replyToId = replyToId,
-                        replyToSender = replyToSender, replyToContent = replyToContent
-                    )
-                )
-                inserted++
-            } catch (e: Exception) {
-                Log.e("FshuService", "Failed to persist history message", e)
-            }
-        }
-
-        // Notify UI so ChatActivity can show feedback and scroll to top
-        val event = com.google.gson.JsonObject().apply {
-            addProperty("type", "history-loaded")
-            addProperty("peer", responsePeer)
-            addProperty("count", inserted)
-        }
-        MessageBus.tryEmit(event)
-    }
-
     // -------------------------------------------------------------------------
     // Group handlers (Phase 3b)
     // -------------------------------------------------------------------------
@@ -1868,49 +1785,6 @@ class FshuService : Service() {
                 Log.w("FshuService", "handleGroupKeyRegenerate: encrypt failed for ${member.username}: ${e.message}")
             }
         }
-    }
-
-    private suspend fun handleGroupHistoryResponse(json: JsonObject) {
-        val groupId    = json.get("groupId")?.asString ?: return
-        val messagesEl = json.getAsJsonArray("messages") ?: return
-        val me         = Prefs.getUsername(this)
-        val groupKeyHex = db.groupDao().getById(groupId)?.groupKey ?: ""
-        var inserted = 0
-
-        for (el in messagesEl) {
-            try {
-                val obj         = el.asJsonObject
-                val serverMsgId = obj.get("messageId")?.takeIf { !it.isJsonNull }?.asString ?: continue
-                val from        = obj.get("from")?.asString ?: continue
-                val rawContent  = obj.get("content")?.asString ?: continue
-                val ts          = obj.get("timestamp")?.asDouble?.toLong() ?: continue
-
-                if (db.messageDao().getByTempId(serverMsgId) != null) continue
-
-                val content = if (groupKeyHex.isNotEmpty()) {
-                    val key = with(EcdhHelper) { groupKeyHex.fromHex() }
-                    CryptoHelper.decryptGroupMessage(key, rawContent) ?: rawContent
-                } else rawContent
-
-                db.messageDao().insert(
-                    Message(
-                        from = from, to = "", content = content, type = "text",
-                        timestamp = ts, isSent = from == me, status = "READ",
-                        tempId = serverMsgId, groupId = groupId
-                    )
-                )
-                inserted++
-            } catch (e: Exception) {
-                Log.e("FshuService", "Failed to persist group history message", e)
-            }
-        }
-
-        val event = com.google.gson.JsonObject().apply {
-            addProperty("type", "history-loaded")
-            addProperty("peer", groupId)
-            addProperty("count", inserted)
-        }
-        MessageBus.tryEmit(event)
     }
 
     private suspend fun handleGroupAvatar(json: JsonObject) {

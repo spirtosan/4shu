@@ -281,9 +281,6 @@ class SettingsActivity : AppCompatActivity() {
             startActivity(Intent(this, BlockListActivity::class.java))
         }
 
-        // History sync
-        binding.rowSyncHistory.setOnClickListener { showGlobalHistoryDialog() }
-
         // Change password
         binding.tvChangePassword.setOnClickListener {
             ChangePasswordDialog().show(supportFragmentManager, "change_password")
@@ -352,50 +349,6 @@ class SettingsActivity : AppCompatActivity() {
                 }
             }
         }
-    }
-
-    private fun showGlobalHistoryDialog() {
-        val options = arrayOf(
-            getString(R.string.history_option_7_days),
-            getString(R.string.history_option_30_days),
-            getString(R.string.history_option_90_days),
-            getString(R.string.history_option_custom)
-        )
-        AlertDialog.Builder(this)
-            .setTitle(getString(R.string.dialog_sync_history_title))
-            .setItems(options) { _, which ->
-                val days = when (which) { 0 -> 7; 1 -> 30; 2 -> 90; else -> null }
-                if (days != null) syncHistoryForAllPeers(days)
-                else {
-                    val et = EditText(this).apply { inputType = InputType.TYPE_CLASS_NUMBER; hint = getString(R.string.hint_days) }
-                    val pad = (16 * resources.displayMetrics.density).toInt()
-                    val wrap = FrameLayout(this).apply { setPadding(pad, 0, pad, 0); addView(et) }
-                    AlertDialog.Builder(this)
-                        .setTitle(getString(R.string.dialog_custom_period_title))
-                        .setView(wrap)
-                        .setPositiveButton(getString(R.string.btn_sync)) { _, _ ->
-                            syncHistoryForAllPeers(et.text.toString().toIntOrNull()?.coerceIn(1, 90) ?: 30)
-                        }
-                        .setNegativeButton(getString(R.string.btn_cancel), null).show()
-                }
-            }
-            .show()
-    }
-
-    private fun syncHistoryForAllPeers(days: Int) {
-        val me = Prefs.getUsername(this)
-        val since = System.currentTimeMillis() - days * 86_400_000L
-        val peers = try {
-            JsonParser.parseString(Prefs.getCachedUsers(this)).asJsonArray
-                .mapNotNull { it.asJsonObject.get("username")?.asString }
-                .filter { it != me && !it.startsWith("_") }
-        } catch (e: Exception) { emptyList() }
-        if (peers.isEmpty()) { Toast.makeText(this, getString(R.string.toast_no_known_peers), Toast.LENGTH_SHORT).show(); return }
-        Toast.makeText(this, getString(R.string.toast_syncing_history), Toast.LENGTH_SHORT).show()
-        for (peer in peers) {
-            WebSocketClient.send(mapOf("type" to "history-request", "from" to me, "to" to peer, "since" to since, "days" to days))
-        }
-        Toast.makeText(this, getString(R.string.toast_history_requests_sent), Toast.LENGTH_SHORT).show()
     }
 
     override fun onResume() {

@@ -516,16 +516,6 @@ class ChatActivity : AppCompatActivity() {
         lifecycleScope.launch {
             MessageBus.events.collect { json ->
                 when (json.get("type")?.asString) {
-                    "history-loaded" -> {
-                        val peer = json.get("peer")?.asString ?: ""
-                        if (peer == this@ChatActivity.peer) {
-                            val count = json.get("count")?.asInt ?: 0
-                            if (count > 0) runOnUiThread {
-                                Toast.makeText(this@ChatActivity, resources.getQuantityString(R.plurals.toast_loaded_messages, count, count), Toast.LENGTH_SHORT).show()
-                                binding.rvMessages.scrollToPosition(0)
-                            }
-                        }
-                    }
                     "avatar-update" -> {
                         val uname = json.get("username")?.asString
                         if (uname == peer) runOnUiThread { loadPeerAvatar() }
@@ -712,7 +702,6 @@ class ChatActivity : AppCompatActivity() {
         menu.findItem(R.id.action_new_todo)?.isVisible = !isGroupChat
         menu.findItem(R.id.action_share_location)?.isVisible = !isGroupChat
         menu.findItem(R.id.action_request_location)?.isVisible = !isGroupChat
-        menu.findItem(R.id.action_load_history)?.isVisible = !isGroupChat
         menu.findItem(R.id.action_auto_location)?.apply {
             isVisible = !isGroupChat
             title = if (isAutoLocationEnabled)
@@ -801,10 +790,6 @@ class ChatActivity : AppCompatActivity() {
             }
             R.id.action_request_location -> {
                 vm.sendLocationRequest(peer)
-                return true
-            }
-            R.id.action_load_history -> {
-                showHistoryDialog()
                 return true
             }
             R.id.action_auto_location -> {
@@ -962,40 +947,6 @@ class ChatActivity : AppCompatActivity() {
             @Suppress("DEPRECATION")
             super.onBackPressed()
         }
-    }
-
-    private fun showHistoryDialog() {
-        val options = arrayOf(getString(R.string.history_option_7_days), getString(R.string.history_option_30_days), getString(R.string.history_option_90_days), getString(R.string.history_option_custom))
-        AlertDialog.Builder(this)
-            .setTitle(getString(R.string.dialog_load_history_title))
-            .setItems(options) { _, which ->
-                when (which) {
-                    0 -> vm.requestHistory(peer, 7)
-                    1 -> vm.requestHistory(peer, 30)
-                    2 -> vm.requestHistory(peer, 90)
-                    3 -> {
-                        val et = EditText(this).apply {
-                            inputType = InputType.TYPE_CLASS_NUMBER
-                            hint = getString(R.string.hint_days)
-                        }
-                        val pad = (16 * resources.displayMetrics.density).toInt()
-                        val wrap = android.widget.FrameLayout(this).apply {
-                            setPadding(pad, 0, pad, 0)
-                            addView(et)
-                        }
-                        AlertDialog.Builder(this)
-                            .setTitle(getString(R.string.dialog_custom_period_title))
-                            .setView(wrap)
-                            .setPositiveButton(getString(R.string.btn_load)) { _, _ ->
-                                val days = et.text.toString().toIntOrNull()?.coerceIn(1, 90) ?: 7
-                                vm.requestHistory(peer, days)
-                            }
-                            .setNegativeButton(getString(R.string.btn_cancel), null)
-                            .show()
-                    }
-                }
-            }
-            .show()
     }
 
     private fun refreshNicknameMap() {
