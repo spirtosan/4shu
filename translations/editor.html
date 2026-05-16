@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>4shu String Editor</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #141928;
+    color: #ffffff;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 14px;
+    min-height: 100vh;
+  }
+
+  /* ── Top bar ── */
+  #topbar {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: #0d1120;
+    border-bottom: 2px solid #E8711A;
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  #topbar h1 {
+    font-size: 16px;
+    font-weight: 700;
+    color: #E8711A;
+    letter-spacing: 0.04em;
+    margin-right: 4px;
+  }
+
+  #lang-select {
+    background: #1e2740;
+    color: #fff;
+    border: 1px solid #2e3a55;
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 13px;
+    cursor: pointer;
+    outline: none;
+  }
+  #lang-select:focus { border-color: #E8711A; }
+
+  .btn {
+    background: #1e2740;
+    color: #fff;
+    border: 1px solid #2e3a55;
+    border-radius: 6px;
+    padding: 6px 14px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .btn:hover { background: #2a3454; border-color: #E8711A; }
+  .btn-primary { background: #E8711A; border-color: #E8711A; color: #fff; font-weight: 600; }
+  .btn-primary:hover { background: #f07f30; border-color: #f07f30; }
+
+  #file-input { display: none; }
+
+  /* ── Subbar ── */
+  #subbar {
+    background: #161d2e;
+    border-bottom: 1px solid #1e2740;
+    padding: 8px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  #filter {
+    flex: 1;
+    min-width: 200px;
+    max-width: 400px;
+    background: #1e2740;
+    color: #fff;
+    border: 1px solid #2e3a55;
+    border-radius: 6px;
+    padding: 6px 10px 6px 28px;
+    font-size: 13px;
+    outline: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%236b7a99' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: 8px center;
+  }
+  #filter:focus { border-color: #E8711A; }
+  #filter::placeholder { color: #4a5570; }
+
+  #counter {
+    font-size: 12px;
+    color: #8896b3;
+    margin-left: auto;
+    white-space: nowrap;
+  }
+  #counter .count-done { color: #4caf7d; font-weight: 600; }
+  #counter .count-miss { color: #e07060; font-weight: 600; }
+
+  /* ── Table ── */
+  #table-wrap {
+    padding: 0 16px 32px;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 12px;
+  }
+
+  thead th {
+    background: #0d1120;
+    color: #8896b3;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 8px 12px;
+    text-align: left;
+    border-bottom: 1px solid #1e2740;
+    position: sticky;
+    top: 56px;
+    z-index: 50;
+  }
+
+  tbody tr {
+    border-bottom: 1px solid #1a2035;
+    transition: background 0.1s;
+  }
+  tbody tr:hover { background: #1a2438; }
+  tbody tr.missing { background: rgba(220, 180, 20, 0.04); }
+  tbody tr.missing:hover { background: rgba(220, 180, 20, 0.08); }
+
+  td {
+    padding: 8px 12px;
+    vertical-align: middle;
+  }
+
+  .cell-left {
+    width: 45%;
+    min-width: 200px;
+  }
+
+  .key-name {
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-size: 12px;
+    color: #E8711A;
+    margin-bottom: 3px;
+  }
+
+  .en-val {
+    color: #a0aec0;
+    font-size: 13px;
+    line-height: 1.4;
+    word-break: break-word;
+  }
+
+  .cell-right { width: 55%; }
+
+  .translation-input {
+    width: 100%;
+    background: #1e2740;
+    color: #fff;
+    border: 1px solid #2a3454;
+    border-radius: 5px;
+    padding: 6px 10px;
+    font-size: 13px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .translation-input:focus { border-color: #E8711A; background: #202b46; }
+  .translation-input.filled { border-color: #2a4a35; }
+  .translation-input::placeholder { color: #3a4560; }
+
+  .readonly-val {
+    color: #8896b3;
+    font-size: 13px;
+  }
+
+  /* missing indicator dot */
+  .missing-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #dcb414;
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+
+  #no-data {
+    text-align: center;
+    padding: 60px 20px;
+    color: #4a5570;
+  }
+  #no-data p { margin-top: 8px; font-size: 13px; }
+
+  /* ── Status flash ── */
+  #status {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: #E8711A;
+    color: #fff;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+  }
+  #status.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<div id="topbar">
+  <h1>4shu String Editor</h1>
+  <select id="lang-select" onchange="switchLang()">
+    <option value="en">English (ref)</option>
+    <option value="bg" selected>Bulgarian</option>
+    <option value="ru">Russian</option>
+  </select>
+  <input type="file" id="file-input" accept=".json" onchange="loadFile(event)">
+  <button class="btn" onclick="document.getElementById('file-input').click()">Load JSON</button>
+  <button class="btn btn-primary" onclick="saveFile()">Save JSON</button>
+</div>
+
+<div id="subbar">
+  <input type="text" id="filter" placeholder="Filter by key or English value…" oninput="onFilter()">
+  <div id="counter">Load a JSON file to begin</div>
+</div>
+
+<div id="table-wrap">
+  <div id="no-data">
+    <div style="font-size:40px">📂</div>
+    <p>Click <strong>Load JSON</strong> to open strings_master.json</p>
+  </div>
+  <table id="main-table" style="display:none">
+    <thead>
+      <tr>
+        <th>Key / English</th>
+        <th id="th-lang">Translation</th>
+      </tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+  </table>
+</div>
+
+<div id="status"></div>
+
+<script>
+  let data = {};
+  let currentLang = 'bg';
+
+  const langLabels = { en: 'English (ref)', bg: 'Bulgarian', ru: 'Russian' };
+
+  // ── Load ──────────────────────────────────────────────────────────────
+  function loadFile(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = evt => {
+      try {
+        data = JSON.parse(evt.target.result);
+        document.getElementById('main-table').style.display = '';
+        document.getElementById('no-data').style.display = 'none';
+        render();
+        flash('Loaded ' + Object.keys(data).length + ' strings');
+      } catch (err) {
+        alert('Invalid JSON: ' + err.message);
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  }
+
+  // ── Save ──────────────────────────────────────────────────────────────
+  function saveFile() {
+    if (!Object.keys(data).length) { flash('Nothing to save'); return; }
+    saveCurrent();
+    const json = JSON.stringify(data, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'strings_master.json';
+    a.click();
+    URL.revokeObjectURL(url);
+    flash('Saved');
+  }
+
+  // ── Language switch ───────────────────────────────────────────────────
+  function switchLang() {
+    saveCurrent();
+    currentLang = document.getElementById('lang-select').value;
+    document.getElementById('th-lang').textContent = langLabels[currentLang];
+    render();
+  }
+
+  // ── Filter ────────────────────────────────────────────────────────────
+  function onFilter() {
+    saveCurrent();
+    render();
+  }
+
+  // ── Save current inputs back into data ────────────────────────────────
+  function saveCurrent() {
+    document.querySelectorAll('.translation-input').forEach(inp => {
+      const key = inp.dataset.key;
+      if (data[key]) data[key][currentLang] = inp.value;
+    });
+  }
+
+  // ── Render ────────────────────────────────────────────────────────────
+  function render() {
+    const filter = document.getElementById('filter').value.toLowerCase();
+    const tbody = document.getElementById('tbody');
+    tbody.innerHTML = '';
+
+    const keys = Object.keys(data);
+    const total = keys.length;
+    let translatedTotal = 0;
+    let visibleCount = 0;
+    let visibleTranslated = 0;
+    const isFiltered = filter.length > 0;
+
+    // Count total translated first (regardless of filter)
+    if (currentLang !== 'en') {
+      for (const k of keys) {
+        if ((data[k][currentLang] || '') !== '') translatedTotal++;
+      }
+    } else {
+      translatedTotal = total;
+    }
+
+    const frag = document.createDocumentFragment();
+
+    for (const key of keys) {
+      const enVal = data[key].en || '';
+      const transVal = data[key][currentLang] || '';
+
+      if (isFiltered) {
+        const keyL = key.toLowerCase();
+        const enL = enVal.toLowerCase();
+        if (!keyL.includes(filter) && !enL.includes(filter)) continue;
+      }
+
+      visibleCount++;
+      const isFilled = transVal !== '';
+      if (isFilled) visibleTranslated++;
+
+      const tr = document.createElement('tr');
+      const isMissing = currentLang !== 'en' && !isFilled;
+      if (isMissing) tr.classList.add('missing');
+
+      // Left cell: key + English
+      const tdL = document.createElement('td');
+      tdL.className = 'cell-left';
+      const keyDiv = document.createElement('div');
+      keyDiv.className = 'key-name';
+      if (isMissing) {
+        const dot = document.createElement('span');
+        dot.className = 'missing-dot';
+        keyDiv.appendChild(dot);
+      }
+      keyDiv.appendChild(document.createTextNode(key));
+      const enDiv = document.createElement('div');
+      enDiv.className = 'en-val';
+      enDiv.textContent = enVal;
+      tdL.appendChild(keyDiv);
+      tdL.appendChild(enDiv);
+
+      // Right cell
+      const tdR = document.createElement('td');
+      tdR.className = 'cell-right';
+
+      if (currentLang === 'en') {
+        const span = document.createElement('span');
+        span.className = 'readonly-val';
+        span.textContent = enVal;
+        tdR.appendChild(span);
+      } else {
+        const inp = document.createElement('input');
+        inp.type = 'text';
+        inp.className = 'translation-input' + (isFilled ? ' filled' : '');
+        inp.dataset.key = key;
+        inp.value = transVal;
+        const shortEn = enVal.length > 60 ? enVal.substring(0, 60) + '…' : enVal;
+        inp.placeholder = shortEn;
+        inp.addEventListener('input', () => {
+          const filled = inp.value !== '';
+          inp.classList.toggle('filled', filled);
+          tr.classList.toggle('missing', !filled);
+          updateCounter();
+        });
+        tdR.appendChild(inp);
+      }
+
+      tr.appendChild(tdL);
+      tr.appendChild(tdR);
+      frag.appendChild(tr);
+    }
+
+    tbody.appendChild(frag);
+    updateCounter(total, translatedTotal, visibleCount, visibleTranslated, isFiltered);
+  }
+
+  function updateCounter(total, translatedTotal, visibleCount, visibleTranslated, isFiltered) {
+    // Called with args on full render, or without args for live-update
+    if (total === undefined) {
+      // recalculate from DOM
+      const inputs = document.querySelectorAll('.translation-input');
+      let filled = 0;
+      inputs.forEach(i => { if (i.value !== '') filled++; });
+      const allKeys = Object.keys(data);
+      const allTotal = allKeys.length;
+      let allFilled = 0;
+      if (currentLang !== 'en') {
+        saveCurrent();
+        for (const k of allKeys) if ((data[k][currentLang] || '') !== '') allFilled++;
+      } else {
+        allFilled = allTotal;
+      }
+      setCounterHTML(allTotal, allFilled, inputs.length, filled, document.getElementById('filter').value.length > 0);
+      return;
+    }
+    setCounterHTML(total, translatedTotal, visibleCount, visibleTranslated, isFiltered);
+  }
+
+  function setCounterHTML(total, translatedTotal, visibleCount, visibleTranslated, isFiltered) {
+    const missing = total - translatedTotal;
+    let html = `<span class="count-done">${translatedTotal}</span> / ${total} translated`;
+    if (missing > 0) html += ` &nbsp;·&nbsp; <span class="count-miss">${missing} missing</span>`;
+    if (isFiltered) html += ` &nbsp;·&nbsp; ${visibleCount} visible`;
+    document.getElementById('counter').innerHTML = html;
+  }
+
+  // ── Flash message ─────────────────────────────────────────────────────
+  function flash(msg) {
+    const el = document.getElementById('status');
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(el._t);
+    el._t = setTimeout(() => el.classList.remove('show'), 2000);
+  }
+
+  // Init lang header
+  document.getElementById('th-lang').textContent = langLabels[currentLang];
+</script>
+</body>
+</html>

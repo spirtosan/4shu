@@ -1,12 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-
-    <!-- App -->
     <string name="app_name">4shu β</string>
     <string name="app_lock_title">4shu</string>
     <string name="app_version_format">Fshu v%1$s (build %2$s)</string>
-
-    <!-- Common buttons -->
     <string name="btn_ok">OK</string>
     <string name="btn_cancel">Cancel</string>
     <string name="btn_save">Save</string>
@@ -35,19 +31,13 @@
     <string name="btn_reset_to_default">Reset to default</string>
     <string name="btn_add_item">+ Add item</string>
     <string name="btn_row_delete">×</string>
-
-    <!-- Common status -->
     <string name="toast_done">Done</string>
     <string name="toast_error">Error</string>
     <string name="toast_no_response">No response</string>
     <string name="label_loading">Loading…</string>
-
-    <!-- Login -->
     <string name="hint_username">Username</string>
     <string name="hint_password">Password</string>
     <string name="hint_server_url">Server URL (wss://…)</string>
-
-    <!-- Main / Contact list -->
     <string name="toast_location_permission_required">Location permission required for this feature</string>
     <string name="toast_avatar_upload_failed">Failed to upload avatar</string>
     <string name="toast_reconnecting">Reconnecting…</string>
@@ -73,17 +63,11 @@
     <string name="toast_group_name_required">Group name required</string>
     <string name="toast_select_at_least_one_member">Select at least one member</string>
     <string name="toast_group_created">Group \"%s\" created</string>
-
-    <!-- Chat -->
     <string name="hint_message">Message</string>
     <string name="label_0_selected">0 selected</string>
     <string name="label_n_selected">%d selected</string>
     <string name="label_voice_recording">🎤 0:00</string>
     <string name="typing_indicator">typing…</string>
-    <plurals name="group_members_subtitle">
-        <item quantity="one">1 member</item>
-        <item quantity="other">%d members</item>
-    </plurals>
     <string name="toast_group_photo_updated">Group photo updated</string>
     <string name="toast_failed_to_upload_photo">Failed to upload photo</string>
     <string name="toast_failed_to_set_personal_photo">Failed to set personal photo</string>
@@ -106,35 +90,11 @@
     <string name="export_in_progress">Exporting your data…</string>
     <string name="export_share_title">Save export file</string>
     <string name="export_failed">Export failed. Please try again.</string>
-
-    <plurals name="toast_messages_copied">
-        <item quantity="one">1 message copied</item>
-        <item quantity="other">%d messages copied</item>
-    </plurals>
-
-    <plurals name="toast_loaded_messages">
-        <item quantity="one">Loaded 1 message</item>
-        <item quantity="other">Loaded %d messages</item>
-    </plurals>
-
-    <!-- Chat — edit / react / delete -->
     <string name="dialog_edit_message_title">Edit message</string>
     <string name="dialog_react_title">React</string>
     <string name="dialog_delete_message_title">Delete message?</string>
     <string name="delete_option_for_everyone">Delete for everyone</string>
     <string name="delete_option_for_me">Delete for me only</string>
-
-    <plurals name="dialog_delete_messages_title">
-        <item quantity="one">Delete 1 message?</item>
-        <item quantity="other">Delete %d messages?</item>
-    </plurals>
-
-    <plurals name="dialog_delete_messages_body">
-        <item quantity="one">This will delete the selected message from your device only.</item>
-        <item quantity="other">This will delete the selected messages from your device only.</item>
-    </plurals>
-
-    <!-- Chat — history -->
     <string name="dialog_load_history_title">Load history</string>
     <string name="history_option_7_days">Last 7 days</string>
     <string name="history_option_30_days">Last 30 days</string>
@@ -142,20 +102,14 @@
     <string name="history_option_custom">Custom…</string>
     <string name="dialog_custom_period_title">Custom period</string>
     <string name="hint_days">Days (1–90)</string>
-
-    <!-- Chat — todo list -->
     <string name="label_todo_list">☑ Todo list</string>
     <string name="dialog_new_todo_title">New todo list</string>
     <string name="dialog_edit_todo_title">Edit todo list</string>
-
-    <!-- Chat — group events -->
     <string name="dialog_removed_from_group_title">Removed from group</string>
     <string name="dialog_removed_from_group_message">You were removed from this group by an admin.</string>
     <string name="dialog_group_deleted_title">Group deleted</string>
     <string name="dialog_group_deleted_message">This group was deleted.</string>
     <string name="toast_you_left_group">You left the group</string>
-
-    <!-- Chat — group info dialog -->
     <string name="dialog_remove_member_title">Remove %s?</string>
     <string name="dialog_delete_group_title">Delete \"%s\"?</string>
     <string name="dialog_delete_group_message">This will delete the group for all members.</string>
@@ -173,22 +127,16 @@
     <string name="error_owner_cannot_leave">You are the group owner. Transfer ownership or delete the group first.</string>
     <string name="error_generic">An error occurred</string>
     <string name="error_username_empty">Username cannot be empty</string>
-
-    <!-- Location bubbles -->
     <string name="label_location_shared_auto">📍 Location shared automatically</string>
     <string name="label_location_requested_by">📍 %s requested your location</string>
     <string name="label_location_coords">📍 %s</string>
     <string name="label_location_fallback">📍 Location</string>
     <string name="location_accuracy_format">±%.0fm</string>
     <string name="btn_open_in_maps">Open in Maps</string>
-
-    <!-- Call -->
     <string name="label_emergency_call_banner">🚨 EMERGENCY CALL</string>
     <string name="btn_silence">Silence</string>
     <string name="btn_decline">Decline</string>
     <string name="btn_accept">Accept</string>
-
-    <!-- Settings -->
     <string name="label_server_url">Server URL</string>
     <string name="label_device_name">Device name</string>
     <string name="label_location_sharing">📍 Location sharing</string>
@@ -232,8 +180,6 @@
     <string name="toast_no_known_peers">No known peers</string>
     <string name="toast_syncing_history">Syncing history…</string>
     <string name="toast_history_requests_sent">History requests sent</string>
-
-    <!-- Admin Panel -->
     <string name="title_admin_panel">Admin Panel</string>
     <string name="label_access_denied">Access denied</string>
     <string name="dialog_server_info_title">Server info</string>
@@ -251,8 +197,6 @@
     <string name="item_trust_default">contact</string>
     <string name="btn_reset_password">Reset password</string>
     <string name="btn_trust">Trust</string>
-
-    <!-- Change Password -->
     <string name="dialog_change_password_title">Change password</string>
     <string name="toast_all_fields_required">All fields required</string>
     <string name="toast_passwords_dont_match">Passwords don\'t match</string>
@@ -260,19 +204,13 @@
     <string name="hint_current_password">Current password</string>
     <string name="hint_new_password">New password</string>
     <string name="hint_confirm_new_password">Confirm new password</string>
-
-    <!-- Connection Test -->
     <string name="title_connection_test">Connection Test</string>
     <string name="label_websocket">WebSocket</string>
     <string name="label_dns">DNS</string>
     <string name="label_turn_relay">TURN relay</string>
     <string name="label_peer">Peer</string>
-
-    <!-- Background Picker -->
     <string name="title_background">Background</string>
     <string name="bg_custom">Custom</string>
-
-    <!-- Misc / Errors -->
     <string name="toast_file_not_available">File not available</string>
     <string name="toast_no_app_to_open_file">No app found to open this file</string>
     <string name="toast_file_no_longer_available">File no longer available</string>
@@ -280,11 +218,7 @@
     <string name="toast_downloading">Downloading…</string>
     <string name="toast_cannot_play_voice">Cannot play voice message</string>
     <string name="toast_location_error">Could not get location — check GPS</string>
-
-    <!-- Find People / Search -->
     <string name="menu_find_people">Find People</string>
-
-    <!-- Menu items -->
     <string name="menu_server_info">Server info</string>
     <string name="menu_voice_call">Voice call</string>
     <string name="menu_video_call">Video call</string>
@@ -311,24 +245,16 @@
     <string name="menu_emergency_call">🚨 Emergency call</string>
     <string name="menu_emergency_call_location">🆘 Emergency call + location</string>
     <string name="menu_set_nickname">Set nickname</string>
-
-    <!-- Chat — group info photo buttons -->
     <string name="group_info_change_photo">Change group photo</string>
     <string name="group_info_set_personal_photo">Set my photo for this group</string>
-
-    <!-- Notifications -->
     <string name="notif_group_update">Group update</string>
     <string name="notif_connected">Connected</string>
     <string name="notif_channel_service">4shu</string>
     <string name="notif_channel_messages">Messages</string>
     <string name="notif_channel_messages_desc">Incoming message notifications</string>
     <string name="notif_channel_calls">Calls</string>
-
-    <!-- Connection Test Sheet -->
     <string name="connection_test_testing_with">Testing with %s</string>
     <string name="connection_test_peer_label">Server → %s</string>
-
-    <!-- Permission Setup -->
     <string name="permission_step_indicator">Step %1$d of %2$d</string>
     <string name="permission_notifications">Notifications</string>
     <string name="permission_microphone">Microphone</string>
@@ -339,12 +265,8 @@
     <string name="permission_battery">Battery Optimization</string>
     <string name="permission_overlay">Display Over Other Apps</string>
     <string name="permission_fullscreen">Full Screen Calls</string>
-
-    <!-- Favorites -->
     <string name="label_favorites">Favorites</string>
     <string name="label_other_contacts">Other contacts</string>
-
-    <!-- My Profile -->
     <string name="label_my_profile">My Profile</string>
     <string name="desc_my_profile">Edit your name, bio and contact info</string>
     <string name="label_display_name">Display Name</string>
@@ -357,8 +279,6 @@
     <string name="label_tap_to_change_photo">Tap to change photo</string>
     <string name="btn_save_profile">Save Profile</string>
     <string name="toast_profile_saved">Profile saved</string>
-
-    <!-- Contacts / Requests -->
     <string name="label_contact_requests">Contact Requests</string>
     <string name="title_contact_requests">Contact Requests</string>
     <string name="label_received">Received</string>
@@ -368,8 +288,6 @@
     <string name="toast_request_accepted">Request accepted</string>
     <string name="toast_request_declined">Request declined</string>
     <string name="toast_request_cancelled">Request cancelled</string>
-
-    <!-- Privacy Settings -->
     <string name="label_privacy_settings">Privacy Settings</string>
     <string name="title_privacy_settings">Privacy Settings</string>
     <string name="label_discoverable">Discoverable</string>
@@ -383,8 +301,6 @@
     <string name="label_phone_searchable">Phone searchable</string>
     <string name="desc_phone_searchable">Allow finding your account by phone number.</string>
     <string name="toast_privacy_saved">Privacy settings saved</string>
-
-    <!-- Account Recovery -->
     <string name="label_account_recovery">Account Recovery</string>
     <string name="label_secret_question_set">Secret question is set</string>
     <string name="label_secret_question_not_set">No secret question set</string>
@@ -392,15 +308,10 @@
     <string name="toast_secret_question_saved">Secret question saved</string>
     <string name="hint_secret_question">Your secret question…</string>
     <string name="hint_secret_answer">Your answer…</string>
-
-    <!-- Block List -->
     <string name="label_blocked_users">Blocked Users</string>
     <string name="title_blocked_users">Blocked Users</string>
     <string name="label_no_blocked_users">No blocked users</string>
     <string name="btn_unblock">Unblock</string>
     <string name="toast_unblocked">%s unblocked</string>
-
-    <!-- Admin Panel — server info format -->
     <string name="admin_server_info_format">Disk:\n%1$s\n\nFiles: %2$d (%3$s)\nHistory files: %4$d</string>
-
 </resources>
