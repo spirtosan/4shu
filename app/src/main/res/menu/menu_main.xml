@@ -52,10 +52,4 @@
         android:visible="false"
         app:showAsAction="never" />
 
-    <item
-        android:id="@+id/action_group_debug_log"
-        android:title="Group debug log"
-        android:visible="true"
-        app:showAsAction="never" />
-
 </menu>

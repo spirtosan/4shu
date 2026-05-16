@@ -446,36 +446,6 @@ class MainActivity : AppCompatActivity() {
                 }
                 true
             }
-            R.id.action_group_debug_log -> {
-                val file = java.io.File(filesDir, "group_debug.txt")
-                val content = if (file.exists()) file.readText() else ""
-                if (content.isEmpty()) {
-                    Toast.makeText(this, "group_debug.txt is empty or missing", Toast.LENGTH_SHORT).show()
-                } else {
-                    val tv = android.widget.TextView(this).apply {
-                        text = content
-                        setPadding(32, 16, 32, 16)
-                        setTextIsSelectable(true)
-                        textSize = 11f
-                    }
-                    val scroll = android.widget.ScrollView(this).apply { addView(tv) }
-                    androidx.appcompat.app.AlertDialog.Builder(this)
-                        .setTitle("Group debug log")
-                        .setView(scroll)
-                        .setPositiveButton("Copy") { _, _ ->
-                            val clipboard = getSystemService(android.content.ClipboardManager::class.java)
-                            clipboard.setPrimaryClip(android.content.ClipData.newPlainText("group debug", content))
-                            Toast.makeText(this, getString(R.string.toast_copied_to_clipboard), Toast.LENGTH_SHORT).show()
-                        }
-                        .setNeutralButton("Clear") { _, _ ->
-                            file.delete()
-                            Toast.makeText(this, "Debug log cleared", Toast.LENGTH_SHORT).show()
-                        }
-                        .setNegativeButton(getString(R.string.btn_close), null)
-                        .show()
-                }
-                true
-            }
             else -> super.onOptionsItemSelected(item)
         }
     }

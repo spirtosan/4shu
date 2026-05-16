@@ -31,11 +31,11 @@ Current as of DB work through Phase 5.
 ### sessions
 | Column | Type | Notes |
 |--------|------|-------|
-| session_token | TEXT PK | 32 bytes hex, 24h TTL |
+| token | TEXT PK | 32 bytes hex |
 | username | TEXT | |
-| device_id | TEXT | |
+| device_id | TEXT | NOT NULL DEFAULT '' |
 | created_at | INTEGER | |
-| expires_at | INTEGER | |
+| last_seen | INTEGER | |
 
 ### devices
 | Column | Type | Notes |
@@ -43,6 +43,7 @@ Current as of DB work through Phase 5.
 | username | TEXT | |
 | device_id | TEXT | |
 | device_name | TEXT | User-set name |
+| fcm_token | TEXT | |
 | last_seen | INTEGER | |
 | PRIMARY KEY | | (username, device_id) |
 
@@ -55,13 +56,14 @@ Current as of DB work through Phase 5.
 | group_id | TEXT | null for DMs |
 | content | TEXT | Encrypted |
 | timestamp | INTEGER | ms |
-| type | TEXT | text/file/voice/location etc |
+| type | TEXT | message/file/voice/location etc, DEFAULT 'message' |
 | file_id | TEXT | |
 | reply_to_id | TEXT | |
 | reply_to_sender | TEXT | |
 | reply_to_content | TEXT | |
 | edited_at | INTEGER | |
 | deleted_for_all | INTEGER | 0/1 |
+| client_id | TEXT | Client-generated dedup UUID |
 
 ### files
 | Column | Type | Notes |
@@ -70,8 +72,12 @@ Current as of DB work through Phase 5.
 | uploader | TEXT | |
 | filename | TEXT | |
 | mime_type | TEXT | |
-| size | INTEGER | bytes |
+| file_path | TEXT | Server-side storage path |
+| size_bytes | INTEGER | bytes |
 | created_at | INTEGER | |
+| expires_at | INTEGER | |
+| nonce | TEXT | Encryption nonce |
+| meta_json | TEXT | Additional metadata |
 
 ### reactions
 | Column | Type | Notes |
@@ -79,6 +85,7 @@ Current as of DB work through Phase 5.
 | message_id | TEXT | |
 | from_user | TEXT | |
 | emoji | TEXT | Unicode emoji |
+| timestamp | INTEGER | |
 | PRIMARY KEY | | (message_id, from_user) |
 
 ### groups
@@ -98,7 +105,7 @@ Current as of DB work through Phase 5.
 | username | TEXT | |
 | role | TEXT | owner/admin/member |
 | joined_at | INTEGER | |
-| encrypted_key | TEXT | Group key encrypted for this member |
+| encrypted_group_key | TEXT | Group key encrypted for this member |
 | PRIMARY KEY | | (group_id, username) |
 
 ### contact_nicknames
@@ -118,6 +125,7 @@ Current as of DB work through Phase 5.
 | created_at | INTEGER | |
 | updated_at | INTEGER | |
 | expires_at | INTEGER | pending expires after 90 days |
+| trust_level | TEXT | DEFAULT "contact" |
 | PRIMARY KEY | | (owner, contact) |
 
 ### blocks
@@ -127,6 +135,15 @@ Current as of DB work through Phase 5.
 | blocked | TEXT | |
 | created_at | INTEGER | |
 | PRIMARY KEY | | (owner, blocked) |
+
+### mutes
+| Column | Type | Notes |
+|--------|------|-------|
+| owner | TEXT | Who set the mute |
+| target | TEXT | Muted contact or group |
+| target_type | TEXT | DEFAULT "contact" |
+| created_at | INTEGER | |
+| PRIMARY KEY | | (owner, target) |
 
 ### auto_location
 | Column | Type | Notes |
@@ -139,22 +156,25 @@ Current as of DB work through Phase 5.
 | Column | Type | Notes |
 |--------|------|-------|
 | list_id | TEXT PK | |
-| title | TEXT | |
 | owner | TEXT | |
 | peer | TEXT | For DM lists |
 | group_id | TEXT | For group lists |
-| version | INTEGER | |
+| version | INTEGER | DEFAULT 1 |
 | created_at | INTEGER | |
+| message_id | TEXT | Message that created this list |
 
 ### list_items
 | Column | Type | Notes |
 |--------|------|-------|
-| item_id | TEXT PK | |
+| item_id | TEXT | |
 | list_id | TEXT | |
 | text | TEXT | |
-| checked | INTEGER | 0/1 |
+| done | INTEGER | 0/1 DEFAULT 0 |
 | checked_by | TEXT | username |
-| position | INTEGER | |
+| checked_at | INTEGER | |
+| deleted_at | INTEGER | null = not deleted |
+| sort_order | INTEGER | |
+| PRIMARY KEY | | (item_id, list_id) |
 
 ### invites
 | Column | Type | Notes |
@@ -179,13 +199,13 @@ Current as of DB work through Phase 5.
 |--------|------|-------|
 | id | INTEGER PK | autoincrement |
 | username | TEXT | recipient |
-| payload | TEXT | JSON |
+| envelope | TEXT | JSON |
 | created_at | INTEGER | |
 
 ---
 
 ## Android — Room SQLite (local device DB)
-Current version: **16**
+Current version: **19**
 
 ### Key entities
 | Entity | Table | Notes |
@@ -196,6 +216,7 @@ Current version: **16**
 | PeerKey | peer_keys | ECDH public key cache |
 | Contact | contacts | Cached accepted contacts (synced from server) |
 | Block | blocks | Cached block list |
+| Mute | mutes | Muted contacts/groups |
 
 ### Message entity key fields
 | Field | Type | Notes |
@@ -207,14 +228,64 @@ Current version: **16**
 | groupId | String? | null for DMs |
 | content | String | Decrypted text or encrypted blob |
 | type | String | text/file/voice/location/deleted etc |
+| filename | String? | |
+| mimeType | String? | |
+| localUri | String? | content:// URI of saved/picked file |
 | status | String | SENDING/SENT/DELIVERED/READ |
-| isRequest | Boolean | true = pre-contact message, shown in requests inbox |
 | isSent | Boolean | true = sent by me |
+| isRequest | Boolean | true = pre-contact message, shown in requests inbox |
 | timestamp | Long | ms |
+| replyToId | Long? | |
+| replyToSender | String? | |
+| replyToContent | String? | |
+| listId | String? | set for type="list" messages |
+| lastSynced | Long? | timestamp of last list sync |
+| listVersion | Int? | server-authoritative list version |
+| listOwner | String? | list creator username |
+| tempId | String? | client UUID for file upload dedup |
+| fileId | String? | server-assigned file UUID |
+| editedAt | Long | epoch ms of last edit; 0 = never edited |
+| reactions | String | JSON array of {from, emoji}; "" = none |
+| voiceDuration | Int | seconds; 0 for non-voice |
+| voiceWaveform | String? | compact JSON float array of amplitude samples |
+
+### Contact entity key fields
+| Field | Type | Notes |
+|-------|------|-------|
+| id | Int PK | autoincrement |
+| owner | String | |
+| contact | String | |
+| status | String | pending/accepted |
+| createdAt | Long | |
+| updatedAt | Long | |
+| expiresAt | Long | |
+| trustLevel | String | DEFAULT "contact" (column: trust_level) |
+
+### Mute entity fields
+| Field | Type | Notes |
+|-------|------|-------|
+| target | String PK | muted contact or group ID |
+| targetType | String | contact/group (column: target_type) |
 
 ### Migration history
 | Version | Changes |
 |---------|---------|
-| 14 | Base schema |
-| 15 | Added contacts + blocks tables, 8 new user profile columns |
-| 16 | Added isRequest column to messages |
+| 1 | Base schema (messages table) |
+| 2 | Added status, remoteId to messages |
+| 3 | Added localUri to messages |
+| 4 | Added replyToId, replyToSender, replyToContent to messages |
+| 5 | Added listId to messages |
+| 6 | Added lastSynced to messages |
+| 7 | Added listVersion, listOwner to messages |
+| 8 | No schema change (location/location-request stored in content JSON) |
+| 9 | Created peer_keys table |
+| 10 | Added tempId, fileId to messages |
+| 11 | Added editedAt to messages |
+| 12 | Added reactions to messages |
+| 13 | Added voiceDuration, voiceWaveform to messages |
+| 14 | Added groupId to messages; created groups and group_members tables |
+| 15 | Created contacts and blocks tables; 8 user profile columns |
+| 16 | Added isRequest to messages |
+| 17 | Added trust_level to contacts |
+| 18 | Created mutes table (initial schema with DEFAULT 'contact') |
+| 19 | Dropped and recreated mutes table (removed DEFAULT from target_type) |

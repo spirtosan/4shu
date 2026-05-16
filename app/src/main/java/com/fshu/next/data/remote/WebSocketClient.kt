@@ -165,7 +165,6 @@ object WebSocketClient {
                 val frame = wsFrameCount.incrementAndGet()
                 try {
                     val json = gson.fromJson(text, JsonObject::class.java)
-                    Log.d("ROUTE_DBG", "onMessage type=${json.get("type")?.asString} frame=#$frame")
                     when (json.get("type")?.asString) {
                         "auth-ok" -> {
                             connectTimeoutJob?.cancel()

@@ -516,17 +516,6 @@ class ChatActivity : AppCompatActivity() {
         lifecycleScope.launch {
             MessageBus.events.collect { json ->
                 when (json.get("type")?.asString) {
-                    "ws-dm-debug" -> {
-                        val from = json.get("from")?.asString ?: "?"
-                        val frame = json.get("frame")?.asInt ?: 0
-                        val error = json.get("error")?.asString
-                        if (from == peer) runOnUiThread {
-                            Toast.makeText(this@ChatActivity,
-                                if (error != null) "[DBG] PERSIST ERROR: $error"
-                                else "[DBG] WS DM frame #$frame from $from",
-                                Toast.LENGTH_LONG).show()
-                        }
-                    }
                     "history-loaded" -> {
                         val peer = json.get("peer")?.asString ?: ""
                         if (peer == this@ChatActivity.peer) {
@@ -731,7 +720,6 @@ class ChatActivity : AppCompatActivity() {
             else
                 getString(R.string.auto_location_off)
         }
-        menu.findItem(R.id.action_clear_peer_messages)?.isVisible = !isGroupChat
         return super.onPrepareOptionsMenu(menu)
     }
 
@@ -827,21 +815,6 @@ class ChatActivity : AppCompatActivity() {
                     "enabled" to isAutoLocationEnabled
                 ))
                 invalidateOptionsMenu()
-                return true
-            }
-            R.id.action_clear_peer_messages -> {
-                AlertDialog.Builder(this)
-                    .setTitle("[DEBUG] Clear received messages")
-                    .setMessage("Delete all received messages from $peer in local DB? This only affects this device and cannot be undone.")
-                    .setPositiveButton("Clear") { _, _ ->
-                        lifecycleScope.launch(Dispatchers.IO) {
-                            val db = com.fshu.next.data.local.AppDatabase.getInstance(this@ChatActivity)
-                            db.messageDao().deleteReceivedFrom(peer)
-                            android.util.Log.d("MSG_DBG", "Cleared all received messages from $peer")
-                        }
-                    }
-                    .setNegativeButton("Cancel", null)
-                    .show()
                 return true
             }
         }

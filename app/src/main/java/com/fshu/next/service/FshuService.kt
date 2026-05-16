@@ -198,7 +198,6 @@ class FshuService : Service() {
             // Upload our public key on every connect so server can store/distribute it (Phase 1f)
             val myPub = Prefs.getEcPublicKey(this@FshuService)
             if (myPub.isNotEmpty()) {
-                Log.d("KEY_DBG", "onConnected: uploading own key len=${myPub.length} key=${myPub.take(8)}…")
                 WebSocketClient.send(mapOf("type" to "public-key", "publicKey" to myPub))
             }
             val token = Prefs.getFcmToken(this@FshuService)
@@ -462,7 +461,7 @@ class FshuService : Service() {
         when (json.get("type")?.asString) {
             "call-offer"              -> handleIncomingCall(json, isEmergency = false)
             "call-emergency"          -> handleIncomingCall(json, isEmergency = true)
-            "message"                 -> { Log.d("ROUTE_DBG", "routing to persistIncomingMessage"); persistIncomingMessage(json) }
+            "message"                 -> persistIncomingMessage(json)
             "file", "voice"           -> persistIncomingFile(json)
             "typing"                  -> MessageBus.emit(json)
             "deleted"                 -> handleDeletedForAll(json)
@@ -615,13 +614,19 @@ class FshuService : Service() {
                     val caller = json.get("to")?.asString
                     val me = Prefs.getUsername(this)
                     if (callee != null && caller == me) {
-                        db.messageDao().insert(
-                            Message(from = me, to = callee,
-                                content = "📵 Call declined",
-                                type = "text",
-                                timestamp = System.currentTimeMillis(),
-                                isSent = true)
-                        )
+                        // Fire-and-forget: don't await the insert — it would block MessageBus.emit(json)
+                        // below, delaying the call-reject signal to CallActivity by 20-30 s if Room's
+                        // transaction executor is busy. Insert runs on the service scope (IO, always
+                        // alive) so it completes well within CallActivity's 3-second finish delay.
+                        scope.launch {
+                            db.messageDao().insert(
+                                Message(from = me, to = callee,
+                                    content = "📵 Call declined",
+                                    type = "text",
+                                    timestamp = System.currentTimeMillis(),
+                                    isSent = true)
+                            )
+                        }
                     }
                 }
                 MessageBus.emit(json)
@@ -651,7 +656,6 @@ class FshuService : Service() {
                             Prefs.clearPeerPublicKey(this, uname)
                             Prefs.setPeerPublicKey(this, uname, pubHex)
                         }
-                        Log.d("KEY_DBG", "users-broadcast: stored key for $uname len=${pubHex.length} key=${pubHex.take(8)}…")
                         try {
                             CryptoHelper.cachePeerKey(this, uname, pubHex)
                         } catch (e: Exception) {
@@ -728,27 +732,19 @@ class FshuService : Service() {
             Log.e("PERSIST_DBG", "persistIncomingMessage called with invalid json: $json")
             return
         }
-        Log.d("PERSIST_DBG", "entered persistIncomingMessage from=${json.get("from").safeString()}")
         try {
             val from = json.get("from").safeString() ?: run {
-                Log.d("PERSIST_DBG", "early return: from is null/JsonNull")
                 return
             }
             val rawContent = json.get("content").safeString() ?: run {
-                Log.d("PERSIST_DBG", "early return: content is null/JsonNull from=$from")
                 return
             }
             val ts = json.get("timestamp").safeLong() ?: 0L
             val remoteId = json.get("messageId").safeLong() ?: 0L
-            Log.d("PERSIST_DBG", "from=$from remoteId=$remoteId rawContent.len=${rawContent.length}")
-            Log.d("MSG_DBG", "incoming: from=$from remoteId=$remoteId")
             val existingCheck = if (remoteId > 0) db.messageDao().getByRemoteId(remoteId, from) else null
             if (existingCheck != null) {
-                Log.d("MSG_DBG", "DEDUP DROP: remoteId=$remoteId from=$from collides with stored id=${existingCheck.id}")
-                Log.d("PERSIST_DBG", "early return: dedup drop remoteId=$remoteId")
                 return
             }
-            Log.d("PERSIST_DBG", "dedup passed, proceeding to decryption")
             val replyToId = json.get("replyToId").safeLong()
             val replyToSender = json.get("replyToSender").safeString()?.takeIf { it.isNotEmpty() }
             val replyToContent = json.get("replyToContent").safeString()?.takeIf { it.isNotEmpty() }

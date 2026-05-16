@@ -303,27 +303,6 @@ class SettingsActivity : AppCompatActivity() {
                 .show()
         }
 
-        // Clear orphaned groups
-        binding.tvClearOrphanedGroups.setOnClickListener {
-            AlertDialog.Builder(this)
-                .setTitle("Clear orphaned groups?")
-                .setMessage("This will remove all local group data.")
-                .setPositiveButton("Clear") { _, _ ->
-                    lifecycleScope.launch(Dispatchers.IO) {
-                        val db = AppDatabase.getInstance(this@SettingsActivity)
-                        db.groupMemberDao().deleteAll()
-                        db.groupDao().deleteAll()
-                        db.messageDao().deleteAllGroupMessages()
-                        withContext(Dispatchers.Main) {
-                            Toast.makeText(this@SettingsActivity,
-                                "Local groups cleared", Toast.LENGTH_SHORT).show()
-                        }
-                    }
-                }
-                .setNegativeButton(getString(R.string.btn_cancel), null)
-                .show()
-        }
-
         // Delete account
         binding.btnDeleteAccount.setOnClickListener {
             val et = EditText(this).apply {
