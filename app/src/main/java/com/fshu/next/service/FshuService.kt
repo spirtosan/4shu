@@ -144,6 +144,7 @@ class FshuService : Service() {
     override fun onCreate() {
         super.onCreate()
         serviceStartTime = System.currentTimeMillis()
+        writeGroupDebug("=== FshuService started ===")
         // CryptoHelper.initDebugLog(applicationContext)
         val pm = getSystemService(PowerManager::class.java)
         wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "fshu:connection").apply {
@@ -545,6 +546,15 @@ class FshuService : Service() {
                     Log.e("FshuService", "avatar-data save failed", e)
                 }
             }
+            "avatar-removed"          -> {
+                val uname = json.get("username")?.asString ?: return
+                File(applicationContext.filesDir, "avatars/$uname.jpg").delete()
+                val evt = com.google.gson.JsonObject().apply {
+                    addProperty("type", "avatar-update")
+                    addProperty("username", uname)
+                }
+                MessageBus.emit(evt)
+            }
             "auth-ok"                 -> {
                 Prefs.setIsAdmin(this, json.get("admin")?.asBoolean ?: false)
                 val turnUser = json.get("turnUsername")?.asString
@@ -631,9 +641,16 @@ class FshuService : Service() {
                             Log.w("FshuService", "users-broadcast: key rejected for $uname (len=${pubHex.length})")
                             continue
                         }
-                        Prefs.clearPeerPublicKey(this, uname)
-                        Prefs.setPeerPublicKey(this, uname, pubHex)
-                        db.peerKeyDao().upsert(com.fshu.next.data.model.PeerKey(uname, pubHex))
+                        val storedKey = db.peerKeyDao().get(uname)
+                        if (storedKey == null) {
+                            db.peerKeyDao().upsert(com.fshu.next.data.model.PeerKey(uname, pubHex))
+                            Prefs.setPeerPublicKey(this, uname, pubHex)
+                        } else if (storedKey.publicKey != pubHex) {
+                            db.peerKeyDao().delete(uname)
+                            db.peerKeyDao().upsert(com.fshu.next.data.model.PeerKey(uname, pubHex))
+                            Prefs.clearPeerPublicKey(this, uname)
+                            Prefs.setPeerPublicKey(this, uname, pubHex)
+                        }
                         Log.d("KEY_DBG", "users-broadcast: stored key for $uname len=${pubHex.length} key=${pubHex.take(8)}…")
                         try {
                             CryptoHelper.cachePeerKey(this, uname, pubHex)
@@ -661,6 +678,7 @@ class FshuService : Service() {
                 }
                 MessageBus.emit(json)
             }
+            "user-update"             -> { MessageBus.emit(json) }
             "contact-list"            -> {
                 val me  = Prefs.getUsername(this)
                 val now = System.currentTimeMillis()
@@ -1591,13 +1609,15 @@ class FshuService : Service() {
             val me       = Prefs.getUsername(this)
             val myPriv   = Prefs.getEcPrivateKey(this)
             val ownerPub = if (owner == me) Prefs.getEcPublicKey(this)
-                           else Prefs.getPeerPublicKey(this, owner)
+                           else (db.peerKeyDao().get(owner)?.publicKey ?: Prefs.getPeerPublicKey(this, owner))
             if (myPriv.isNotEmpty() && ownerPub.isNotEmpty()) {
                 val groupKey = CryptoHelper.decryptGroupKey(encKey, ownerPub, myPriv)
                 if (groupKey != null) {
                     db.groupDao().updateGroupKey(groupId, with(EcdhHelper) { groupKey.toHex() })
+                    writeGroupDebug("handleGroupState: stored groupKey for $groupId len=${groupKey.size} hex=${with(EcdhHelper){groupKey.toHex()}.take(8)}")
                 } else {
                     Log.w("FshuService", "handleGroupState: group key decryption failed for $groupId")
+                    writeGroupDebug("handleGroupState: key decrypt FAILED for $groupId ownerPub_len=${ownerPub.length}")
                 }
             }
         }
@@ -1631,10 +1651,13 @@ class FshuService : Service() {
             WebSocketClient.send(mapOf("type" to "group-info-request", "groupId" to groupId))
         }
         val groupKeyHex = group?.groupKey ?: ""
+        writeGroupDebug("persistGroupMessage: groupId=$groupId group=${group?.groupId} groupKeyHex_len=${groupKeyHex.length} groupKeyHex_start=${groupKeyHex.take(8)}")
         val content     = if (groupKeyHex.isNotEmpty()) {
+            writeGroupDebug("persistGroupMessage: attempting decrypt, key=${groupKeyHex.take(8)} rawContent_len=${rawContent.length}")
             val key = with(EcdhHelper) { groupKeyHex.fromHex() }
             CryptoHelper.decryptGroupMessage(key, rawContent) ?: rawContent
         } else rawContent
+        writeGroupDebug("persistGroupMessage: decrypt result=${if (content == rawContent) "FAILED/fallback" else "OK"}")
 
         db.messageDao().insert(
             Message(
@@ -1656,6 +1679,7 @@ class FshuService : Service() {
         }
 
         MessageBus.tryEmit(json)
+        MessageBus.emit(JsonObject().apply { addProperty("type", "group-preview-update") })
     }
 
     private suspend fun handleGroupRemoved(json: JsonObject) {
@@ -1721,10 +1745,42 @@ class FshuService : Service() {
     }
 
     private suspend fun handleGroupKeyNeeded(json: JsonObject) {
-        val groupId         = json.get("groupId")?.asString ?: return
+        val groupId = json.get("groupId")?.asString ?: return
+        val me      = Prefs.getUsername(this)
+
+        // Format B: { groupId, username } — sent by server when a member has no key slot.
+        // If username == me, I'm the owner who must regenerate the group key from scratch.
+        // If username == some member, I'm the owner who must encrypt the existing key for them.
+        val usernameField = json.get("username")?.takeIf { !it.isJsonNull }?.asString
+        if (usernameField != null) {
+            if (usernameField == me) {
+                handleGroupKeyRegenerate(groupId)
+            } else {
+                val group = db.groupDao().getById(groupId) ?: return
+                if (group.owner != me) return
+                val groupKeyHex = group.groupKey.takeIf { it.isNotEmpty() } ?: run {
+                    // We don't have a group key — regenerate for everyone
+                    handleGroupKeyRegenerate(groupId); return
+                }
+                val memberPubKey = db.peerKeyDao().get(usernameField)?.publicKey
+                    ?: Prefs.getPeerPublicKey(this, usernameField).takeIf { it.isNotEmpty() }
+                    ?: return
+                val myPriv = Prefs.getEcPrivateKey(this).takeIf { it.isNotEmpty() } ?: return
+                val encryptedKey = CryptoHelper.encryptGroupKeyForMember(
+                    with(EcdhHelper) { groupKeyHex.fromHex() }, memberPubKey, myPriv)
+                WebSocketClient.send(mapOf(
+                    "type"           to "group-key-submit",
+                    "groupId"        to groupId,
+                    "memberUsername" to usernameField,
+                    "encryptedKey"   to encryptedKey
+                ))
+            }
+            return
+        }
+
+        // Format A: { groupId, memberUsername, memberPublicKey } — member's key just changed.
         val memberUsername  = json.get("memberUsername")?.asString ?: return
         val memberPublicKey = json.get("memberPublicKey")?.asString ?: return
-        val me              = Prefs.getUsername(this)
         val group           = db.groupDao().getById(groupId) ?: return
         if (group.owner != me) return
         val groupKeyHex = group.groupKey.takeIf { it.isNotEmpty() } ?: return
@@ -1738,6 +1794,45 @@ class FshuService : Service() {
             "memberUsername"  to memberUsername,
             "encryptedKey"    to encryptedKey
         ))
+    }
+
+    private suspend fun handleGroupKeyRegenerate(groupId: String) {
+        val me     = Prefs.getUsername(this)
+        val myPriv = Prefs.getEcPrivateKey(this).takeIf { it.isNotEmpty() } ?: return
+        val myPub  = Prefs.getEcPublicKey(this).takeIf { it.isNotEmpty() } ?: return
+
+        val members = db.groupMemberDao().getMembersOf(groupId)
+        if (members.isEmpty()) {
+            // Members not cached locally — fetch group state; handleGroupState will re-trigger.
+            WebSocketClient.send(mapOf("type" to "group-info-request", "groupId" to groupId))
+            return
+        }
+
+        val newGroupKey    = CryptoHelper.generateGroupKey()
+        val newGroupKeyHex = with(EcdhHelper) { newGroupKey.toHex() }
+        db.groupDao().updateGroupKey(groupId, newGroupKeyHex)
+        Log.d("FshuService", "handleGroupKeyRegenerate: new key generated for $groupId")
+
+        for (member in members) {
+            val memberPubKey: String? = if (member.username == me) myPub
+                else db.peerKeyDao().get(member.username)?.publicKey
+                    ?: Prefs.getPeerPublicKey(this, member.username).takeIf { it.isNotEmpty() }
+            if (memberPubKey.isNullOrEmpty()) {
+                Log.w("FshuService", "handleGroupKeyRegenerate: no pubkey for ${member.username}, skipping")
+                continue
+            }
+            try {
+                val encryptedKey = CryptoHelper.encryptGroupKeyForMember(newGroupKey, memberPubKey, myPriv)
+                WebSocketClient.send(mapOf(
+                    "type"           to "group-key-submit",
+                    "groupId"        to groupId,
+                    "memberUsername" to member.username,
+                    "encryptedKey"   to encryptedKey
+                ))
+            } catch (e: Exception) {
+                Log.w("FshuService", "handleGroupKeyRegenerate: encrypt failed for ${member.username}: ${e.message}")
+            }
+        }
     }
 
     private suspend fun handleGroupHistoryResponse(json: JsonObject) {
@@ -1981,4 +2076,11 @@ class FshuService : Service() {
         .setSmallIcon(R.drawable.ic_notification)
         .setOngoing(true)
         .build()
+
+    private fun writeGroupDebug(msg: String) {
+        try {
+            val ts = java.text.SimpleDateFormat("HH:mm:ss.SSS", java.util.Locale.US).format(java.util.Date())
+            File(filesDir, "group_debug.txt").appendText("$ts $msg\n")
+        } catch (_: Exception) {}
+    }
 }

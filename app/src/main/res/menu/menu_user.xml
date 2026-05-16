@@ -26,6 +26,10 @@
         android:title="@string/menu_set_nickname" />
 
     <item
+        android:id="@+id/action_user_trust_level"
+        android:title="@string/label_trust_level" />
+
+    <item
         android:id="@+id/action_user_mute"
         android:title="@string/action_mute" />
 

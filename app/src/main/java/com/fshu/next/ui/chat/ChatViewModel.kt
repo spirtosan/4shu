@@ -80,14 +80,18 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                         replyToId = replyToId, replyToSender = replyToSender,
                         replyToContent = replyToContent)
                 )
-                val peerPubKey  = Prefs.getPeerPublicKey(getApplication(), peer)
+                val peerKey = db.peerKeyDao().get(peer)
+                if (peerKey == null) {
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(getApplication(), "Cannot send: missing encryption key", Toast.LENGTH_LONG).show()
+                    }
+                    db.messageDao().updateStatus(id, "FAILED")
+                    return@launch
+                }
                 val wireContent = try {
-                    if (peerPubKey.isNotEmpty())
-                        CryptoHelper.encryptForPeer(getApplication(), peer, peerPubKey, id, content)
-                    else content
+                    CryptoHelper.encryptForPeer(getApplication(), peer, peerKey.publicKey, id, content)
                 } catch (e: Exception) {
-                    android.util.Log.e("ChatViewModel", "encryptForPeer failed for $peer: ${e.message} — clearing cached key", e)
-                    Prefs.clearPeerPublicKey(getApplication(), peer)
+                    android.util.Log.e("ChatViewModel", "encryptForPeer failed for $peer: ${e.message}", e)
                     db.messageDao().updateStatus(id, "FAILED")
                     return@launch
                 }
@@ -111,10 +115,16 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     fun sendVoice(peer: String, file: java.io.File, waveform: FloatArray, durationSecs: Int) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
+                val peerKey = db.peerKeyDao().get(peer)
+                if (peerKey == null) {
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(getApplication(), "Cannot send: missing encryption key", Toast.LENGTH_LONG).show()
+                    }
+                    return@launch
+                }
                 val fileBytes = file.readBytes()
                 val mimeType = "audio/mp4"
                 val filename = "voice_${System.currentTimeMillis()}.m4a"
-                val peerPubKey = Prefs.getPeerPublicKey(getApplication(), peer)
                 val tempId = UUID.randomUUID().toString()
                 val ts = System.currentTimeMillis()
                 val waveformJson = "[${waveform.joinToString(",") { "%.2f".format(it) }}]"
@@ -128,11 +138,11 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                         voiceDuration = durationSecs, voiceWaveform = waveformJson)
                 )
 
-                val (encBytes, nonce) = if (peerPubKey.isNotEmpty())
-                    CryptoHelper.encryptFileForPeer(getApplication(), peer, peerPubKey, fileBytes)
-                        ?: Pair(fileBytes, ByteArray(12).also { java.security.SecureRandom().nextBytes(it) })
-                else
-                    Pair(fileBytes, ByteArray(12).also { java.security.SecureRandom().nextBytes(it) })
+                val (encBytes, nonce) = CryptoHelper.encryptFileForPeer(getApplication(), peer, peerKey.publicKey, fileBytes)
+                    ?: run {
+                        db.messageDao().updateStatus(roomId, "FAILED")
+                        return@launch
+                    }
 
                 val nonceHex = CryptoHelper.bytesToHex(nonce)
                 val header = JsonObject().apply {
@@ -164,10 +174,16 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     fun sendFile(peer: String, uri: Uri, resolver: ContentResolver) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
+                val peerKey = db.peerKeyDao().get(peer)
+                if (peerKey == null) {
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(getApplication(), "Cannot send: missing encryption key", Toast.LENGTH_LONG).show()
+                    }
+                    return@launch
+                }
                 val fileBytes = resolver.openInputStream(uri)?.use { it.readBytes() } ?: return@launch
                 val filename = resolveDisplayName(uri, resolver)
                 val mimeType = resolver.getType(uri) ?: "application/octet-stream"
-                val peerPubKey = Prefs.getPeerPublicKey(getApplication(), peer)
                 val tempId = UUID.randomUUID().toString()
                 val ts = System.currentTimeMillis()
 
@@ -179,11 +195,11 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                         timestamp = ts, isSent = true, status = "SENDING")
                 )
 
-                val (encBytes, nonce) = if (peerPubKey.isNotEmpty())
-                    CryptoHelper.encryptFileForPeer(getApplication(), peer, peerPubKey, fileBytes)
-                        ?: Pair(fileBytes, ByteArray(12).also { java.security.SecureRandom().nextBytes(it) })
-                else
-                    Pair(fileBytes, ByteArray(12).also { java.security.SecureRandom().nextBytes(it) })
+                val (encBytes, nonce) = CryptoHelper.encryptFileForPeer(getApplication(), peer, peerKey.publicKey, fileBytes)
+                    ?: run {
+                        db.messageDao().updateStatus(roomId, "FAILED")
+                        return@launch
+                    }
 
                 val nonceHex = CryptoHelper.bytesToHex(nonce)
                 val header = JsonObject().apply {
@@ -471,10 +487,13 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     fun editMessage(msg: Message, newContent: String, peer: String) {
         if (msg.remoteId == 0L) return
         viewModelScope.launch(Dispatchers.IO) {
-            val peerPubKey = Prefs.getPeerPublicKey(getApplication(), peer)
-            val wireContent = if (peerPubKey.isNotEmpty())
-                CryptoHelper.encryptForPeer(getApplication(), peer, peerPubKey, msg.remoteId, newContent)
-            else newContent
+            val peerKey = db.peerKeyDao().get(peer) ?: return@launch
+            val wireContent = try {
+                CryptoHelper.encryptForPeer(getApplication(), peer, peerKey.publicKey, msg.remoteId, newContent)
+            } catch (e: Exception) {
+                android.util.Log.e("ChatViewModel", "encryptForPeer failed in editMessage: ${e.message}", e)
+                return@launch
+            }
             WebSocketClient.send(mapOf(
                 "type" to "edit", "from" to me, "to" to peer,
                 "messageId" to msg.remoteId, "newContent" to wireContent

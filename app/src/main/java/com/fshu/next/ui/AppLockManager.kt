@@ -10,19 +10,19 @@ import com.fshu.next.R
 import com.fshu.next.util.Prefs
 
 object AppLockManager {
-    private var lockedAt: Long = 0L
+    private var backgroundedAt: Long = 0L
     private var isLocked: Boolean = true  // starts locked until first successful auth
 
     fun onAppBackground() {
-        lockedAt = System.currentTimeMillis()
-        isLocked = true
+        backgroundedAt = System.currentTimeMillis()
     }
 
     fun shouldLock(ctx: Context): Boolean {
         if (!Prefs.getAppLockEnabled(ctx)) return false
         if (isLocked) return true
+        if (backgroundedAt <= 0L) return false
         val timeoutMs = Prefs.getAppLockTimeoutMs(ctx)
-        return System.currentTimeMillis() - lockedAt > timeoutMs
+        return System.currentTimeMillis() - backgroundedAt > timeoutMs
     }
 
     fun isBiometricAvailable(ctx: Context): Boolean {
@@ -42,7 +42,7 @@ object AppLockManager {
         val callback = object : BiometricPrompt.AuthenticationCallback() {
             override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
                 isLocked = false
-                lockedAt = System.currentTimeMillis()
+                backgroundedAt = 0L
                 onSuccess()
             }
             override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {

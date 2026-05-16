@@ -68,6 +68,7 @@ class MainActivity : AppCompatActivity() {
     private val mutedTargets = mutableSetOf<String>()
     private var pendingEmergencyLocationUser: User? = null
     private var enrichJob: kotlinx.coroutines.Job? = null
+    private var refreshJob: kotlinx.coroutines.Job? = null
 
     private val requestLocationPermission = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -205,7 +206,7 @@ class MainActivity : AppCompatActivity() {
                     }
                     withContext(Dispatchers.Main) {
                         if (isMuted) mutedTargets.remove(user.username) else mutedTargets.add(user.username)
-                        rebuildCombinedList()
+                        scheduleListRefresh()
                         Toast.makeText(this@MainActivity, if (isMuted) getString(R.string.toast_unmuted) else getString(R.string.toast_muted), Toast.LENGTH_SHORT).show()
                     }
                 }
@@ -239,7 +240,8 @@ class MainActivity : AppCompatActivity() {
                     }
                     .setNegativeButton(getString(R.string.btn_cancel), null)
                     .show()
-            }
+            },
+            onTrustLevel = { user -> showTrustPickerForContact(user) }
         )
         binding.rvUsers.layoutManager = LinearLayoutManager(this)
         binding.rvUsers.adapter = adapter
@@ -438,6 +440,36 @@ class MainActivity : AppCompatActivity() {
                         .setNeutralButton(getString(R.string.btn_clear)) { _, _ ->
                             CrashHandler.clearCrashes(this)
                             Toast.makeText(this, getString(R.string.toast_logs_cleared), Toast.LENGTH_SHORT).show()
+                        }
+                        .setNegativeButton(getString(R.string.btn_close), null)
+                        .show()
+                }
+                true
+            }
+            R.id.action_group_debug_log -> {
+                val file = java.io.File(filesDir, "group_debug.txt")
+                val content = if (file.exists()) file.readText() else ""
+                if (content.isEmpty()) {
+                    Toast.makeText(this, "group_debug.txt is empty or missing", Toast.LENGTH_SHORT).show()
+                } else {
+                    val tv = android.widget.TextView(this).apply {
+                        text = content
+                        setPadding(32, 16, 32, 16)
+                        setTextIsSelectable(true)
+                        textSize = 11f
+                    }
+                    val scroll = android.widget.ScrollView(this).apply { addView(tv) }
+                    androidx.appcompat.app.AlertDialog.Builder(this)
+                        .setTitle("Group debug log")
+                        .setView(scroll)
+                        .setPositiveButton("Copy") { _, _ ->
+                            val clipboard = getSystemService(android.content.ClipboardManager::class.java)
+                            clipboard.setPrimaryClip(android.content.ClipData.newPlainText("group debug", content))
+                            Toast.makeText(this, getString(R.string.toast_copied_to_clipboard), Toast.LENGTH_SHORT).show()
+                        }
+                        .setNeutralButton("Clear") { _, _ ->
+                            file.delete()
+                            Toast.makeText(this, "Debug log cleared", Toast.LENGTH_SHORT).show()
                         }
                         .setNegativeButton(getString(R.string.btn_close), null)
                         .show()
@@ -741,7 +773,16 @@ class MainActivity : AppCompatActivity() {
                 }
                 users.clear()
                 users.addAll(updated)
-                adapter.notifyDataSetChanged()
+                scheduleListRefresh()
+            }
+            "user-update" -> {
+                val uname = json.get("username")?.asString ?: return
+                val nick = json.get("nickname")?.takeIf { !it.isJsonNull }?.asString
+                val idx = users.indexOfFirst { it.username == uname }
+                if (idx >= 0) {
+                    users[idx] = users[idx].copy(nickname = nick)
+                    runOnUiThread { adapter.notifyItemChanged(idx) }
+                }
             }
             "avatar-update" -> {
                 try {
@@ -792,6 +833,7 @@ class MainActivity : AppCompatActivity() {
                     WebSocketClient.send(mapOf("type" to "get-users"))
                 }
             }
+            "group-preview-update" -> lifecycleScope.launch { enrichGroupItems() }
             "message", "file", "list", "location", "location-request", "location-response" -> {
                 val from = json.get("from")?.asString ?: return
                 val to = json.get("to")?.asString ?: return
@@ -850,6 +892,14 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun scheduleListRefresh() {
+        refreshJob?.cancel()
+        refreshJob = lifecycleScope.launch {
+            kotlinx.coroutines.delay(300)
+            rebuildCombinedList()
+        }
+    }
+
     private fun rebuildCombinedList() {
         val contacts = buildContactList(
             users.filter { !it.isGroup && it.username != UserAdapter.DIVIDER_USERNAME }
@@ -857,6 +907,31 @@ class MainActivity : AppCompatActivity() {
         users.clear()
         users.addAll(groupItems + contacts)
         adapter.notifyDataSetChanged()
+    }
+
+    private fun showTrustPickerForContact(user: User) {
+        val options = arrayOf(
+            getString(R.string.trust_family),
+            getString(R.string.trust_trusted),
+            getString(R.string.trust_contact),
+            getString(R.string.trust_stranger)
+        )
+        val values = arrayOf("family", "trusted", "contact", "stranger")
+        val currentTrust = Prefs.getPeerTrustLevel(this, user.username)
+        val currentIndex = values.indexOf(currentTrust).takeIf { it >= 0 } ?: 2
+        AlertDialog.Builder(this)
+            .setTitle(getString(R.string.label_trust_level))
+            .setSingleChoiceItems(options, currentIndex) { dialog, which ->
+                val selected = values[which]
+                Prefs.setPeerTrustLevel(this, user.username, selected)
+                WebSocketClient.send(mapOf(
+                    "type"           to "set-trust",
+                    "targetUsername" to user.username,
+                    "trustLevel"     to selected
+                ))
+                dialog.dismiss()
+            }
+            .show()
     }
 
     private fun buildContactList(contacts: List<User>): List<User> {
@@ -884,12 +959,7 @@ class MainActivity : AppCompatActivity() {
     private fun toggleFavorite(username: String) {
         if (favorites.contains(username)) favorites.remove(username) else favorites.add(username)
         Prefs.setFavorites(this, favorites)
-        val contacts = buildContactList(
-            users.filter { !it.isGroup && it.username != UserAdapter.DIVIDER_USERNAME }
-        )
-        users.clear()
-        users.addAll(groupItems + contacts)
-        adapter.notifyDataSetChanged()
+        scheduleListRefresh()
     }
 
     private suspend fun enrichWithLastMessages(list: List<User>) {
@@ -922,7 +992,7 @@ class MainActivity : AppCompatActivity() {
             val contacts = buildContactList(merged)
             users.clear()
             users.addAll(groupItems + contacts)
-            adapter.notifyDataSetChanged()
+            scheduleListRefresh()
         }
     }
 }

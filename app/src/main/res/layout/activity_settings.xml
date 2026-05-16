@@ -451,7 +451,7 @@
             android:layout_marginTop="16dp"
             android:background="?attr/dividerHorizontal" />
 
-        <!-- App version -->
+        <!-- App version + build time -->
         <TextView
             android:id="@+id/tvAppVersion"
             android:layout_width="match_parent"
@@ -460,8 +460,9 @@
             android:paddingEnd="16dp"
             android:paddingTop="14dp"
             android:paddingBottom="14dp"
-            android:textSize="13sp"
-            android:textColor="?android:attr/textColorSecondary" />
+            android:textSize="11sp"
+            android:textColor="@color/text_tertiary"
+            android:gravity="center" />
 
         <!-- Devices section -->
         <View

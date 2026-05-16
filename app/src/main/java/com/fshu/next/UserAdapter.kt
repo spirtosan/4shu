@@ -36,7 +36,8 @@ class UserAdapter(
     private val onRequestLocation: (User) -> Unit = {},
     private val onSetNickname: (User) -> Unit = {},
     private val onToggleFavorite: (User) -> Unit = {},
-    private val onMuteToggle: (User) -> Unit = {}
+    private val onMuteToggle: (User) -> Unit = {},
+    private val onTrustLevel: (User) -> Unit = {}
 ) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
 
     companion object {
@@ -70,22 +71,34 @@ class UserAdapter(
         if (user.isGroup) {
             val personalFile = user.personalAvatar?.let { File(it) }?.takeIf { it.exists() }
             val groupFile = user.avatarPath?.let { File(it) }?.takeIf { it.exists() }
+            val avatarPath = personalFile?.absolutePath ?: groupFile?.absolutePath
             when {
-                personalFile != null -> h.binding.ivAvatar.load(personalFile) {
-                    transformations(CircleCropTransformation())
-                    crossfade(false)
-                    memoryCachePolicy(CachePolicy.ENABLED)
-                    diskCachePolicy(CachePolicy.ENABLED)
-                    placeholder(h.binding.ivAvatar.drawable)
+                personalFile != null -> {
+                    if (h.binding.ivAvatar.tag != avatarPath) {
+                        h.binding.ivAvatar.tag = avatarPath
+                        h.binding.ivAvatar.load(personalFile) {
+                            transformations(CircleCropTransformation())
+                            crossfade(false)
+                            memoryCachePolicy(CachePolicy.ENABLED)
+                            diskCachePolicy(CachePolicy.ENABLED)
+                            placeholder(h.binding.ivAvatar.drawable)
+                        }
+                    }
                 }
-                groupFile != null -> h.binding.ivAvatar.load(groupFile) {
-                    transformations(CircleCropTransformation())
-                    crossfade(false)
-                    memoryCachePolicy(CachePolicy.ENABLED)
-                    diskCachePolicy(CachePolicy.ENABLED)
-                    placeholder(h.binding.ivAvatar.drawable)
+                groupFile != null -> {
+                    if (h.binding.ivAvatar.tag != avatarPath) {
+                        h.binding.ivAvatar.tag = avatarPath
+                        h.binding.ivAvatar.load(groupFile) {
+                            transformations(CircleCropTransformation())
+                            crossfade(false)
+                            memoryCachePolicy(CachePolicy.ENABLED)
+                            diskCachePolicy(CachePolicy.ENABLED)
+                            placeholder(h.binding.ivAvatar.drawable)
+                        }
+                    }
                 }
                 else -> {
+                    if (h.binding.ivAvatar.tag != null) h.binding.ivAvatar.tag = null
                     val letter = user.displayName.firstOrNull()?.uppercaseChar()?.toString() ?: "G"
                     h.binding.ivAvatar.load(createLetterBitmap(letter, avatarColor(user.displayName, ctx), sizePx))
                 }
@@ -106,14 +119,19 @@ class UserAdapter(
 
         val avatarFile = File(ctx.filesDir, "avatars/${user.username}.jpg")
         if (avatarFile.exists()) {
-            h.binding.ivAvatar.load(avatarFile) {
-                transformations(CircleCropTransformation())
-                crossfade(false)
-                memoryCachePolicy(CachePolicy.ENABLED)
-                diskCachePolicy(CachePolicy.ENABLED)
-                placeholder(h.binding.ivAvatar.drawable)
+            val path = avatarFile.absolutePath
+            if (h.binding.ivAvatar.tag != path) {
+                h.binding.ivAvatar.tag = path
+                h.binding.ivAvatar.load(avatarFile) {
+                    transformations(CircleCropTransformation())
+                    crossfade(false)
+                    memoryCachePolicy(CachePolicy.ENABLED)
+                    diskCachePolicy(CachePolicy.ENABLED)
+                    placeholder(h.binding.ivAvatar.drawable)
+                }
             }
         } else {
+            if (h.binding.ivAvatar.tag != null) h.binding.ivAvatar.tag = null
             val letter = displayName.firstOrNull()?.uppercaseChar()?.toString() ?: "?"
             h.binding.ivAvatar.setImageBitmap(createLetterBitmap(letter, avatarColor(user.username, ctx), sizePx))
         }
@@ -176,6 +194,7 @@ class UserAdapter(
                         R.id.action_user_emergency_call -> { onEmergencyCall(user); true }
                         R.id.action_user_emergency_location -> { onEmergencyWithLocation(user); true }
                         R.id.action_user_set_nickname -> { onSetNickname(user); true }
+                        R.id.action_user_trust_level -> { onTrustLevel(user); true }
                         R.id.action_user_mute -> { onMuteToggle(user); true }
                         else -> false
                     }

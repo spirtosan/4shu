@@ -81,8 +81,8 @@ class MyProfileActivity : AppCompatActivity() {
 
         loadAvatar()
 
-        binding.ivAvatar.setOnClickListener { pickAvatarLauncher.launch("image/*") }
-        binding.tvChangePhoto.setOnClickListener { pickAvatarLauncher.launch("image/*") }
+        binding.ivAvatar.setOnClickListener { showAvatarOptions() }
+        binding.tvChangePhoto.setOnClickListener { showAvatarOptions() }
 
         binding.btnSaveProfile.setOnClickListener { saveProfile() }
 
@@ -224,6 +224,27 @@ class MyProfileActivity : AppCompatActivity() {
         if (nickname != Prefs.getMyNickname(this)) {
             Prefs.setMyNickname(this, nickname)
         }
+    }
+
+    private fun showAvatarOptions() {
+        val me = Prefs.getUsername(this)
+        val hasPhoto = File(filesDir, "avatars/$me.jpg").exists()
+        val options = if (hasPhoto) arrayOf("Change photo", "Remove photo") else arrayOf("Change photo")
+        AlertDialog.Builder(this)
+            .setTitle("Profile photo")
+            .setItems(options) { _, which ->
+                if (which == 0) pickAvatarLauncher.launch("image/*")
+                else removeAvatar()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun removeAvatar() {
+        val me = Prefs.getUsername(this)
+        File(filesDir, "avatars/$me.jpg").delete()
+        WebSocketClient.send(mapOf("type" to "remove-avatar"))
+        loadAvatar()
     }
 
     private fun loadAvatar() {

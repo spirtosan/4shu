@@ -13,4 +13,7 @@ interface PeerKeyDao {
 
     @Query("SELECT * FROM peer_keys")
     suspend fun getAll(): List<PeerKey>
+
+    @Query("DELETE FROM peer_keys WHERE username = :username")
+    suspend fun delete(username: String)
 }

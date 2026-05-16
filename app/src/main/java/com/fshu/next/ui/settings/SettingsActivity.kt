@@ -289,14 +289,7 @@ class SettingsActivity : AppCompatActivity() {
             ChangePasswordDialog().show(supportFragmentManager, "change_password")
         }
 
-        // App version
-        val pInfo = packageManager.getPackageInfo(packageName, 0)
-        val versionName = pInfo.versionName
-        val versionCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P)
-            pInfo.longVersionCode
-        else
-            @Suppress("DEPRECATION") pInfo.versionCode.toLong()
-        binding.tvAppVersion.text = getString(R.string.app_version_format, versionName, versionCode.toString())
+        binding.tvAppVersion.text = "v${com.fshu.next.BuildConfig.VERSION_NAME} · ${com.fshu.next.BuildConfig.BUILD_TIME}"
 
         // Export my data
         binding.btnExportData.setOnClickListener {

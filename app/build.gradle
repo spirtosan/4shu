@@ -30,6 +30,7 @@ android {
         targetSdk 34
         versionCode 1
         versionName "0.1.0-next"
+        buildConfigField "String", "BUILD_TIME", "\"${new Date().format('dd MMM yyyy HH:mm')}\""
 
         externalNativeBuild {
             cmake {
@@ -64,6 +65,7 @@ android {
 
     buildFeatures {
         viewBinding true
+        buildConfig true
     }
 
     packagingOptions {
