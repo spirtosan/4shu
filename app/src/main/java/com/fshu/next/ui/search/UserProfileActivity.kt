@@ -36,6 +36,7 @@ class UserProfileActivity : AppCompatActivity() {
     private var targetUsername = ""
     private var currentTrustLevel: String = "contact"
     private var currentAllowEmergency: Int? = null
+    private var allowEmergencyLocation = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -64,8 +65,15 @@ class UserProfileActivity : AppCompatActivity() {
             }
         }
 
+        allowEmergencyLocation = getSharedPreferences("fshu_prefs", MODE_PRIVATE)
+            .getBoolean("emerg_loc_$targetUsername", false)
+
         binding.rowEmergencyAllow.setOnClickListener {
             binding.switchEmergencyAllow.toggle()
+        }
+
+        binding.rowEmergencyLocation.setOnClickListener {
+            binding.switchAllowEmergencyLocation.toggle()
         }
 
         WebSocketClient.send(mapOf("type" to "user-profile", "targetUsername" to targetUsername))
@@ -302,6 +310,7 @@ class UserProfileActivity : AppCompatActivity() {
             binding.tvTrustLabel.visibility = View.GONE
             binding.tvTrustValue.visibility = View.GONE
             binding.rowEmergencyAllow.visibility = View.GONE
+            binding.rowEmergencyLocation.visibility = View.GONE
             return
         }
         binding.tvTrustLabel.visibility = View.VISIBLE
@@ -314,7 +323,9 @@ class UserProfileActivity : AppCompatActivity() {
         }
         binding.tvTrustValue.setOnClickListener { showTrustPicker() }
         binding.rowEmergencyAllow.visibility = View.VISIBLE
+        binding.rowEmergencyLocation.visibility = View.VISIBLE
         updateEmergencySwitch()
+        updateEmergencyLocationSwitch()
     }
 
     private fun updateEmergencySwitch() {
@@ -330,6 +341,17 @@ class UserProfileActivity : AppCompatActivity() {
             lifecycleScope.launch(Dispatchers.IO) {
                 db.contactDao().setEmergencyAllow(me, targetUsername, allow)
             }
+        }
+    }
+
+    private fun updateEmergencyLocationSwitch() {
+        binding.switchAllowEmergencyLocation.setOnCheckedChangeListener(null)
+        binding.switchAllowEmergencyLocation.isChecked = allowEmergencyLocation
+        binding.switchAllowEmergencyLocation.setOnCheckedChangeListener { _, isChecked ->
+            allowEmergencyLocation = isChecked
+            getSharedPreferences("fshu_prefs", MODE_PRIVATE).edit()
+                .putBoolean("emerg_loc_$targetUsername", isChecked)
+                .apply()
         }
     }
 

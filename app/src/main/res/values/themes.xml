@@ -1,19 +1,41 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources xmlns:tools="http://schemas.android.com/tools">
-    <style name="Theme.Fshu" parent="Theme.MaterialComponents.NoActionBar">
-        <item name="colorPrimary">@color/accent</item>
-        <item name="colorPrimaryVariant">@color/accent_dark</item>
+<resources>
+    <style name="Theme.Fshu" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/brand_orange</item>
+        <item name="colorPrimaryVariant">@color/brand_orange_pressed</item>
         <item name="colorOnPrimary">@color/white</item>
-        <item name="colorSurface">@color/bg_secondary</item>
-        <item name="colorOnSurface">@color/text_primary</item>
-        <item name="android:colorBackground">@color/bg_primary</item>
-        <item name="android:windowBackground">@color/bg_primary</item>
-        <item name="android:statusBarColor">@color/bg_secondary</item>
-        <item name="android:navigationBarColor">@color/bg_primary</item>
-        <item name="android:textColorPrimary">@color/text_primary</item>
-        <item name="android:textColorSecondary">@color/text_secondary</item>
-        <item name="colorControlNormal">@color/text_secondary</item>
-        <item name="colorControlActivated">@color/accent</item>
-        <item name="android:forceDarkAllowed" tools:targetApi="q">false</item>
+        <item name="colorSecondary">@color/brand_orange</item>
+        <item name="colorOnSecondary">@color/white</item>
+        <item name="colorSurface">@color/light_surface</item>
+        <item name="colorOnSurface">@color/light_text_primary</item>
+        <item name="android:colorBackground">@color/light_background</item>
+        <item name="android:windowBackground">@color/light_background</item>
+        <item name="colorBubbleSent">@color/light_bubble_sent</item>
+        <item name="colorBubbleReceived">@color/light_bubble_received</item>
+        <item name="colorBorder">@color/light_border</item>
+        <item name="colorTextPrimary">@color/light_text_primary</item>
+        <item name="colorTextSecondary">@color/light_text_secondary</item>
+        <item name="colorTextTertiary">@color/light_text_tertiary</item>
+        <item name="colorSurfaceElevated">@color/light_surface_elevated</item>
+        <item name="colorControlNormal">@color/light_text_primary</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:navigationBarColor">?attr/colorSurface</item>
+        <item name="toolbarStyle">@style/Widget.Fshu.Toolbar</item>
+        <item name="colorSwitchThumbNormal">@color/light_text_tertiary</item>
+        <item name="materialCardViewStyle">@style/Widget.Fshu.Card</item>
+    </style>
+
+    <style name="Widget.Fshu.Toolbar" parent="Widget.MaterialComponents.Toolbar">
+        <item name="titleTextColor">?attr/colorTextPrimary</item>
+        <item name="subtitleTextColor">?attr/colorTextSecondary</item>
+        <item name="navigationIconTint">?attr/colorTextPrimary</item>
+    </style>
+
+    <style name="Widget.Fshu.Card" parent="Widget.MaterialComponents.CardView">
+        <item name="cardBackgroundColor">?attr/colorSurfaceElevated</item>
+        <item name="strokeColor">?attr/colorBorder</item>
+        <item name="strokeWidth">1dp</item>
+        <item name="cardCornerRadius">@dimen/radius_card</item>
+        <item name="cardElevation">0dp</item>
     </style>
 </resources>

@@ -300,4 +300,45 @@
     <string name="admin_server_info_format">Диск:\n%1$s\n\nФайлове: %2$d (%3$s)\nФайлове с история: %4$d</string>
     <string name="label_allow_emergency_calls">Позволи спешни повиквания</string>
     <string name="desc_allow_emergency_calls">Може да те достигне при спешност независимо от другите настройки</string>
+
+    <string name="nav_chats">Чатове</string>
+    <string name="nav_contacts">Контакти</string>
+    <string name="nav_settings">Настройки</string>
+    <string name="search_hint">Търси по име или потребителско…</string>
+    <string name="search_type_hint">Въведете поне 3 символа за търсене</string>
+    <string name="search_no_users">Няма намерени потребители</string>
+    <string name="search_show_more">Покажи още резултати</string>
+    <string name="label_requests">Заявки за контакт</string>
+    <string name="label_contacts">Контакти</string>
+    <string name="add_contact">Добави контакт</string>
+
+    <string name="label_appearance">Облик</string>
+    <string name="label_theme">Тема</string>
+    <string name="option_theme_system">Системна</string>
+    <string name="option_theme_light">Светла</string>
+    <string name="option_theme_dark">Тъмна</string>
+    <string name="label_language">Език</string>
+    <string name="option_language_system">Системен</string>
+    <string name="option_language_en">Английски</string>
+    <string name="option_language_bg">Български</string>
+    <string name="label_privacy">Поверителност</string>
+    <string name="label_read_receipts">Потвърждения за четене</string>
+    <string name="desc_read_receipts">Показва кога са прочетени съобщенията</string>
+    <string name="label_emergency">Спешни случаи</string>
+    <string name="label_sos_message">SOS съобщение</string>
+    <string name="desc_sos_message">Изпраща се автоматично при спешни повиквания</string>
+    <string name="hint_sos_message">Спешно съобщение…</string>
+    <string name="label_security">Сигурност</string>
+    <string name="label_devices">Устройства</string>
+    <string name="label_danger_zone">Опасна зона</string>
+    <string name="btn_delete_account">Изтрий моя акаунт</string>
+    <string name="dialog_delete_account_title">Изтриване на акаунт?</string>
+    <string name="dialog_delete_account_message">Това ще изтрие постоянно вашия акаунт и всички данни. Не може да се отмени.</string>
+
+    <string name="settings_sos_message_default">Спешно! Моля, уведомете властите и изпратете помощ на местонахождението ми.</string>
+    <string name="allow_emergency_location">Разрешаване на спешно местоположение</string>
+    <string name="allow_emergency_location_hint">Разрешете на този контакт да споделя местоположение при спешни случаи</string>
+    <string name="btn_send_request">Изпрати заявка за контакт</string>
+    <string name="btn_block_user">Блокирай потребителя</string>
+    <string name="label_request_pending">Заявката е изпратена…</string>
 </resources>

@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.Fshu" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/brand_orange</item>
+        <item name="colorPrimaryVariant">@color/brand_orange_pressed</item>
+        <item name="colorOnPrimary">@color/dark_text_primary</item>
+        <item name="colorSecondary">@color/brand_orange</item>
+        <item name="colorOnSecondary">@color/dark_text_primary</item>
+        <item name="colorSurface">@color/dark_surface</item>
+        <item name="colorOnSurface">@color/dark_text_primary</item>
+        <item name="android:colorBackground">@color/dark_background</item>
+        <item name="android:windowBackground">@color/dark_background</item>
+        <item name="colorBubbleSent">@color/dark_bubble_sent</item>
+        <item name="colorBubbleReceived">@color/dark_bubble_received</item>
+        <item name="colorBorder">@color/dark_border</item>
+        <item name="colorTextPrimary">@color/dark_text_primary</item>
+        <item name="colorTextSecondary">@color/dark_text_secondary</item>
+        <item name="colorTextTertiary">@color/dark_text_tertiary</item>
+        <item name="colorSurfaceElevated">@color/dark_surface_elevated</item>
+        <item name="colorControlNormal">@color/dark_text_primary</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:navigationBarColor">?attr/colorSurface</item>
+        <item name="toolbarStyle">@style/Widget.Fshu.Toolbar</item>
+        <item name="materialCardViewStyle">@style/Widget.Fshu.Card</item>
+    </style>
+</resources>

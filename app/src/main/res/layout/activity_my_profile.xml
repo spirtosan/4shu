@@ -3,13 +3,13 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="@color/bg_primary">
+    android:background="?android:attr/colorBackground">
 
     <androidx.appcompat.widget.Toolbar
         android:id="@+id/toolbar"
         android:layout_width="match_parent"
         android:layout_height="?attr/actionBarSize"
-        android:background="@color/bg_secondary"
+        android:background="?attr/colorSurface"
         android:elevation="4dp" />
 
     <ScrollView
@@ -45,7 +45,7 @@
                 android:layout_marginBottom="20dp"
                 android:text="@string/label_tap_to_change_photo"
                 android:textSize="12sp"
-                android:textColor="@color/text_secondary" />
+                android:textColor="?attr/colorTextSecondary" />
 
             <View
                 android:layout_width="match_parent"
@@ -75,9 +75,9 @@
                 android:inputType="textPersonName|textCapWords"
                 android:maxLength="20"
                 android:textSize="15sp"
-                android:textColor="@color/text_primary"
+                android:textColor="?attr/colorTextPrimary"
                 android:background="@android:color/transparent"
-                android:textColorHint="@color/text_tertiary" />
+                android:textColorHint="?attr/colorTextTertiary" />
 
             <View
                 android:layout_width="match_parent"
@@ -110,9 +110,9 @@
                 android:minLines="2"
                 android:gravity="top"
                 android:textSize="15sp"
-                android:textColor="@color/text_primary"
+                android:textColor="?attr/colorTextPrimary"
                 android:background="@android:color/transparent"
-                android:textColorHint="@color/text_tertiary" />
+                android:textColorHint="?attr/colorTextTertiary" />
 
             <View
                 android:layout_width="match_parent"
@@ -142,9 +142,9 @@
                 android:inputType="textEmailAddress"
                 android:maxLength="128"
                 android:textSize="15sp"
-                android:textColor="@color/text_primary"
+                android:textColor="?attr/colorTextPrimary"
                 android:background="@android:color/transparent"
-                android:textColorHint="@color/text_tertiary" />
+                android:textColorHint="?attr/colorTextTertiary" />
 
             <View
                 android:layout_width="match_parent"
@@ -163,9 +163,9 @@
                 android:inputType="phone"
                 android:maxLength="32"
                 android:textSize="15sp"
-                android:textColor="@color/text_primary"
+                android:textColor="?attr/colorTextPrimary"
                 android:background="@android:color/transparent"
-                android:textColorHint="@color/text_tertiary" />
+                android:textColorHint="?attr/colorTextTertiary" />
 
             <View
                 android:layout_width="match_parent"
@@ -216,7 +216,7 @@
                 android:paddingEnd="16dp"
                 android:paddingBottom="8dp"
                 android:textSize="14sp"
-                android:textColor="@color/text_secondary"
+                android:textColor="?attr/colorTextSecondary"
                 android:text="@string/label_secret_question_not_set" />
 
             <Button

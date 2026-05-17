@@ -15,7 +15,7 @@
         android:layout_height="wrap_content"
         android:text="@string/label_other_contacts"
         android:textSize="11sp"
-        android:textColor="@color/text_tertiary"
+        android:textColor="?attr/colorTextTertiary"
         android:paddingStart="16dp"
         android:paddingEnd="16dp"
         android:paddingTop="8dp"

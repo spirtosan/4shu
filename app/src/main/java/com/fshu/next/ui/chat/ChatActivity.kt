@@ -51,6 +51,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import com.fshu.next.R
 import com.fshu.next.databinding.ActivityChatBinding
 import com.fshu.next.ui.BackgroundBottomSheet
+import com.fshu.next.ui.search.UserProfileActivity
 import com.fshu.next.ui.BackgroundHelper
 import com.fshu.next.ui.call.CallActivity
 import com.fshu.next.util.MessageBus
@@ -182,6 +183,18 @@ class ChatActivity : AppCompatActivity() {
         } else {
             title = getNickname(peer) ?: peer
             loadPeerAvatar()
+            binding.toolbarAvatar.setOnClickListener {
+                startActivity(Intent(this, UserProfileActivity::class.java).apply {
+                    putExtra("username", peer)
+                })
+            }
+        }
+        binding.toolbar.setOnClickListener {
+            if (!isGroupChat) {
+                startActivity(Intent(this, UserProfileActivity::class.java).apply {
+                    putExtra("username", peer)
+                })
+            }
         }
 
         supportFragmentManager.setFragmentResultListener(BackgroundBottomSheet.RESULT_KEY, this) { _, _ ->
@@ -651,12 +664,14 @@ class ChatActivity : AppCompatActivity() {
     }
 
     private fun applyBackground() {
+        val tv = android.util.TypedValue()
+        theme.resolveAttribute(android.R.attr.colorBackground, tv, true)
         BackgroundHelper.apply(
             rootView     = binding.root,
             bgImageView  = binding.ivBg,
             bgIndex      = Prefs.getChatBgIndex(this, peer),
             bgUri        = Prefs.getChatBgUri(this, peer),
-            defaultColor = ContextCompat.getColor(this, R.color.bg_primary)
+            defaultColor = tv.data
         )
     }
 

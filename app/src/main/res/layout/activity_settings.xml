@@ -63,14 +63,14 @@
                 android:layout_height="wrap_content"
                 android:text="@string/label_server_url"
                 android:textSize="13sp"
-                android:textColor="@color/text_secondary" />
+                android:textColor="?attr/colorTextSecondary" />
 
             <TextView
                 android:id="@+id/tv_server_url"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:textSize="15sp"
-                android:textColor="@color/text_primary"
+                android:textColor="?attr/colorTextPrimary"
                 android:paddingTop="4dp" />
 
         </LinearLayout>
@@ -98,14 +98,14 @@
                 android:layout_height="wrap_content"
                 android:text="@string/label_device_name"
                 android:textSize="13sp"
-                android:textColor="@color/text_secondary" />
+                android:textColor="?attr/colorTextSecondary" />
 
             <TextView
                 android:id="@+id/tvDeviceName"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:textSize="15sp"
-                android:textColor="@color/text_primary"
+                android:textColor="?attr/colorTextPrimary"
                 android:paddingTop="4dp" />
 
         </LinearLayout>
@@ -414,7 +414,7 @@
             android:paddingTop="14dp"
             android:paddingBottom="14dp"
             android:textSize="11sp"
-            android:textColor="@color/text_tertiary"
+            android:textColor="?attr/colorTextTertiary"
             android:gravity="center" />
 
         <!-- Devices section -->

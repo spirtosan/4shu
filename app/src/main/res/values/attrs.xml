@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <attr name="colorBubbleSent" format="color"/>
+    <attr name="colorBubbleReceived" format="color"/>
+    <attr name="colorBorder" format="color"/>
+    <attr name="colorTextPrimary" format="color"/>
+    <attr name="colorTextSecondary" format="color"/>
+    <attr name="colorTextTertiary" format="color"/>
+    <attr name="colorSurfaceElevated" format="color"/>
+</resources>

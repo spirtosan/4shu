@@ -21,6 +21,7 @@ import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import coil.load
+import com.google.android.material.color.MaterialColors
 import com.google.gson.JsonParser
 import com.fshu.next.data.model.Message
 import com.fshu.next.databinding.ItemListReceivedBinding
@@ -414,7 +415,7 @@ class ChatAdapter : ListAdapter<Message, RecyclerView.ViewHolder>(DIFF) {
         }
         // Reset styles that may linger from a recycled deleted cell
         tv.setTypeface(null, android.graphics.Typeface.NORMAL)
-        tv.setTextColor(tv.context.getColor(com.fshu.next.R.color.text_primary))
+        tv.setTextColor(MaterialColors.getColor(tv.context, com.fshu.next.R.attr.colorTextPrimary, android.graphics.Color.BLACK))
 
         val isImage = msg.type == "file" && msg.mimeType?.startsWith("image/") == true
         if (isImage && msg.localUri != null) {

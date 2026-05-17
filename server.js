@@ -1654,7 +1654,7 @@ wss.on('connection', (ws, req) => {
         switch (msg.type) {
 
             case 'message': {
-                if (!areContacts(username, msg.to)) {
+                if (!areContacts(msg.to, username)) {
                     const isBlocked = stmt.getBlock.get(msg.to, username);
                     if (isBlocked) {
                         if (msg.messageId) send(ws, { type: 'ack', messageId: msg.messageId });
@@ -1676,7 +1676,7 @@ wss.on('connection', (ws, req) => {
             }
 
             case 'file': {
-                if (!areContacts(username, msg.to)) {
+                if (!areContacts(msg.to, username)) {
                     const isBlocked = stmt.getBlock.get(msg.to, username);
                     if (isBlocked) {
                         if (msg.messageId) send(ws, { type: 'ack', messageId: msg.messageId });
@@ -1791,7 +1791,7 @@ wss.on('connection', (ws, req) => {
             }
 
             case 'call-offer': {
-                if (!areContacts(username, msg.to)) {
+                if (!areContacts(msg.to, username)) {
                     send(ws, { type: 'call-reject', from: msg.to, to: username, reason: 'not-contact' });
                     break;
                 }
@@ -1822,7 +1822,7 @@ wss.on('connection', (ws, req) => {
             }
 
             case 'call-emergency': {
-                if (!areContacts(username, msg.to)) {
+                if (!areContacts(msg.to, username)) {
                     send(ws, { type: 'call-reject', from: msg.to, to: username, reason: 'not-contact' });
                     break;
                 }
@@ -2332,8 +2332,27 @@ wss.on('connection', (ws, req) => {
             case 'public-key': {
                 const key = (msg.publicKey || '').trim();
                 if (key) {
+                    const existingUser = db.prepare('SELECT public_key FROM users WHERE username = ?').get(username);
+                    const keyChanged = existingUser && existingUser.public_key && existingUser.public_key !== key;
                     stmt.updatePublicKey.run(key, username);
                     console.log(`  public key stored for ${username}`);
+                    if (keyChanged) {
+                        const affectedGroups = db.prepare(
+                            'SELECT gm.group_id, g.owner FROM group_members gm JOIN groups g ON g.group_id = gm.group_id WHERE gm.username = ?'
+                        ).all(username);
+                        for (const grp of affectedGroups) {
+                            db.prepare(
+                                'UPDATE group_members SET encrypted_group_key = NULL WHERE group_id = ? AND username = ?'
+                            ).run(grp.group_id, username);
+                            const payload = { type: 'group-key-needed', groupId: grp.group_id, forUser: username };
+                            if (isOnline(grp.owner)) {
+                                sendToAll(grp.owner, payload);
+                            } else {
+                                enqueue(grp.owner, payload);
+                            }
+                        }
+                        console.log(`  key changed for ${username}, notified owners of ${affectedGroups.length} group(s)`);
+                    }
                     broadcastAllUsers();
                 }
                 break;
@@ -2541,6 +2560,26 @@ wss.on('connection', (ws, req) => {
                     if (isOnline(m.username)) { sendToAll(m.username, update); } else { enqueue(m.username, update); }
                 }
                 console.log(`  group-key-rotate: ${groupId} by ${username}, ${keys.length} key(s) updated`);
+                break;
+            }
+
+            case 'group-key-submit': {
+                const { groupId, forUser, encryptedKey } = msg;
+                if (!groupId || !forUser || !encryptedKey) break;
+                const senderRole = db.prepare(
+                    'SELECT role FROM group_members WHERE group_id = ? AND username = ?'
+                ).get(groupId, username);
+                if (!senderRole || (senderRole.role !== 'owner' && senderRole.role !== 'admin')) break;
+                db.prepare(
+                    'UPDATE group_members SET encrypted_group_key = ? WHERE group_id = ? AND username = ?'
+                ).run(encryptedKey, groupId, forUser);
+                const update = { type: 'group-key-update', groupId };
+                if (isOnline(forUser)) {
+                    sendToAll(forUser, update);
+                } else {
+                    enqueue(forUser, update);
+                }
+                console.log(`  group-key-submit: key for ${forUser} in ${groupId} by ${username}`);
                 break;
             }
 

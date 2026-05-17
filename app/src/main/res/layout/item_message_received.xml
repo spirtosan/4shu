@@ -67,7 +67,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:textSize="12sp"
-                    android:textColor="@color/text_secondary"
+                    android:textColor="?attr/colorTextSecondary"
                     android:maxLines="3"
                     android:ellipsize="end" />
             </LinearLayout>
@@ -85,7 +85,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:textSize="15sp"
-            android:textColor="@color/text_primary" />
+            android:textColor="?attr/colorTextPrimary" />
 
         <TextView
             android:id="@+id/tv_time"
@@ -94,7 +94,7 @@
             android:layout_gravity="end"
             android:layout_marginTop="3dp"
             android:textSize="11sp"
-            android:textColor="@color/text_tertiary" />
+            android:textColor="?attr/colorTextTertiary" />
 
     </LinearLayout>
 

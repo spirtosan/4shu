@@ -22,9 +22,9 @@
             android:id="@+id/toolbar"
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
-            android:background="@color/bg_secondary"
-            app:titleTextColor="@color/text_primary"
-            app:subtitleTextColor="@color/text_secondary"
+            android:background="?attr/colorSurface"
+            app:titleTextColor="?attr/colorTextPrimary"
+            app:subtitleTextColor="?attr/colorTextSecondary"
             app:contentInsetStartWithNavigation="0dp">
 
             <ImageView
@@ -143,7 +143,7 @@
             android:orientation="horizontal"
             android:gravity="center_vertical"
             android:visibility="gone"
-            android:background="@color/bg_tertiary"
+            android:background="?attr/colorSurfaceElevated"
             android:paddingStart="8dp"
             android:paddingEnd="4dp"
             android:paddingVertical="6dp">
@@ -174,7 +174,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:textSize="12sp"
-                    android:textColor="@color/text_secondary"
+                    android:textColor="?attr/colorTextSecondary"
                     android:maxLines="1"
                     android:ellipsize="end" />
             </LinearLayout>
@@ -195,7 +195,7 @@
             android:paddingHorizontal="4dp"
             android:paddingVertical="6dp"
             android:gravity="center_vertical"
-            android:background="@color/bg_secondary"
+            android:background="?attr/colorSurface"
             android:elevation="4dp">
 
             <ImageButton
@@ -203,7 +203,7 @@
                 android:layout_width="44dp"
                 android:layout_height="44dp"
                 android:src="@android:drawable/ic_menu_add"
-                android:tint="@color/primary"
+                app:tint="?attr/colorTextSecondary"
                 android:contentDescription="Attach file"
                 android:background="?attr/selectableItemBackgroundBorderless" />
 
@@ -223,10 +223,10 @@
                     android:maxLines="4"
                     android:paddingHorizontal="14dp"
                     android:paddingVertical="10dp"
-                    android:background="@drawable/bg_input"
+                    android:background="@drawable/bg_input_bar"
                     android:textSize="15sp"
-                    android:textColor="@color/text_primary"
-                    android:textColorHint="@color/text_secondary" />
+                    android:textColor="?attr/colorTextPrimary"
+                    android:textColorHint="?attr/colorTextTertiary" />
 
                 <TextView
                     android:id="@+id/tv_recording_state"
@@ -236,7 +236,7 @@
                     android:paddingHorizontal="14dp"
                     android:paddingVertical="10dp"
                     android:textSize="15sp"
-                    android:textColor="@color/text_primary"
+                    android:textColor="?attr/colorTextPrimary"
                     android:visibility="gone"
                     android:text="@string/label_voice_recording" />
 
@@ -247,7 +247,7 @@
                 android:layout_width="44dp"
                 android:layout_height="44dp"
                 android:src="@drawable/ic_mic"
-                android:tint="@color/primary"
+                app:tint="?attr/colorTextSecondary"
                 android:contentDescription="Hold to record voice message"
                 android:background="?attr/selectableItemBackgroundBorderless" />
 
@@ -256,7 +256,7 @@
                 android:layout_width="44dp"
                 android:layout_height="44dp"
                 android:src="@android:drawable/ic_menu_send"
-                android:tint="@color/primary"
+                app:tint="?attr/colorPrimary"
                 android:contentDescription="Send"
                 android:background="?attr/selectableItemBackgroundBorderless" />
 

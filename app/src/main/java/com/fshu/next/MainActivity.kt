@@ -58,6 +58,12 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.util.UUID
+import androidx.fragment.app.Fragment
+import com.google.android.material.bottomnavigation.BottomNavigationView
+import com.fshu.next.ui.ChatsFragment
+import com.fshu.next.ui.ContactsFragment
+import com.fshu.next.ui.SettingsFragment
+import com.fshu.next.ui.ThemeManager
 
 class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
@@ -112,6 +118,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        ThemeManager.applyTheme(this)
         CrashHandler.install(this)
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
@@ -243,40 +250,6 @@ class MainActivity : AppCompatActivity() {
             },
             onTrustLevel = { user -> showTrustPickerForContact(user) }
         )
-        binding.rvUsers.layoutManager = LinearLayoutManager(this)
-        binding.rvUsers.adapter = adapter
-
-        val dragCallback = object : androidx.recyclerview.widget.ItemTouchHelper.SimpleCallback(
-            androidx.recyclerview.widget.ItemTouchHelper.UP or
-            androidx.recyclerview.widget.ItemTouchHelper.DOWN, 0
-        ) {
-            override fun onMove(
-                rv: androidx.recyclerview.widget.RecyclerView,
-                vh: androidx.recyclerview.widget.RecyclerView.ViewHolder,
-                target: androidx.recyclerview.widget.RecyclerView.ViewHolder
-            ): Boolean {
-                val from = vh.bindingAdapterPosition
-                val to = target.bindingAdapterPosition
-                val fromUser = users.getOrNull(from) ?: return false
-                val toUser = users.getOrNull(to) ?: return false
-                if (fromUser.isGroup || toUser.isGroup) return false
-                if (fromUser.username == UserAdapter.DIVIDER_USERNAME ||
-                    toUser.username == UserAdapter.DIVIDER_USERNAME) return false
-                if (fromUser.isFavorite != toUser.isFavorite) return false
-                adapter.moveItem(from, to)
-                return true
-            }
-            override fun onSwiped(vh: androidx.recyclerview.widget.RecyclerView.ViewHolder, dir: Int) {}
-            override fun clearView(
-                rv: androidx.recyclerview.widget.RecyclerView,
-                vh: androidx.recyclerview.widget.RecyclerView.ViewHolder
-            ) {
-                super.clearView(rv, vh)
-                saveUserOrder()
-            }
-        }
-        androidx.recyclerview.widget.ItemTouchHelper(dragCallback).attachToRecyclerView(binding.rvUsers)
-
         // Observe group list from Room — groups appear at the top of the list
         AppDatabase.getInstance(this).groupDao().getAllGroups().observe(this) { groups ->
             groupItems.clear()
@@ -309,6 +282,22 @@ class MainActivity : AppCompatActivity() {
 
         supportFragmentManager.setFragmentResultListener(BackgroundBottomSheet.RESULT_KEY, this) { _, _ ->
             applyBackground()
+        }
+
+        val bottomNav = binding.bottomNav
+        bottomNav.setOnItemSelectedListener { item ->
+            when (item.itemId) {
+                R.id.nav_chats -> showFragment("chats") { ChatsFragment() }
+                R.id.nav_contacts -> showFragment("contacts") { ContactsFragment() }
+                R.id.nav_settings -> showFragment("settings") { SettingsFragment() }
+            }
+            true
+        }
+        val savedTabId = savedInstanceState?.getInt("selected_tab") ?: R.id.nav_chats
+        when (savedTabId) {
+            R.id.nav_contacts -> bottomNav.selectedItemId = R.id.nav_contacts
+            R.id.nav_settings -> bottomNav.selectedItemId = R.id.nav_settings
+            else -> showFragment("chats") { ChatsFragment() }
         }
     }
 
@@ -730,10 +719,7 @@ class MainActivity : AppCompatActivity() {
                 launchEnrich(list)
 
                 val pending = json.get("pendingRequests")?.takeIf { !it.isJsonNull }?.asInt ?: 0
-                runOnUiThread {
-                    binding.btnRequestsBadge.visibility = if (pending > 0) android.view.View.VISIBLE else android.view.View.GONE
-                    binding.tvRequestsBadge.text = if (pending > 9) "9+" else pending.toString()
-                }
+                runOnUiThread { updateRequestsBadge(pending) }
             }
             "users-update" -> {
                 val arr = json.getAsJsonArray("onlineUsers") ?: return
@@ -759,7 +745,10 @@ class MainActivity : AppCompatActivity() {
                     val uname = json.get("username")?.asString ?: return
                     val me = Prefs.getUsername(this)
                     if (uname == me) {
-                        runOnUiThread { loadMyAvatar() }
+                        runOnUiThread {
+                            loadMyAvatar()
+                            (supportFragmentManager.findFragmentByTag("chats") as? ChatsFragment)?.loadOwnAvatar()
+                        }
                     } else {
                         val idx = users.indexOfFirst { it.username == uname }
                         if (idx >= 0) runOnUiThread { adapter.notifyItemChanged(idx) }
@@ -784,10 +773,7 @@ class MainActivity : AppCompatActivity() {
             }
             "contact-list" -> {
                 val count = json.getAsJsonArray("pendingReceived")?.size() ?: 0
-                runOnUiThread {
-                    binding.btnRequestsBadge.visibility = if (count > 0) android.view.View.VISIBLE else android.view.View.GONE
-                    binding.tvRequestsBadge.text = if (count > 9) "9+" else count.toString()
-                }
+                runOnUiThread { updateRequestsBadge(count) }
             }
             "contact-request-received" -> {
                 if (WebSocketClient.isConnected) {
@@ -930,6 +916,35 @@ class MainActivity : AppCompatActivity() {
         if (favorites.contains(username)) favorites.remove(username) else favorites.add(username)
         Prefs.setFavorites(this, favorites)
         scheduleListRefresh()
+    }
+
+    fun getConversationsAdapter(): UserAdapter = adapter
+    fun getConversationsList(): MutableList<User> = users
+    fun saveUserOrderFromFragment() = saveUserOrder()
+
+    private fun updateRequestsBadge(count: Int) {
+        val badge = binding.bottomNav.getOrCreateBadge(R.id.nav_contacts)
+        badge.number = count
+        badge.isVisible = count > 0
+    }
+
+    private fun showFragment(tag: String, createFragment: () -> Fragment) {
+        val fm = supportFragmentManager
+        val tx = fm.beginTransaction()
+        fm.fragments.forEach { tx.hide(it) }
+        var target = fm.findFragmentByTag(tag)
+        if (target == null) {
+            target = createFragment()
+            tx.add(R.id.fragment_container, target, tag)
+        } else {
+            tx.show(target)
+        }
+        tx.commitNow()
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putInt("selected_tab", binding.bottomNav.selectedItemId)
     }
 
     private suspend fun enrichWithLastMessages(list: List<User>) {

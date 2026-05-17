@@ -25,7 +25,7 @@
             android:text="@string/label_todo_list"
             android:textSize="12sp"
             android:textStyle="bold"
-            android:textColor="@color/text_secondary"
+            android:textColor="?attr/colorTextSecondary"
             android:layout_marginBottom="4dp" />
 
         <LinearLayout
@@ -47,7 +47,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:textSize="11sp"
-                android:textColor="@color/text_tertiary" />
+                android:textColor="?attr/colorTextTertiary" />
 
             <ProgressBar
                 android:id="@+id/pb_sending"
@@ -65,7 +65,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginStart="3dp"
                 android:textSize="12sp"
-                android:textColor="@color/text_tertiary"
+                android:textColor="?attr/colorTextTertiary"
                 android:visibility="gone" />
 
         </LinearLayout>

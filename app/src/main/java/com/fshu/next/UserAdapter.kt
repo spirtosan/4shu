@@ -11,6 +11,7 @@ import android.view.LayoutInflater
 import android.view.ViewGroup
 import android.widget.PopupMenu
 import androidx.core.content.ContextCompat
+import com.google.android.material.color.MaterialColors
 import androidx.recyclerview.widget.RecyclerView
 import coil.load
 import coil.request.CachePolicy
@@ -165,7 +166,7 @@ class UserAdapter(
             h.binding.tvFavStar.setTextColor(ContextCompat.getColor(ctx, R.color.accent))
         } else {
             h.binding.tvFavStar.text = "☆"
-            h.binding.tvFavStar.setTextColor(ContextCompat.getColor(ctx, R.color.text_secondary))
+            h.binding.tvFavStar.setTextColor(MaterialColors.getColor(h.binding.tvFavStar, R.attr.colorTextSecondary, Color.GRAY))
         }
         h.binding.tvFavStar.setOnClickListener { onToggleFavorite(user) }
 

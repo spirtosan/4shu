@@ -3,13 +3,13 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="@color/bg_primary">
+    android:background="?android:attr/colorBackground">
 
     <androidx.appcompat.widget.Toolbar
         android:id="@+id/toolbar"
         android:layout_width="match_parent"
         android:layout_height="?attr/actionBarSize"
-        android:background="@color/bg_secondary"
+        android:background="?attr/colorSurface"
         android:elevation="4dp" />
 
     <TextView
@@ -19,7 +19,7 @@
         android:layout_weight="1"
         android:text="@string/label_no_blocked_users"
         android:textSize="15sp"
-        android:textColor="@color/text_secondary"
+        android:textColor="?attr/colorTextSecondary"
         android:gravity="center"
         android:visibility="gone" />
 

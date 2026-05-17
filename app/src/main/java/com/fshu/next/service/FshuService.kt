@@ -648,13 +648,12 @@ class FshuService : Service() {
                         val storedKey = db.peerKeyDao().get(uname)
                         if (storedKey == null) {
                             db.peerKeyDao().upsert(com.fshu.next.data.model.PeerKey(uname, pubHex))
-                            Prefs.setPeerPublicKey(this, uname, pubHex)
                         } else if (storedKey.publicKey != pubHex) {
                             db.peerKeyDao().delete(uname)
                             db.peerKeyDao().upsert(com.fshu.next.data.model.PeerKey(uname, pubHex))
                             Prefs.clearPeerPublicKey(this, uname)
-                            Prefs.setPeerPublicKey(this, uname, pubHex)
                         }
+                        Prefs.setPeerPublicKey(this, uname, pubHex)
                         try {
                             CryptoHelper.cachePeerKey(this, uname, pubHex)
                         } catch (e: Exception) {

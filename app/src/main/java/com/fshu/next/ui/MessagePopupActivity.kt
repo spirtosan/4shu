@@ -21,6 +21,7 @@ import androidx.appcompat.app.AppCompatActivity
 import coil.load
 import coil.transform.CircleCropTransformation
 import com.fshu.next.R
+import com.google.android.material.color.MaterialColors
 import com.fshu.next.ui.chat.ChatActivity
 import java.io.File
 
@@ -145,7 +146,7 @@ class MessagePopupActivity : AppCompatActivity() {
         val tvName = TextView(this).apply {
             text = displayName
             textSize = 15f
-            setTextColor(getColor(R.color.text_primary))
+            setTextColor(MaterialColors.getColor(this@MessagePopupActivity, R.attr.colorTextPrimary, Color.BLACK))
             typeface = Typeface.DEFAULT_BOLD
             maxLines = 1
             ellipsize = android.text.TextUtils.TruncateAt.END
@@ -153,7 +154,7 @@ class MessagePopupActivity : AppCompatActivity() {
         val tvContent = TextView(this).apply {
             text = content
             textSize = 13f
-            setTextColor(getColor(R.color.text_secondary))
+            setTextColor(MaterialColors.getColor(this@MessagePopupActivity, R.attr.colorTextSecondary, Color.GRAY))
             maxLines = 2
             ellipsize = android.text.TextUtils.TruncateAt.END
         }

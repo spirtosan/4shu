@@ -29,7 +29,7 @@
                 android:layout_width="38dp"
                 android:layout_height="38dp"
                 android:src="@android:drawable/ic_media_play"
-                android:tint="@color/text_primary"
+                android:tint="?attr/colorTextPrimary"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:contentDescription="Play" />
 
@@ -46,7 +46,7 @@
                 android:layout_height="wrap_content"
                 android:gravity="end"
                 android:textSize="12sp"
-                android:textColor="@color/text_secondary" />
+                android:textColor="?attr/colorTextSecondary" />
 
         </LinearLayout>
 
@@ -57,7 +57,7 @@
             android:layout_gravity="end"
             android:layout_marginTop="2dp"
             android:textSize="11sp"
-            android:textColor="@color/text_tertiary" />
+            android:textColor="?attr/colorTextTertiary" />
 
     </LinearLayout>
 
