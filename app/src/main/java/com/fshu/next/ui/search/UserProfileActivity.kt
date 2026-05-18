@@ -18,10 +18,8 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.fshu.next.R
 import com.fshu.next.data.local.AppDatabase
-import com.fshu.next.data.local.entities.effectiveEmergencyAllow
 import com.fshu.next.data.remote.WebSocketClient
 import com.fshu.next.databinding.ActivityUserProfileBinding
-import com.fshu.next.service.FshuService
 import com.fshu.next.util.MessageBus
 import com.fshu.next.util.Prefs
 import com.google.gson.JsonObject
@@ -36,7 +34,8 @@ class UserProfileActivity : AppCompatActivity() {
     private var targetUsername = ""
     private var currentTrustLevel: String = "contact"
     private var currentAllowEmergency: Int? = null
-    private var allowEmergencyLocation = false
+    private var allowEmergencyLocation: Int? = null
+    private var savedEmergencyLocationValue: Int? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -57,16 +56,18 @@ class UserProfileActivity : AppCompatActivity() {
             MessageBus.events.collect { handleMessage(it) }
         }
 
-        // Load initial emergency-allow state from local Room DB
+        // Load initial emergency-allow states from Room DB
         lifecycleScope.launch {
             val me = Prefs.getUsername(this@UserProfileActivity)
-            currentAllowEmergency = withContext(Dispatchers.IO) {
-                db.contactDao().getEmergencyAllow(me, targetUsername)
+            val (emergCall, emergLoc) = withContext(Dispatchers.IO) {
+                Pair(
+                    db.contactDao().getEmergencyAllow(me, targetUsername),
+                    db.contactDao().getEmergencyLocationAllow(me, targetUsername)
+                )
             }
+            currentAllowEmergency = emergCall
+            allowEmergencyLocation = emergLoc
         }
-
-        allowEmergencyLocation = getSharedPreferences("fshu_prefs", MODE_PRIVATE)
-            .getBoolean("emerg_loc_$targetUsername", false)
 
         binding.rowEmergencyAllow.setOnClickListener {
             binding.switchEmergencyAllow.toggle()
@@ -178,6 +179,14 @@ class UserProfileActivity : AppCompatActivity() {
                         contactRow?.get("allow_emergency_call")?.takeIf { !it.isJsonNull }?.asInt
                     } catch (_: Exception) { null }
                     if (serverAllow != null) currentAllowEmergency = serverAllow
+                    val serverAllowLoc = try {
+                        contactRow?.get("allow_emergency_location")?.takeIf { !it.isJsonNull }?.asInt
+                    } catch (_: Exception) { null }
+                    if (serverAllowLoc != null) allowEmergencyLocation = serverAllowLoc
+                    // Resolve null → trust-level defaults (family/trusted = 1, others = 0)
+                    val trustDefault = if (currentTrustLevel == "family" || currentTrustLevel == "trusted") 1 else 0
+                    if (currentAllowEmergency == null) currentAllowEmergency = trustDefault
+                    if (allowEmergencyLocation == null) allowEmergencyLocation = trustDefault
                     runOnUiThread { updateTrustUI(true) }
                 } else {
                     runOnUiThread { updateTrustUI(false) }
@@ -330,30 +339,62 @@ class UserProfileActivity : AppCompatActivity() {
     }
 
     private fun updateEmergencySwitch() {
-        val checked = effectiveEmergencyAllow(currentAllowEmergency, currentTrustLevel)
-        // Temporarily remove listener to avoid re-firing while setting programmatic state
         binding.switchEmergencyAllow.setOnCheckedChangeListener(null)
-        binding.switchEmergencyAllow.isChecked = checked
+        binding.switchEmergencyAllow.isChecked = currentAllowEmergency == 1
         binding.switchEmergencyAllow.setOnCheckedChangeListener { _, isChecked ->
             val allow = if (isChecked) 1 else 0
             currentAllowEmergency = allow
             val me = Prefs.getUsername(this)
-            FshuService.sendSetEmergencyAllow(targetUsername, isChecked)
+            WebSocketClient.send(mapOf(
+                "type"   to "set-emergency-allow",
+                "target" to targetUsername,
+                "allow"  to allow
+            ))
             lifecycleScope.launch(Dispatchers.IO) {
                 db.contactDao().setEmergencyAllow(me, targetUsername, allow)
             }
-            binding.rowEmergencyLocation.visibility = if (isChecked) View.VISIBLE else View.GONE
+            if (isChecked) {
+                // Restore saved Switch 2 value (or use trust-level default if never saved)
+                val restoreValue = savedEmergencyLocationValue
+                    ?: if (currentTrustLevel in listOf("family", "trusted")) 1 else 0
+                allowEmergencyLocation = restoreValue
+                binding.rowEmergencyLocation.visibility = View.VISIBLE
+                updateEmergencyLocationSwitch()
+                lifecycleScope.launch(Dispatchers.IO) {
+                    db.contactDao().setEmergencyLocationAllow(me, targetUsername, restoreValue)
+                }
+                WebSocketClient.send(mapOf(
+                    "type"   to "emergency-location-update",
+                    "target" to targetUsername,
+                    "allow"  to restoreValue
+                ))
+            } else {
+                // Save current Switch 2 value before forcing OFF
+                savedEmergencyLocationValue = allowEmergencyLocation
+                allowEmergencyLocation = 0
+                binding.switchAllowEmergencyLocation.isChecked = false
+                binding.rowEmergencyLocation.visibility = View.GONE
+                lifecycleScope.launch(Dispatchers.IO) {
+                    db.contactDao().setEmergencyLocationAllow(me, targetUsername, 0)
+                }
+                WebSocketClient.send(mapOf(
+                    "type"   to "emergency-location-update",
+                    "target" to targetUsername,
+                    "allow"  to 0
+                ))
+            }
         }
     }
 
     private fun updateEmergencyLocationSwitch() {
         binding.switchAllowEmergencyLocation.setOnCheckedChangeListener(null)
-        binding.switchAllowEmergencyLocation.isChecked = allowEmergencyLocation
+        binding.switchAllowEmergencyLocation.isChecked = allowEmergencyLocation == 1
         binding.switchAllowEmergencyLocation.setOnCheckedChangeListener { _, isChecked ->
-            allowEmergencyLocation = isChecked
-            getSharedPreferences("fshu_prefs", MODE_PRIVATE).edit()
-                .putBoolean("emerg_loc_$targetUsername", isChecked)
-                .apply()
+            allowEmergencyLocation = if (isChecked) 1 else 0
+            val me = Prefs.getUsername(this)
+            lifecycleScope.launch(Dispatchers.IO) {
+                db.contactDao().setEmergencyLocationAllow(me, targetUsername, if (isChecked) 1 else 0)
+            }
             WebSocketClient.send(mapOf(
                 "type"   to "emergency-location-update",
                 "target" to targetUsername,

@@ -115,6 +115,8 @@ class ChatAdapter : ListAdapter<Message, RecyclerView.ViewHolder>(DIFF) {
         private const val RECV_LOC_REQ = 7
         private const val SENT_VOICE   = 8
         private const val RECV_VOICE   = 9
+        private const val SENT_SOS     = 10
+        private const val RECV_SOS     = 11
 
         // ── Voice playback state ──────────────────────────────────────────────
         private var activePlayer: MediaPlayer? = null
@@ -153,12 +155,16 @@ class ChatAdapter : ListAdapter<Message, RecyclerView.ViewHolder>(DIFF) {
         return when {
             msg.type == "list" && msg.isSent         -> SENT_LIST
             msg.type == "list"                       -> RECV_LIST
-            msg.type == "location" && msg.isSent     -> SENT_LOC
-            msg.type == "location"                   -> RECV_LOC
+            msg.type == "location" && msg.isSent          -> SENT_LOC
+            msg.type == "location"                        -> RECV_LOC
+            msg.type == "emergency-location" && msg.isSent -> SENT_LOC
+            msg.type == "emergency-location"              -> RECV_LOC
             msg.type == "location-request" && msg.isSent -> SENT_LOC_REQ
             msg.type == "location-request"           -> RECV_LOC_REQ
             msg.type == "voice" && msg.isSent        -> SENT_VOICE
             msg.type == "voice"                      -> RECV_VOICE
+            msg.type == "sos-message" && msg.isSent  -> SENT_SOS
+            msg.type == "sos-message"                -> RECV_SOS
             msg.isSent                               -> SENT
             else                                     -> RECV
         }
@@ -176,6 +182,8 @@ class ChatAdapter : ListAdapter<Message, RecyclerView.ViewHolder>(DIFF) {
             SENT_LOC_REQ -> SentLocReqVH(ItemLocationRequestSentBinding.inflate(inf, parent, false))
             SENT_VOICE   -> SentVoiceVH(ItemVoiceSentBinding.inflate(inf, parent, false))
             RECV_VOICE   -> RecvVoiceVH(ItemVoiceReceivedBinding.inflate(inf, parent, false))
+            SENT_SOS     -> SentSosVH(ItemLocationSentBinding.inflate(inf, parent, false))
+            RECV_SOS     -> RecvSosVH(ItemLocationReceivedBinding.inflate(inf, parent, false))
             else         -> RecvLocReqVH(ItemLocationRequestReceivedBinding.inflate(inf, parent, false))
         }
     }
@@ -305,6 +313,21 @@ class ChatAdapter : ListAdapter<Message, RecyclerView.ViewHolder>(DIFF) {
             }
             is RecvLocVH -> {
                 bindLocationContent(holder.b.tvCoords, holder.b.tvAccuracy, holder.b.btnMaps, msg)
+                holder.b.tvTime.text = time
+            }
+            is SentSosVH -> {
+                bindSosContent(holder.b.tvCoords, holder.b.tvAccuracy, holder.b.btnMaps, msg)
+                holder.b.tvTime.text = time
+                when (msg.status) {
+                    "SENDING"   -> { holder.b.pbSending.visibility = View.VISIBLE; holder.b.tvStatus.visibility = View.GONE }
+                    "SENT"      -> { holder.b.pbSending.visibility = View.GONE; holder.b.tvStatus.visibility = View.VISIBLE; holder.b.tvStatus.text = TICK_SINGLE; holder.b.tvStatus.setTextColor(COLOR_GREY) }
+                    "DELIVERED" -> { holder.b.pbSending.visibility = View.GONE; holder.b.tvStatus.visibility = View.VISIBLE; holder.b.tvStatus.text = TICK_DOUBLE; holder.b.tvStatus.setTextColor(COLOR_GREY) }
+                    "READ"      -> { holder.b.pbSending.visibility = View.GONE; holder.b.tvStatus.visibility = View.VISIBLE; holder.b.tvStatus.text = TICK_DOUBLE; holder.b.tvStatus.setTextColor(COLOR_BLUE) }
+                    else        -> { holder.b.pbSending.visibility = View.GONE; holder.b.tvStatus.visibility = View.GONE }
+                }
+            }
+            is RecvSosVH -> {
+                bindSosContent(holder.b.tvCoords, holder.b.tvAccuracy, holder.b.btnMaps, msg)
                 holder.b.tvTime.text = time
             }
             is SentLocReqVH -> {
@@ -572,6 +595,35 @@ class ChatAdapter : ListAdapter<Message, RecyclerView.ViewHolder>(DIFF) {
         }
     }
 
+    private fun bindSosContent(
+        tvCoords: TextView,
+        tvAccuracy: TextView,
+        btnMaps: android.widget.Button,
+        msg: Message
+    ) {
+        try {
+            val json = JsonParser.parseString(msg.content).asJsonObject
+            val text = json.get("text")?.asString ?: ""
+            val lat = json.get("lat")?.asDouble ?: 0.0
+            val lon = json.get("lon")?.asDouble ?: 0.0
+            val accuracy = json.get("accuracy")?.asFloat ?: 0f
+            val mapsUrl = json.get("mapsUrl")?.asString ?: LocationHelper.buildMapsUrl(lat, lon)
+            val coordsStr = LocationHelper.formatCoordinates(lat, lon)
+        tvCoords.text = "🆘 $text\n$coordsStr"
+            tvAccuracy.text = tvAccuracy.context.getString(com.fshu.next.R.string.location_accuracy_format, accuracy)
+            btnMaps.setOnClickListener { view ->
+                try {
+                    view.context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(mapsUrl)))
+                } catch (e: ActivityNotFoundException) {
+                    Toast.makeText(view.context, view.context.getString(com.fshu.next.R.string.toast_maps_not_available), Toast.LENGTH_SHORT).show()
+                }
+            }
+        } catch (e: Exception) {
+            tvCoords.text = "🆘 SOS"
+            tvAccuracy.text = ""
+        }
+    }
+
     private fun bindLocationContent(
         tvCoords: TextView,
         tvAccuracy: TextView,
@@ -609,6 +661,8 @@ class ChatAdapter : ListAdapter<Message, RecyclerView.ViewHolder>(DIFF) {
     inner class RecvLocReqVH(val b: ItemLocationRequestReceivedBinding) : RecyclerView.ViewHolder(b.root)
     inner class SentVoiceVH(val b: ItemVoiceSentBinding) : RecyclerView.ViewHolder(b.root)
     inner class RecvVoiceVH(val b: ItemVoiceReceivedBinding) : RecyclerView.ViewHolder(b.root)
+    inner class SentSosVH(val b: ItemLocationSentBinding) : RecyclerView.ViewHolder(b.root)
+    inner class RecvSosVH(val b: ItemLocationReceivedBinding) : RecyclerView.ViewHolder(b.root)
 
     // ── Voice binding ─────────────────────────────────────────────────────────
 

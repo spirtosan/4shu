@@ -107,6 +107,12 @@
             android:configChanges="orientation|screenSize|keyboardHidden"/>
 
         <activity
+            android:name=".ui.sos.SosAlertActivity"
+            android:exported="false"
+            android:showOnLockScreen="true"
+            android:configChanges="orientation|screenSize|keyboardHidden"/>
+
+        <activity
             android:name=".ui.MessagePopupActivity"
             android:showOnLockScreen="true"
             android:showWhenLocked="true"

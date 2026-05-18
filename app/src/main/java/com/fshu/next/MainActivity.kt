@@ -816,7 +816,8 @@ class MainActivity : AppCompatActivity() {
                 }
             }
             "group-preview-update" -> lifecycleScope.launch { enrichGroupItems() }
-            "message", "file", "list", "location", "location-request", "location-response" -> {
+            "message", "file", "list", "location", "location-request", "location-response",
+            "sos-message", "emergency-location" -> {
                 val from = json.get("from")?.asString ?: return
                 val to = json.get("to")?.asString ?: return
                 val me = Prefs.getUsername(this)
@@ -827,10 +828,14 @@ class MainActivity : AppCompatActivity() {
                     users.find { it.username == from }?.displayName ?: from
                 }
                 val preview = when (type) {
-                    "list"             -> "$senderName: 📝 Todo list"
-                    "file"             -> "$senderName: 📎 ${json.get("filename")?.asString ?: "File"}"
-                    "location"         -> "$senderName: 📍 Location"
-                    "location-request" -> "$senderName: 📍 Location requested"
+                    "list"               -> "$senderName: 📝 Todo list"
+                    "file"               -> "$senderName: 📎 ${json.get("filename")?.asString ?: "File"}"
+                    "location",
+                    "emergency-location",
+                    "location-response"  -> "$senderName: 📍 Location"
+                    "location-request"   -> "$senderName: 📍 Location requested"
+                    "sos-message"        -> "$senderName: 🆘 SOS"
+                    "voice"              -> "$senderName: 🎤 Voice message"
                     else -> {
                         val rawContent = json.get("content")?.asString ?: ""
                         val messageId  = json.get("messageId")?.asLong ?: 0L
@@ -982,11 +987,15 @@ class MainActivity : AppCompatActivity() {
             list.map { user ->
                 val last = db.messageDao().getLastMessage(user.username, me)
                 val preview = when (last?.type) {
-                    "list"             -> "\uD83D\uDCDD Todo list"
-                    "file"             -> "\uD83D\uDCCE ${last.filename ?: last.content}"
-                    "location"         -> "\uD83D\uDCCD Location"
-                    "location-request" -> "\uD83D\uDCCD Location requested"
-                    else               -> last?.content
+                    "list"               -> "\uD83D\uDCDD Todo list"
+                    "file"               -> "\uD83D\uDCCE ${last.filename ?: last.content}"
+                    "location",
+                    "emergency-location",
+                    "location-response"  -> "\uD83D\uDCCD Location"
+                    "location-request"   -> "\uD83D\uDCCD Location requested"
+                    "sos-message"        -> "\uD83C\uDD98 SOS"
+                    "voice"              -> "\uD83C\uDFA4 Voice message"
+                    else                 -> last?.content
                 }
                 user.copy(lastMessage = preview, lastMessageTime = last?.timestamp)
             }

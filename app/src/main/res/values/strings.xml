@@ -337,7 +337,7 @@
 
     <string name="settings_sos_message_default">Emergency! Please contact authorities and send help to my location.</string>
     <string name="allow_emergency_location">Allow Emergency Location</string>
-    <string name="allow_emergency_location_hint">Allow this contact to share location in emergencies</string>
+    <string name="allow_emergency_location_hint">I allow this contact to request my location in emergencies</string>
     <string name="btn_send_request">Send Contact Request</string>
     <string name="btn_block_user">Block User</string>
     <string name="label_request_pending">Request pending…</string>

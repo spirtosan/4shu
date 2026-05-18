@@ -540,7 +540,7 @@ class ChatActivity : AppCompatActivity() {
                     vm.sendSosMessage(peer)
                 }
                 override fun onRequestLocationClick() {
-                    vm.sendLocationRequest(peer)
+                    vm.sendEmergencyLocationRequest(peer)
                 }
             }
             sheet.show(supportFragmentManager, EmergencyBottomSheet.TAG)
@@ -842,7 +842,7 @@ class ChatActivity : AppCompatActivity() {
         super.onResume()
         isActive = true
         currentPeer = peer
-        FshuService.stopSosAlarm(peer)
+        FshuService.stopSosAlarm(peer, this)
         applyBackground()
         refreshNicknameMap()
         if (!isGroupChat) {

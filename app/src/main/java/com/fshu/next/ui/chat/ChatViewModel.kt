@@ -425,33 +425,129 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
 
     fun sendEmergencyLocation(peer: String) {
         viewModelScope.launch(Dispatchers.IO) {
-            val location = LocationHelper.getCurrentLocation(getApplication()) ?: return@launch
+            val hasPermission = androidx.core.content.ContextCompat.checkSelfPermission(
+                getApplication(),
+                android.Manifest.permission.ACCESS_FINE_LOCATION
+            ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+            if (!hasPermission) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(getApplication(),
+                        getApplication<Application>().getString(com.fshu.next.R.string.toast_location_permission_required),
+                        Toast.LENGTH_LONG).show()
+                }
+                return@launch
+            }
+            android.util.Log.d("EmergencyLoc", "Permission OK, fetching GPS...")
+            val location = LocationHelper.getCurrentLocation(getApplication())
+            android.util.Log.d("EmergencyLoc", "Location result: $location")
+            if (location == null) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(getApplication(), getApplication<Application>().getString(com.fshu.next.R.string.toast_location_error), Toast.LENGTH_LONG).show()
+                }
+                return@launch
+            }
             val mapsUrl = LocationHelper.buildMapsUrl(location.latitude, location.longitude)
             val ts = System.currentTimeMillis()
+            val contentJson = """{"lat":${location.latitude},"lon":${location.longitude},"accuracy":${location.accuracy},"timestamp":$ts,"mapsUrl":"$mapsUrl"}"""
+            val id = db.messageDao().insert(
+                Message(from = me, to = peer, content = contentJson, type = "emergency-location",
+                    timestamp = ts, isSent = true, status = "SENT")
+            )
+            val locKey = CryptoHelper.getKey(getApplication(), peer)
+            val wireContent = if (locKey != null) CryptoHelper.encrypt(locKey, id, ts, contentJson) else contentJson
+            // Include raw lat/lon fields alongside content — server offline enqueue only preserves raw fields
             WebSocketClient.send(mapOf(
                 "type" to "emergency-location", "from" to me, "to" to peer,
                 "lat" to location.latitude, "lon" to location.longitude,
-                "accuracy" to location.accuracy, "timestamp" to ts,
+                "accuracy" to location.accuracy,
+                "content" to wireContent, "messageId" to id, "timestamp" to ts,
                 "mapsUrl" to mapsUrl
             ))
+            withContext(Dispatchers.Main) {
+                Toast.makeText(getApplication(), "Emergency location sent", Toast.LENGTH_SHORT).show()
+            }
         }
     }
 
     fun sendSosMessage(peer: String) {
         viewModelScope.launch(Dispatchers.IO) {
-            val content = getApplication<Application>()
+            val sosText = getApplication<Application>()
                 .getSharedPreferences("fshu_prefs", android.content.Context.MODE_PRIVATE)
-                .getString("sos_message", getApplication<Application>().getString(com.fshu.next.R.string.settings_sos_message_default))
-                ?: return@launch
-            val clientId = UUID.randomUUID().toString()
+                .getString("sos_message", "")
+                ?.takeIf { it.isNotBlank() }
+                ?: getApplication<Application>().getString(com.fshu.next.R.string.settings_sos_message_default)
+
+            val hasSosPermission = androidx.core.content.ContextCompat.checkSelfPermission(
+                getApplication(),
+                android.Manifest.permission.ACCESS_FINE_LOCATION
+            ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+            if (!hasSosPermission) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(getApplication(),
+                        getApplication<Application>().getString(com.fshu.next.R.string.toast_location_permission_required),
+                        Toast.LENGTH_LONG).show()
+                }
+                return@launch
+            }
+            android.util.Log.d("EmergencyLoc", "Permission OK, fetching GPS...")
+            val location = LocationHelper.getCurrentLocation(getApplication())
+            android.util.Log.d("EmergencyLoc", "Location result: $location")
+            if (location == null) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(getApplication(), getApplication<Application>().getString(com.fshu.next.R.string.toast_location_error), Toast.LENGTH_LONG).show()
+                }
+                return@launch
+            }
+            val mapsUrl = LocationHelper.buildMapsUrl(location.latitude, location.longitude)
             val ts = System.currentTimeMillis()
-            db.messageDao().insert(
-                Message(from = me, to = peer, content = content, type = "sos-message",
+            val clientId = UUID.randomUUID().toString()
+
+            // Content is plain JSON — handleIncomingSosMessage stores it directly without decryption
+            val contentJson = com.google.gson.JsonObject().apply {
+                addProperty("text", sosText)
+                addProperty("lat", location.latitude)
+                addProperty("lon", location.longitude)
+                addProperty("accuracy", location.accuracy.toDouble())
+                addProperty("mapsUrl", mapsUrl)
+            }.toString()
+
+            val id = db.messageDao().insert(
+                Message(from = me, to = peer, content = contentJson, type = "sos-message",
                     timestamp = ts, isSent = true, status = "SENDING")
             )
             WebSocketClient.send(mapOf(
                 "type" to "sos-message", "from" to me, "to" to peer,
-                "content" to content, "clientId" to clientId
+                "content" to contentJson, "clientId" to clientId,
+                "messageId" to id, "timestamp" to ts
+            ))
+        }
+    }
+
+    fun sendEmergencyLocationRequest(peer: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val requestId = UUID.randomUUID().toString()
+            val ts = System.currentTimeMillis()
+            val contentJson = """{"requestId":"$requestId"}"""
+            val id = db.messageDao().insert(
+                Message(
+                    from = me, to = peer,
+                    content = contentJson,
+                    type = "location-request",
+                    timestamp = ts,
+                    isSent = true,
+                    status = "SENT"
+                )
+            )
+            val reqKey = CryptoHelper.getKey(getApplication(), peer)
+            val wireContent = if (reqKey != null) CryptoHelper.encrypt(reqKey, id, ts, contentJson) else contentJson
+            WebSocketClient.send(mapOf(
+                "type" to "emergency-location-request",
+                "from" to me,
+                "to" to peer,
+                "content" to wireContent,
+                "requestId" to requestId,
+                "messageId" to id,
+                "timestamp" to ts
             ))
         }
     }

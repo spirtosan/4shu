@@ -79,6 +79,7 @@ class FshuService : Service() {
         const val ACTION_RESTART = "com.fshu.next.ACTION_RESTART_SERVICE"
         const val ACTION_RECONNECT = "com.fshu.next.ACTION_RECONNECT"
         const val ACTION_ALARM_CHECK = "com.fshu.next.ACTION_ALARM_CHECK"
+        const val ACTION_DISMISS_SOS = "com.fshu.next.ACTION_DISMISS_SOS"
         private const val ALARM_INTERVAL_MS = 3 * 60 * 1000L  // 3 minutes
         private const val WATCHDOG_WORK_NAME = "fshu_service_watchdog"
 
@@ -98,6 +99,8 @@ class FshuService : Service() {
         @Volatile private var prevAlarmVolume: Int = -1
         @Volatile private var activeSosRingtone: Ringtone? = null
         @Volatile var sosPeer: String? = null
+        @Volatile private var activeSosNotifId: Int = -1
+        @Volatile private var sosWakeLock: PowerManager.WakeLock? = null
 
         fun cancelCallNotif(context: Context) {
             val id = activeCallNotifId
@@ -122,11 +125,21 @@ class FshuService : Service() {
             cancelVolumeRamp(context)
         }
 
-        fun stopSosAlarm(peer: String? = null) {
+        fun stopSosAlarm(peer: String? = null, context: Context? = null) {
             if (peer != null && sosPeer != peer) return
             activeSosRingtone?.stop()
             activeSosRingtone = null
             sosPeer = null
+            sosWakeLock?.release()
+            sosWakeLock = null
+            if (context != null) {
+                cancelVolumeRamp(context)
+                val notifId = activeSosNotifId
+                if (notifId != -1) {
+                    context.getSystemService(NotificationManager::class.java).cancel(notifId)
+                    activeSosNotifId = -1
+                }
+            }
         }
 
         fun cancelVolumeRamp(context: Context) {
@@ -263,6 +276,10 @@ class FshuService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == ACTION_DISMISS_SOS) {
+            stopSosAlarm(context = this)
+            return START_STICKY
+        }
         if (intent?.action == ACTION_RECONNECT) {
             try {
                 val url = Prefs.getServerUrl(this)
@@ -1528,29 +1545,19 @@ class FshuService : Service() {
             Message(from = from, to = me, content = content, type = "sos-message",
                 timestamp = ts, isSent = false)
         )
-
-        val intent = Intent(this, com.fshu.next.ui.chat.ChatActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            putExtra(com.fshu.next.ui.chat.ChatActivity.EXTRA_PEER, from)
+        val remoteId = json.get("messageId")?.asDouble?.toLong() ?: 0L
+        val seq = json.get("seq")?.asDouble?.toLong() ?: 0L
+        if (seq > 0 && seq > WebSocketClient.lastSeq) WebSocketClient.lastSeq = seq
+        if (remoteId != 0L) {
+            WebSocketClient.send(mapOf("type" to "delivered", "messageId" to remoteId, "from" to me, "to" to from))
         }
-        val pi = PendingIntent.getActivity(
-            this, (from.hashCode().and(Int.MAX_VALUE) xor 0x5050),
-            intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-        val notif = NotificationCompat.Builder(this, CHANNEL_CALLS)
-            .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle("🚨 SOS from $from")
-            .setContentText(content.ifEmpty { "Emergency SOS" })
-            .setPriority(NotificationCompat.PRIORITY_MAX)
-            .setCategory(NotificationCompat.CATEGORY_MESSAGE)
-            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setAutoCancel(true)
-            .setContentIntent(pi)
-            .build()
-        getSystemService(NotificationManager::class.java)
-            .notify(from.hashCode().and(Int.MAX_VALUE) xor 0x5050, notif)
 
+        val sosTextPreview = try {
+            com.google.gson.JsonParser.parseString(content).asJsonObject
+                .get("text")?.asString?.take(50)
+        } catch (_: Exception) { null } ?: content.take(50).ifEmpty { "Emergency SOS" }
+
+        // 1. play ringtone
         val sosUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
         val sosRingtone = RingtoneManager.getRingtone(this, sosUri)
         sosRingtone.audioAttributes = AudioAttributes.Builder()
@@ -1561,6 +1568,53 @@ class FshuService : Service() {
         sosRingtone.play()
         activeSosRingtone = sosRingtone
         sosPeer = from
+
+        // 2. startVolumeRamp()
+        startVolumeRamp()
+
+        // 3. build + post notification
+        val chatIntent = Intent(this, com.fshu.next.ui.sos.SosAlertActivity::class.java).apply {
+            putExtra(com.fshu.next.ui.sos.SosAlertActivity.EXTRA_PEER, from)
+            putExtra(com.fshu.next.ui.sos.SosAlertActivity.EXTRA_PREVIEW, sosTextPreview)
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        val notifId = from.hashCode().and(Int.MAX_VALUE) xor 0x5050
+        activeSosNotifId = notifId
+        val pi = PendingIntent.getActivity(
+            this, notifId, chatIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val dismissPi = PendingIntent.getService(
+            this, (from.hashCode().and(Int.MAX_VALUE) xor 0x5051),
+            Intent(this, FshuService::class.java).apply { action = ACTION_DISMISS_SOS },
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val notif = NotificationCompat.Builder(this, CHANNEL_CALLS)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle("🚨 SOS from $from")
+            .setContentText(sosTextPreview)
+            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setCategory(NotificationCompat.CATEGORY_CALL)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setOngoing(true)
+            .setAutoCancel(false)
+            .setFullScreenIntent(pi, true)
+            .setVibrate(longArrayOf(0, 500, 200, 500))
+            .addAction(0, getString(R.string.btn_close), dismissPi)
+            .setContentIntent(pi)
+            .build()
+        getSystemService(NotificationManager::class.java).notify(notifId, notif)
+
+        // 4. wake lock — only if screen is off, mirroring notifyCall()
+        val pm = getSystemService(PowerManager::class.java)
+        if (!pm.isInteractive) {
+            @Suppress("DEPRECATION")
+            pm.newWakeLock(
+                PowerManager.SCREEN_BRIGHT_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP,
+                "fshu:sos_alarm"
+            ).acquire(10_000L)
+        }
+        // Screen on (locked or unlocked): fullScreenIntent handles it
 
         MessageBus.tryEmit(json)
     }
