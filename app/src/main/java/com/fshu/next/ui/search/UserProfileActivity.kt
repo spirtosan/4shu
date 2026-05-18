@@ -323,8 +323,9 @@ class UserProfileActivity : AppCompatActivity() {
         }
         binding.tvTrustValue.setOnClickListener { showTrustPicker() }
         binding.rowEmergencyAllow.visibility = View.VISIBLE
-        binding.rowEmergencyLocation.visibility = View.VISIBLE
         updateEmergencySwitch()
+        binding.rowEmergencyLocation.visibility =
+            if (binding.switchEmergencyAllow.isChecked) View.VISIBLE else View.GONE
         updateEmergencyLocationSwitch()
     }
 
@@ -341,6 +342,7 @@ class UserProfileActivity : AppCompatActivity() {
             lifecycleScope.launch(Dispatchers.IO) {
                 db.contactDao().setEmergencyAllow(me, targetUsername, allow)
             }
+            binding.rowEmergencyLocation.visibility = if (isChecked) View.VISIBLE else View.GONE
         }
     }
 

@@ -336,9 +336,28 @@
     <string name="dialog_delete_account_message">Това ще изтрие постоянно вашия акаунт и всички данни. Не може да се отмени.</string>
 
     <string name="settings_sos_message_default">Спешно! Моля, уведомете властите и изпратете помощ на местонахождението ми.</string>
-    <string name="allow_emergency_location">Разрешаване на спешно местоположение</string>
-    <string name="allow_emergency_location_hint">Разрешете на този контакт да споделя местоположение при спешни случаи</string>
+    <string name="allow_emergency_location">Разрешаване на изискване за местоположение</string>
+    <string name="allow_emergency_location_hint">Разрешавам на този контакт да изисква местоположението ми при спешни случаи</string>
     <string name="btn_send_request">Изпрати заявка за контакт</string>
     <string name="btn_block_user">Блокирай потребителя</string>
     <string name="label_request_pending">Заявката е изпратена…</string>
+
+    <string name="att_gallery">Галерия</string>
+    <string name="att_camera">Камера</string>
+    <string name="att_file">Файл</string>
+    <string name="att_location">Местоположение</string>
+    <string name="att_contact">Контакт</string>
+    <string name="contact_pick_title">Споделяне на контакт</string>
+    <string name="contact_pick_phone">От телефонни контакти</string>
+    <string name="contact_pick_fshu">От 4shu контакти</string>
+    <string name="no_contacts">Няма намерени контакти</string>
+    <string name="emergency_sheet_title">Спешни действия</string>
+    <string name="emerg_priority_call">Приоритетно обаждане</string>
+    <string name="emerg_priority_call_hint">Силно обаждане, заобикаля режим Не безпокой</string>
+    <string name="emerg_emergency_call">Спешно обаждане</string>
+    <string name="emerg_emergency_call_hint">Силно обаждане + изпраща местоположението ви</string>
+    <string name="emerg_sos_message">SOS съобщение</string>
+    <string name="emerg_sos_message_hint">Изпраща местоположение + спешен текст</string>
+    <string name="emerg_request_location">Заявка за местоположение</string>
+    <string name="emerg_request_location_hint">Незабавна заявка за местоположението на контакта</string>
 </resources>

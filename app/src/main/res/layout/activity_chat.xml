@@ -38,6 +38,18 @@
                 android:outlineProvider="background"
                 android:background="@drawable/bg_avatar" />
 
+            <ImageButton
+                android:id="@+id/btn_call"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_gravity="center_vertical|end"
+                android:layout_marginEnd="8dp"
+                android:src="@drawable/ic_call"
+                app:tint="?attr/colorTextPrimary"
+                android:contentDescription="Voice call"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:visibility="gone"/>
+
         </androidx.appcompat.widget.Toolbar>
 
         <!-- Selection mode action bar -->
@@ -258,7 +270,8 @@
                 android:src="@android:drawable/ic_menu_send"
                 app:tint="?attr/colorPrimary"
                 android:contentDescription="Send"
-                android:background="?attr/selectableItemBackgroundBorderless" />
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:visibility="gone"/>
 
         </LinearLayout>
 

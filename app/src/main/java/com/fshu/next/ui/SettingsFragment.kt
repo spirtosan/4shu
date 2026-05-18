@@ -224,6 +224,12 @@ class SettingsFragment : Fragment() {
             prefs.edit().putString("sos_message", b.etSosMessage.text.toString().trim()).apply()
             Toast.makeText(requireContext(), getString(R.string.toast_done), Toast.LENGTH_SHORT).show()
         }
+        b.btnResetSos.setOnClickListener {
+            val default = getString(R.string.settings_sos_message_default)
+            b.etSosMessage.setText(default)
+            prefs.edit().putString("sos_message", default).apply()
+            Toast.makeText(requireContext(), getString(R.string.toast_done), Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun setupSecurity() {

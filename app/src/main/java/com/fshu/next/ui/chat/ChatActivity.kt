@@ -69,6 +69,7 @@ class ChatActivity : AppCompatActivity() {
     companion object {
         const val EXTRA_PEER = "peer"
         const val EXTRA_GROUP_ID = "group_id"
+        const val REQUEST_PICK_PHONE_CONTACT = 3001
         @Volatile var isActive = false
         @Volatile var currentPeer = ""
     }
@@ -151,6 +152,34 @@ class ChatActivity : AppCompatActivity() {
 
     private val pickFile = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         uri?.let { vm.sendFile(peer, it, contentResolver) }
+    }
+
+    private var cameraImageUri: android.net.Uri? = null
+    private val takePictureLauncher = registerForActivityResult(ActivityResultContracts.TakePicture()) { success ->
+        if (success) {
+            cameraImageUri?.let { vm.sendFile(peer, it, contentResolver) }
+        }
+    }
+
+    private val pickPhoneContactLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == RESULT_OK) {
+            val uri = result.data?.data ?: return@registerForActivityResult
+            val cursor = contentResolver.query(
+                uri,
+                arrayOf(
+                    android.provider.ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
+                    android.provider.ContactsContract.CommonDataKinds.Phone.NUMBER
+                ),
+                null, null, null
+            ) ?: return@registerForActivityResult
+            cursor.use {
+                if (it.moveToFirst()) {
+                    val name = it.getString(0) ?: return@registerForActivityResult
+                    val phone = it.getString(1) ?: return@registerForActivityResult
+                    sendPhoneContactMessage(name, phone)
+                }
+            }
+        }
     }
 
     // Send read receipts when the screen turns on while this chat is in the foreground.
@@ -469,7 +498,44 @@ class ChatActivity : AppCompatActivity() {
             binding.btnAttach.isEnabled = false
             binding.btnMic.isEnabled = false
         }
-        binding.btnAttach.setOnClickListener { pickFile.launch("*/*") }
+        binding.btnAttach.setOnClickListener {
+            val sheet = AttachmentBottomSheet()
+            sheet.listener = object : AttachmentBottomSheet.Listener {
+                override fun onGalleryClick() { pickFile.launch("image/*") }
+                override fun onCameraClick() { launchCamera() }
+                override fun onFileClick() { pickFile.launch("*/*") }
+                override fun onLocationClick() { vm.sendCurrentLocation(peer) }
+                override fun onContactClick() { showContactPicker() }
+            }
+            sheet.show(supportFragmentManager, AttachmentBottomSheet.TAG)
+        }
+
+        binding.btnCall.visibility = if (isGroupChat) View.GONE else View.VISIBLE
+        binding.btnCall.setOnClickListener {
+            startActivity(Intent(this, CallActivity::class.java).apply {
+                putExtra(CallActivity.EXTRA_PEER, peer)
+                putExtra(CallActivity.EXTRA_IS_CALLER, true)
+            })
+        }
+        binding.btnCall.setOnLongClickListener {
+            val sheet = EmergencyBottomSheet()
+            sheet.listener = object : EmergencyBottomSheet.Listener {
+                override fun onPriorityCallClick() {
+                    Toast.makeText(this@ChatActivity, "Priority Call — coming soon", Toast.LENGTH_SHORT).show()
+                }
+                override fun onEmergencyCallClick() {
+                    Toast.makeText(this@ChatActivity, "Emergency Call — coming soon", Toast.LENGTH_SHORT).show()
+                }
+                override fun onSosMessageClick() {
+                    Toast.makeText(this@ChatActivity, "SOS Message — coming soon", Toast.LENGTH_SHORT).show()
+                }
+                override fun onRequestLocationClick() {
+                    Toast.makeText(this@ChatActivity, "Request Location — coming soon", Toast.LENGTH_SHORT).show()
+                }
+            }
+            sheet.show(supportFragmentManager, EmergencyBottomSheet.TAG)
+            true
+        }
 
         binding.btnMic.setOnTouchListener { _, event ->
             when (event.action) {
@@ -512,7 +578,15 @@ class ChatActivity : AppCompatActivity() {
 
         binding.etMessage.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun afterTextChanged(s: Editable?) {}
+            override fun afterTextChanged(s: Editable?) {
+                if (s.isNullOrBlank()) {
+                    binding.btnSend.visibility = View.GONE
+                    binding.btnMic.visibility = View.VISIBLE
+                } else {
+                    binding.btnSend.visibility = View.VISIBLE
+                    binding.btnMic.visibility = View.GONE
+                }
+            }
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
                 if (s.isNullOrEmpty()) return
                 val now = System.currentTimeMillis()
@@ -609,6 +683,85 @@ class ChatActivity : AppCompatActivity() {
             }
         }
     }
+
+    private fun launchCamera() {
+        if (androidx.core.app.ActivityCompat.checkSelfPermission(this, android.Manifest.permission.CAMERA)
+            != android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) {
+            androidx.core.app.ActivityCompat.requestPermissions(
+                this, arrayOf(android.Manifest.permission.CAMERA), 102
+            )
+            return
+        }
+        val values = ContentValues().apply {
+            put(MediaStore.Images.Media.DISPLAY_NAME, "photo_${System.currentTimeMillis()}.jpg")
+            put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
+        }
+        val uri = contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values) ?: return
+        cameraImageUri = uri
+        takePictureLauncher.launch(uri)
+    }
+
+    private fun showContactPicker() {
+        val options = arrayOf(
+            getString(R.string.contact_pick_phone),
+            getString(R.string.contact_pick_fshu)
+        )
+        AlertDialog.Builder(this)
+            .setTitle(getString(R.string.contact_pick_title))
+            .setItems(options) { _, which ->
+                when (which) {
+                    0 -> pickPhoneContact()
+                    1 -> pickFshuContact()
+                }
+            }
+            .show()
+    }
+
+    private fun pickPhoneContact() {
+        val intent = Intent(
+            Intent.ACTION_PICK,
+            android.provider.ContactsContract.CommonDataKinds.Phone.CONTENT_URI
+        )
+        pickPhoneContactLauncher.launch(intent)
+    }
+
+    private fun pickFshuContact() {
+        lifecycleScope.launch(Dispatchers.IO) {
+            val me = Prefs.getUsername(this@ChatActivity)
+            val db = com.fshu.next.data.local.AppDatabase.getInstance(this@ChatActivity)
+            val contacts = db.contactDao().getAcceptedContacts(me).distinctBy { it.contact }
+            val items = contacts.map { c ->
+                val display = Prefs.getContactNickname(this@ChatActivity, c.contact)
+                    .takeIf { it.isNotBlank() } ?: c.contact
+                ContactItem(c.contact, display)
+            }
+            withContext(Dispatchers.Main) {
+                if (items.isEmpty()) {
+                    Toast.makeText(this@ChatActivity, getString(R.string.no_contacts), Toast.LENGTH_SHORT).show()
+                    return@withContext
+                }
+                val names = items.map { it.displayName }.toTypedArray()
+                AlertDialog.Builder(this@ChatActivity)
+                    .setTitle(getString(R.string.contact_pick_fshu))
+                    .setItems(names) { _, which ->
+                        val contact = items[which]
+                        sendContactMessage(contact.username, contact.displayName)
+                    }
+                    .show()
+            }
+        }
+    }
+
+    private fun sendContactMessage(username: String, displayName: String) {
+        Toast.makeText(this, "Send contact: $displayName — coming soon", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun sendPhoneContactMessage(name: String, phone: String) {
+        Toast.makeText(this, "Send contact: $name — coming soon", Toast.LENGTH_SHORT).show()
+    }
+
+    data class ContactItem(val username: String, val displayName: String)
 
     override fun onDestroy() {
         super.onDestroy()
@@ -707,7 +860,7 @@ class ChatActivity : AppCompatActivity() {
     }
 
     override fun onPrepareOptionsMenu(menu: Menu): Boolean {
-        menu.findItem(R.id.action_call)?.isVisible = !isGroupChat
+        menu.findItem(R.id.action_call)?.isVisible = false  // replaced by btn_call toolbar view
         menu.findItem(R.id.action_video_call)?.isVisible = !isGroupChat
         menu.findItem(R.id.action_group_info)?.isVisible = isGroupChat
         val isOwner = myGroupRole == "owner"
@@ -951,6 +1104,11 @@ class ChatActivity : AppCompatActivity() {
             grantResults.isNotEmpty() &&
             grantResults[0] == android.content.pm.PackageManager.PERMISSION_GRANTED) {
             Toast.makeText(this, getString(R.string.toast_mic_permission_granted), Toast.LENGTH_SHORT).show()
+        }
+        if (requestCode == 102 &&
+            grantResults.isNotEmpty() &&
+            grantResults[0] == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            launchCamera()
         }
     }
 

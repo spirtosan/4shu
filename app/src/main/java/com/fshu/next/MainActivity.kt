@@ -433,6 +433,32 @@ class MainActivity : AppCompatActivity() {
                         .setNegativeButton(getString(R.string.btn_close), null)
                         .show()
                 }
+                // Also offer group debug log
+                val groupDebugFile = java.io.File(filesDir, "group_debug.txt")
+                if (groupDebugFile.exists()) {
+                    val groupLog = try { groupDebugFile.readText() } catch (e: Exception) { "Error reading: ${e.message}" }
+                    val gv = android.widget.TextView(this).apply {
+                        text = groupLog
+                        setPadding(32, 16, 32, 16)
+                        setTextIsSelectable(true)
+                        textSize = 11f
+                    }
+                    val gs = android.widget.ScrollView(this).apply { addView(gv) }
+                    androidx.appcompat.app.AlertDialog.Builder(this)
+                        .setTitle("Group Debug Log")
+                        .setView(gs)
+                        .setPositiveButton(getString(R.string.btn_copy_all)) { _, _ ->
+                            val clipboard = getSystemService(android.content.ClipboardManager::class.java)
+                            clipboard.setPrimaryClip(android.content.ClipData.newPlainText("group debug", groupLog))
+                            Toast.makeText(this, getString(R.string.toast_copied_to_clipboard), Toast.LENGTH_SHORT).show()
+                        }
+                        .setNeutralButton(getString(R.string.btn_clear)) { _, _ ->
+                            groupDebugFile.delete()
+                            Toast.makeText(this, getString(R.string.toast_logs_cleared), Toast.LENGTH_SHORT).show()
+                        }
+                        .setNegativeButton(getString(R.string.btn_close), null)
+                        .show()
+                }
                 true
             }
             else -> super.onOptionsItemSelected(item)

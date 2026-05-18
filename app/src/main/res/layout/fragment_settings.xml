@@ -23,7 +23,7 @@
             android:clickable="true"
             android:focusable="true"
             app:cardBackgroundColor="?attr/colorSurfaceElevated"
-            app:cardCornerRadius="12dp"
+            app:cardCornerRadius="@dimen/radius_card"
             app:cardElevation="0dp"
             app:strokeWidth="0dp">
 
@@ -93,7 +93,7 @@
             android:layout_marginEnd="16dp"
             android:layout_marginBottom="4dp"
             app:cardBackgroundColor="?attr/colorSurfaceElevated"
-            app:cardCornerRadius="12dp"
+            app:cardCornerRadius="@dimen/radius_card"
             app:cardElevation="0dp"
             app:strokeWidth="0dp">
 
@@ -220,7 +220,7 @@
             android:layout_marginEnd="16dp"
             android:layout_marginBottom="4dp"
             app:cardBackgroundColor="?attr/colorSurfaceElevated"
-            app:cardCornerRadius="12dp"
+            app:cardCornerRadius="@dimen/radius_card"
             app:cardElevation="0dp"
             app:strokeWidth="0dp">
 
@@ -395,7 +395,7 @@
             android:layout_marginEnd="16dp"
             android:layout_marginBottom="4dp"
             app:cardBackgroundColor="?attr/colorSurfaceElevated"
-            app:cardCornerRadius="12dp"
+            app:cardCornerRadius="@dimen/radius_card"
             app:cardElevation="0dp"
             app:strokeWidth="0dp">
 
@@ -435,14 +435,25 @@
                     android:textColor="?attr/colorTextPrimary"
                     android:textColorHint="?attr/colorTextTertiary"/>
 
-                <Button
-                    android:id="@+id/btn_save_sos"
-                    style="@style/Widget.MaterialComponents.Button.TextButton"
-                    android:layout_width="wrap_content"
+                <LinearLayout
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_gravity="end"
-                    android:layout_marginTop="4dp"
-                    android:text="@string/btn_save"/>
+                    android:orientation="horizontal"
+                    android:gravity="end"
+                    android:layout_marginTop="4dp">
+                    <Button
+                        android:id="@+id/btn_reset_sos"
+                        style="@style/Widget.MaterialComponents.Button.TextButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/btn_reset_to_default"/>
+                    <Button
+                        android:id="@+id/btn_save_sos"
+                        style="@style/Widget.MaterialComponents.Button.TextButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/btn_save"/>
+                </LinearLayout>
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
@@ -466,7 +477,7 @@
             android:layout_marginEnd="16dp"
             android:layout_marginBottom="4dp"
             app:cardBackgroundColor="?attr/colorSurfaceElevated"
-            app:cardCornerRadius="12dp"
+            app:cardCornerRadius="@dimen/radius_card"
             app:cardElevation="0dp"
             app:strokeWidth="0dp">
 
@@ -677,7 +688,7 @@
             android:layout_marginEnd="16dp"
             android:layout_marginBottom="4dp"
             app:cardBackgroundColor="?attr/colorSurfaceElevated"
-            app:cardCornerRadius="12dp"
+            app:cardCornerRadius="@dimen/radius_card"
             app:cardElevation="0dp"
             app:strokeWidth="0dp">
 

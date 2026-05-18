@@ -2344,7 +2344,7 @@ wss.on('connection', (ws, req) => {
                             db.prepare(
                                 'UPDATE group_members SET encrypted_group_key = NULL WHERE group_id = ? AND username = ?'
                             ).run(grp.group_id, username);
-                            const payload = { type: 'group-key-needed', groupId: grp.group_id, forUser: username };
+                            const payload = { type: 'group-key-needed', groupId: grp.group_id, forUser: username, forUserPublicKey: key };
                             if (isOnline(grp.owner)) {
                                 sendToAll(grp.owner, payload);
                             } else {

@@ -342,6 +342,25 @@
     <string name="btn_block_user">Block User</string>
     <string name="label_request_pending">Request pending…</string>
 
+    <string name="att_gallery">Gallery</string>
+    <string name="att_camera">Camera</string>
+    <string name="att_file">File</string>
+    <string name="att_location">Location</string>
+    <string name="att_contact">Contact</string>
+    <string name="contact_pick_title">Share Contact</string>
+    <string name="contact_pick_phone">From phone contacts</string>
+    <string name="contact_pick_fshu">From 4shu contacts</string>
+    <string name="no_contacts">No contacts found</string>
+    <string name="emergency_sheet_title">Emergency Actions</string>
+    <string name="emerg_priority_call">Priority Call</string>
+    <string name="emerg_priority_call_hint">Loud call, bypasses DND. No location.</string>
+    <string name="emerg_emergency_call">Emergency Call</string>
+    <string name="emerg_emergency_call_hint">Loud call + sends your location</string>
+    <string name="emerg_sos_message">SOS Message</string>
+    <string name="emerg_sos_message_hint">Sends your location + emergency text</string>
+    <string name="emerg_request_location">Request Location</string>
+    <string name="emerg_request_location_hint">Request contact\'s location immediately</string>
+
     <plurals name="group_members_subtitle">
         <item quantity="one">1 member</item>
         <item quantity="other">%d members</item>

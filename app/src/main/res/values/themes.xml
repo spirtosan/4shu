@@ -19,6 +19,7 @@
         <item name="colorSurfaceElevated">@color/light_surface_elevated</item>
         <item name="colorControlNormal">@color/light_text_primary</item>
         <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
         <item name="android:navigationBarColor">?attr/colorSurface</item>
         <item name="toolbarStyle">@style/Widget.Fshu.Toolbar</item>
         <item name="colorSwitchThumbNormal">@color/light_text_tertiary</item>
@@ -37,5 +38,22 @@
         <item name="strokeWidth">1dp</item>
         <item name="cardCornerRadius">@dimen/radius_card</item>
         <item name="cardElevation">0dp</item>
+    </style>
+
+    <style name="BottomSheetStyle" parent="Theme.MaterialComponents.BottomSheetDialog">
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="bottomSheetStyle">@style/Widget.Fshu.BottomSheet</item>
+    </style>
+
+    <style name="Widget.Fshu.BottomSheet" parent="Widget.MaterialComponents.BottomSheet">
+        <item name="shapeAppearanceOverlay">@style/ShapeAppearance.Fshu.BottomSheet</item>
+    </style>
+
+    <style name="ShapeAppearance.Fshu.BottomSheet" parent="">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSizeTopLeft">28dp</item>
+        <item name="cornerSizeTopRight">28dp</item>
+        <item name="cornerSizeBottomLeft">0dp</item>
+        <item name="cornerSizeBottomRight">0dp</item>
     </style>
 </resources>
