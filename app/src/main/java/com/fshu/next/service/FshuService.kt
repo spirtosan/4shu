@@ -96,6 +96,8 @@ class FshuService : Service() {
         @Volatile private var activeVibrator: Vibrator? = null
         @Volatile private var volumeRampHandler: Handler? = null
         @Volatile private var prevAlarmVolume: Int = -1
+        @Volatile private var activeSosRingtone: Ringtone? = null
+        @Volatile var sosPeer: String? = null
 
         fun cancelCallNotif(context: Context) {
             val id = activeCallNotifId
@@ -118,6 +120,13 @@ class FshuService : Service() {
                 }
             } catch (_: Exception) {}
             cancelVolumeRamp(context)
+        }
+
+        fun stopSosAlarm(peer: String? = null) {
+            if (peer != null && sosPeer != peer) return
+            activeSosRingtone?.stop()
+            activeSosRingtone = null
+            sosPeer = null
         }
 
         fun cancelVolumeRamp(context: Context) {
@@ -507,9 +516,11 @@ class FshuService : Service() {
             "ack"                     -> handleAck(json)
             "delivered"               -> handleDelivered(json)
             "read"                    -> handleRead(json)
-            "emergency-location"      -> persistEmergencyLocation(json)
-            "location-request"        -> persistLocationRequest(json)
-            "location-response"       -> persistLocationResponse(json)
+            "emergency-location"          -> persistEmergencyLocation(json)
+            "location-request"            -> persistLocationRequest(json)
+            "location-response"           -> persistLocationResponse(json)
+            "sos-message"                 -> handleIncomingSosMessage(json)
+            "emergency-location-request"  -> persistLocationRequest(json)
             "avatar-data"             -> {
                 val uname = json.get("username")?.asString ?: return
                 val data  = json.get("data")?.asString ?: return
@@ -700,6 +711,12 @@ class FshuService : Service() {
                         } catch (_: Exception) { null }
                         if (allowEmergency != null) {
                             db.contactDao().setEmergencyAllow(me, contact, allowEmergency)
+                        }
+                        val allowEmergencyLoc = try {
+                            obj.get("allow_emergency_location")?.takeIf { !it.isJsonNull }?.asInt
+                        } catch (_: Exception) { null }
+                        if (allowEmergencyLoc != null) {
+                            db.contactDao().setEmergencyLocationAllow(me, contact, allowEmergencyLoc)
                         }
                     }
                 }
@@ -1499,6 +1516,53 @@ class FshuService : Service() {
         // Notify caller that we are ringing
         val me = Prefs.getUsername(this)
         WebSocketClient.send(mapOf("type" to "call-ringing", "from" to me, "to" to from))
+    }
+
+    private suspend fun handleIncomingSosMessage(json: JsonObject) {
+        val from = json.get("from")?.asString ?: return
+        val content = json.get("content")?.asString ?: ""
+        val ts = json.get("timestamp")?.asDouble?.toLong() ?: System.currentTimeMillis()
+        val me = Prefs.getUsername(this)
+
+        db.messageDao().insert(
+            Message(from = from, to = me, content = content, type = "sos-message",
+                timestamp = ts, isSent = false)
+        )
+
+        val intent = Intent(this, com.fshu.next.ui.chat.ChatActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra(com.fshu.next.ui.chat.ChatActivity.EXTRA_PEER, from)
+        }
+        val pi = PendingIntent.getActivity(
+            this, (from.hashCode().and(Int.MAX_VALUE) xor 0x5050),
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val notif = NotificationCompat.Builder(this, CHANNEL_CALLS)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle("🚨 SOS from $from")
+            .setContentText(content.ifEmpty { "Emergency SOS" })
+            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setAutoCancel(true)
+            .setContentIntent(pi)
+            .build()
+        getSystemService(NotificationManager::class.java)
+            .notify(from.hashCode().and(Int.MAX_VALUE) xor 0x5050, notif)
+
+        val sosUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+        val sosRingtone = RingtoneManager.getRingtone(this, sosUri)
+        sosRingtone.audioAttributes = AudioAttributes.Builder()
+            .setUsage(AudioAttributes.USAGE_ALARM)
+            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+            .build()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) sosRingtone.isLooping = true
+        sosRingtone.play()
+        activeSosRingtone = sosRingtone
+        sosPeer = from
+
+        MessageBus.tryEmit(json)
     }
 
     private fun startVolumeRamp() {

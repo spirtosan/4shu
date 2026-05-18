@@ -354,6 +354,11 @@ class UserProfileActivity : AppCompatActivity() {
             getSharedPreferences("fshu_prefs", MODE_PRIVATE).edit()
                 .putBoolean("emerg_loc_$targetUsername", isChecked)
                 .apply()
+            WebSocketClient.send(mapOf(
+                "type"   to "emergency-location-update",
+                "target" to targetUsername,
+                "allow"  to if (isChecked) 1 else 0
+            ))
         }
     }
 

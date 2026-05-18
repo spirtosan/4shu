@@ -34,4 +34,10 @@ interface ContactDao {
 
     @Query("SELECT allow_emergency_call FROM contacts WHERE owner = :owner AND contact = :contact")
     suspend fun getEmergencyAllow(owner: String, contact: String): Int?
+
+    @Query("UPDATE contacts SET allow_emergency_location = :allow WHERE owner = :owner AND contact = :contact")
+    suspend fun setEmergencyLocationAllow(owner: String, contact: String, allow: Int)
+
+    @Query("SELECT allow_emergency_location FROM contacts WHERE owner = :owner AND contact = :contact")
+    suspend fun getEmergencyLocationAllow(owner: String, contact: String): Int?
 }

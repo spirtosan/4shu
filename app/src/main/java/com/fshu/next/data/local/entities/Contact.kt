@@ -14,7 +14,8 @@ data class Contact(
     val updatedAt: Long,
     val expiresAt: Long,
     @ColumnInfo(name = "trust_level") val trustLevel: String = "contact",
-    @ColumnInfo(name = "allow_emergency_call") val allowEmergencyCall: Int? = null
+    @ColumnInfo(name = "allow_emergency_call") val allowEmergencyCall: Int? = null,
+    @ColumnInfo(name = "allow_emergency_location") val allowEmergencyLocation: Int? = null
 )
 
 fun effectiveEmergencyAllow(allowEmergencyCall: Int?, trustLevel: String): Boolean {

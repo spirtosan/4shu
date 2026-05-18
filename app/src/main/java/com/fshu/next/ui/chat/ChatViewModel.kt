@@ -423,6 +423,39 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    fun sendEmergencyLocation(peer: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val location = LocationHelper.getCurrentLocation(getApplication()) ?: return@launch
+            val mapsUrl = LocationHelper.buildMapsUrl(location.latitude, location.longitude)
+            val ts = System.currentTimeMillis()
+            WebSocketClient.send(mapOf(
+                "type" to "emergency-location", "from" to me, "to" to peer,
+                "lat" to location.latitude, "lon" to location.longitude,
+                "accuracy" to location.accuracy, "timestamp" to ts,
+                "mapsUrl" to mapsUrl
+            ))
+        }
+    }
+
+    fun sendSosMessage(peer: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val content = getApplication<Application>()
+                .getSharedPreferences("fshu_prefs", android.content.Context.MODE_PRIVATE)
+                .getString("sos_message", getApplication<Application>().getString(com.fshu.next.R.string.settings_sos_message_default))
+                ?: return@launch
+            val clientId = UUID.randomUUID().toString()
+            val ts = System.currentTimeMillis()
+            db.messageDao().insert(
+                Message(from = me, to = peer, content = content, type = "sos-message",
+                    timestamp = ts, isSent = true, status = "SENDING")
+            )
+            WebSocketClient.send(mapOf(
+                "type" to "sos-message", "from" to me, "to" to peer,
+                "content" to content, "clientId" to clientId
+            ))
+        }
+    }
+
     fun respondToLocationRequest(msg: Message, peer: String) {
         viewModelScope.launch(Dispatchers.IO) {
             val json = try { com.google.gson.JsonParser.parseString(msg.content).asJsonObject }

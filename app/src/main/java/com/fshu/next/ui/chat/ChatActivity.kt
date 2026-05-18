@@ -54,6 +54,7 @@ import com.fshu.next.ui.BackgroundBottomSheet
 import com.fshu.next.ui.search.UserProfileActivity
 import com.fshu.next.ui.BackgroundHelper
 import com.fshu.next.ui.call.CallActivity
+import com.fshu.next.service.FshuService
 import com.fshu.next.util.MessageBus
 import com.fshu.next.util.Prefs
 import com.fshu.next.util.VoiceRecorder
@@ -521,16 +522,25 @@ class ChatActivity : AppCompatActivity() {
             val sheet = EmergencyBottomSheet()
             sheet.listener = object : EmergencyBottomSheet.Listener {
                 override fun onPriorityCallClick() {
-                    Toast.makeText(this@ChatActivity, "Priority Call — coming soon", Toast.LENGTH_SHORT).show()
+                    startActivity(Intent(this@ChatActivity, CallActivity::class.java).apply {
+                        putExtra(CallActivity.EXTRA_PEER, peer)
+                        putExtra(CallActivity.EXTRA_IS_CALLER, true)
+                        putExtra(CallActivity.EXTRA_IS_EMERGENCY, true)
+                    })
                 }
                 override fun onEmergencyCallClick() {
-                    Toast.makeText(this@ChatActivity, "Emergency Call — coming soon", Toast.LENGTH_SHORT).show()
+                    startActivity(Intent(this@ChatActivity, CallActivity::class.java).apply {
+                        putExtra(CallActivity.EXTRA_PEER, peer)
+                        putExtra(CallActivity.EXTRA_IS_CALLER, true)
+                        putExtra(CallActivity.EXTRA_IS_EMERGENCY, true)
+                    })
+                    vm.sendEmergencyLocation(peer)
                 }
                 override fun onSosMessageClick() {
-                    Toast.makeText(this@ChatActivity, "SOS Message — coming soon", Toast.LENGTH_SHORT).show()
+                    vm.sendSosMessage(peer)
                 }
                 override fun onRequestLocationClick() {
-                    Toast.makeText(this@ChatActivity, "Request Location — coming soon", Toast.LENGTH_SHORT).show()
+                    vm.sendLocationRequest(peer)
                 }
             }
             sheet.show(supportFragmentManager, EmergencyBottomSheet.TAG)
@@ -832,6 +842,7 @@ class ChatActivity : AppCompatActivity() {
         super.onResume()
         isActive = true
         currentPeer = peer
+        FshuService.stopSosAlarm(peer)
         applyBackground()
         refreshNicknameMap()
         if (!isGroupChat) {
