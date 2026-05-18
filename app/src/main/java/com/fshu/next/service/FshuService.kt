@@ -1684,6 +1684,7 @@ class FshuService : Service() {
                 if (groupKey != null) {
                     db.groupDao().updateGroupKey(groupId, with(EcdhHelper) { groupKey.toHex() })
                     writeGroupDebug("handleGroupState: stored groupKey for $groupId len=${groupKey.size} hex=${with(EcdhHelper){groupKey.toHex()}.take(8)}")
+                    retryDecryptPendingBlobs(groupId, groupKey)
                 } else {
                     Log.w("FshuService", "handleGroupState: group key decryption failed for $groupId")
                     writeGroupDebug("handleGroupState: key decrypt FAILED for $groupId ownerPub_len=${ownerPub.length}")
@@ -1708,6 +1709,26 @@ class FshuService : Service() {
         MessageBus.emit(json)
     }
 
+    private suspend fun retryDecryptPendingBlobs(groupId: String, groupKey: ByteArray) {
+        val blobs = db.messageDao().getEncryptedGroupBlobs(groupId)
+        if (blobs.isEmpty()) return
+        writeGroupDebug("retryDecryptPendingBlobs: found ${blobs.size} blobs for $groupId")
+        var fixed = 0
+        for (msg in blobs) {
+            try {
+                val plain = CryptoHelper.decryptGroupMessage(groupKey, msg.content)
+                if (plain != null) {
+                    db.messageDao().updateContent(msg.id, plain)
+                    db.messageDao().updateEncryptedBlob(msg.id, false)
+                    fixed++
+                }
+            } catch (e: Exception) {
+                writeGroupDebug("retryDecryptPendingBlobs: failed for msg ${msg.id}: ${e.message}")
+            }
+        }
+        writeGroupDebug("retryDecryptPendingBlobs: fixed $fixed / ${blobs.size} blobs for $groupId")
+    }
+
     private suspend fun persistGroupMessage(json: JsonObject) {
         val groupId     = json.get("groupId")?.asString ?: return
         val from        = json.get("from")?.asString ?: return
@@ -1724,18 +1745,21 @@ class FshuService : Service() {
         }
         val groupKeyHex = group?.groupKey ?: ""
         writeGroupDebug("persistGroupMessage: groupId=$groupId group=${group?.groupId} groupKeyHex_len=${groupKeyHex.length} groupKeyHex_start=${groupKeyHex.take(8)}")
-        val content     = if (groupKeyHex.isNotEmpty()) {
+        val decrypted   = if (groupKeyHex.isNotEmpty()) {
             writeGroupDebug("persistGroupMessage: attempting decrypt, key=${groupKeyHex.take(8)} rawContent_len=${rawContent.length}")
             val key = with(EcdhHelper) { groupKeyHex.fromHex() }
-            CryptoHelper.decryptGroupMessage(key, rawContent) ?: rawContent
-        } else rawContent
-        writeGroupDebug("persistGroupMessage: decrypt result=${if (content == rawContent) "FAILED/fallback" else "OK"}")
+            CryptoHelper.decryptGroupMessage(key, rawContent)
+        } else null
+        val isBlob = decrypted == null
+        val content = decrypted ?: rawContent
+        writeGroupDebug("persistGroupMessage: decrypt result=${if (isBlob) "FAILED/fallback" else "OK"}")
 
         db.messageDao().insert(
             Message(
                 from = from, to = "", content = content, type = "text",
                 timestamp = ts, isSent = from == me, remoteId = 0,
-                tempId = serverMsgId, groupId = groupId
+                tempId = serverMsgId, groupId = groupId,
+                encryptedBlob = isBlob
             )
         )
 

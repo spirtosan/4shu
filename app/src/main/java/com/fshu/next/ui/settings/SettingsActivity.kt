@@ -349,6 +349,21 @@ class SettingsActivity : AppCompatActivity() {
                 }
             }
         }
+
+        binding.btnGroupDebugLog.setOnClickListener {
+            val file = java.io.File(filesDir, "group_debug.txt")
+            val text = if (file.exists()) file.readText().takeLast(8000) else "No group debug log found."
+            androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("Group Debug Log")
+                .setMessage(text)
+                .setPositiveButton("Copy") { _, _ ->
+                    val cm = getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                    cm.setPrimaryClip(android.content.ClipData.newPlainText("group debug", text))
+                }
+                .setNegativeButton("Clear") { _, _ -> file.delete() }
+                .setNeutralButton("Close", null)
+                .show()
+        }
     }
 
     override fun onResume() {

@@ -55,6 +55,9 @@ interface MessageDao {
     @Query("UPDATE messages SET content = :content WHERE id = :id")
     suspend fun updateContent(id: Long, content: String)
 
+    @Query("UPDATE messages SET encryptedBlob = :value WHERE id = :id")
+    suspend fun updateEncryptedBlob(id: Long, value: Boolean)
+
     /** Updates content and version for a list — called when list-state arrives from server. */
     @Query("UPDATE messages SET content = :content, listVersion = :version WHERE listId = :listId")
     suspend fun updateListState(listId: String, content: String, version: Int)
@@ -132,6 +135,10 @@ interface MessageDao {
 
     @Query("SELECT * FROM messages WHERE groupId = :groupId ORDER BY timestamp DESC LIMIT 1")
     suspend fun getLastGroupMessage(groupId: String): Message?
+
+    /** Returns all group messages stored as raw encrypted blobs — retried after key arrival. */
+    @Query("SELECT * FROM messages WHERE groupId = :groupId AND encryptedBlob = 1")
+    suspend fun getEncryptedGroupBlobs(groupId: String): List<Message>
 
     @Insert
     suspend fun insertGroupMessage(message: Message): Long

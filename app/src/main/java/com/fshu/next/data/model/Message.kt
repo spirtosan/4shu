@@ -47,5 +47,7 @@ data class Message(
     // Group ID for group messages; null for 1-1 messages.
     val groupId: String? = null,
     // True when message arrived from a non-contact (routed to request inbox).
-    val isRequest: Boolean = false
+    val isRequest: Boolean = false,
+    // True when content is a raw encrypted blob (key was missing at receive time). Retry on key arrival.
+    val encryptedBlob: Boolean = false
 )
