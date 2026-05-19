@@ -291,6 +291,12 @@ class MainActivity : AppCompatActivity() {
         handleShareIntent(intent)
     }
 
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleShareIntent(intent)
+    }
+
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         menuInflater.inflate(R.menu.menu_main, menu)
         return true
@@ -980,11 +986,10 @@ class MainActivity : AppCompatActivity() {
     private fun rebuildCombinedList() {
         val rawContacts = users.filter { !it.isGroup && it.username != UserAdapter.DIVIDER_USERNAME }
         val marked = rawContacts.map { it.copy(isFavorite = it.username in favorites, isMuted = it.username in mutedTargets) }
-        val favs = applyUserOrder(marked.filter { it.isFavorite })
-        val nonFavContacts = marked.filter { !it.isFavorite }
-        // Mix non-favorite contacts and groups together, sorted by lastMessageTime desc
-        val markedGroups = groupItems.map { it.copy(isMuted = it.username in mutedTargets) }
-        val others = (nonFavContacts + markedGroups)
+        val markedGroups = groupItems.map { it.copy(isFavorite = it.username in favorites, isMuted = it.username in mutedTargets) }
+        val allItems = marked + markedGroups
+        val favs = applyUserOrder(allItems.filter { it.isFavorite })
+        val others = allItems.filter { !it.isFavorite }
             .sortedByDescending { it.lastMessageTime ?: Long.MIN_VALUE }
         val result = mutableListOf<User>()
         result.addAll(favs)

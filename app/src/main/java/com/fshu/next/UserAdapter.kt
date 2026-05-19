@@ -110,7 +110,15 @@ class UserAdapter(
             h.binding.tvLastMessage.text = user.lastMessage ?: ""
             h.binding.tvTime.text = user.lastMessageTime?.let { formatTime(it) } ?: ""
             h.itemView.setOnClickListener { onClick(user) }
-            h.binding.tvFavStar.visibility = android.view.View.GONE
+            h.binding.tvFavStar.visibility = android.view.View.VISIBLE
+            if (user.isFavorite) {
+                h.binding.tvFavStar.text = "★"
+                h.binding.tvFavStar.setTextColor(androidx.core.content.ContextCompat.getColor(ctx, R.color.accent))
+            } else {
+                h.binding.tvFavStar.text = "☆"
+                h.binding.tvFavStar.setTextColor(com.google.android.material.color.MaterialColors.getColor(h.binding.tvFavStar, R.attr.colorTextSecondary, android.graphics.Color.GRAY))
+            }
+            h.binding.tvFavStar.setOnClickListener { onToggleFavorite(user) }
             h.binding.tvMuteIcon.visibility = if (user.isMuted) android.view.View.VISIBLE else android.view.View.GONE
             h.binding.btnMore.visibility = android.view.View.VISIBLE
             h.binding.btnMore.setOnClickListener { anchor ->

@@ -139,6 +139,7 @@ class ContactsFragment : Fragment() {
             val nick = Prefs.getContactNickname(ctx, user.username)
             b.tvContactName.text = nick.ifEmpty { user.displayName }
             b.tvContactHandle.text = if (nick.isNotEmpty()) "@${user.username}" else ""
+            b.ivMuteIndicator.visibility = if (user.isMuted) View.VISIBLE else View.GONE
 
             val avatarFile = File(ctx.filesDir, "avatars/${user.username}.jpg")
             if (avatarFile.exists()) {
