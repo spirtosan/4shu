@@ -1546,7 +1546,6 @@ class FshuService : Service() {
         if (isEmergency) startVolumeRamp()
 
         // Notify caller that we are ringing
-        val me = Prefs.getUsername(this)
         WebSocketClient.send(mapOf("type" to "call-ringing", "from" to me, "to" to from))
     }
 
