@@ -95,7 +95,7 @@ class ContactsFragment : Fragment() {
         }
     }
 
-    private fun refreshContacts() {
+    internal fun refreshContacts() {
         val main = requireActivity() as? MainActivity ?: return
         val contacts = main.getConversationsList()
             .filter { !it.isGroup && it.username != UserAdapter.DIVIDER_USERNAME }

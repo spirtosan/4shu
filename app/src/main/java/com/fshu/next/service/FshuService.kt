@@ -1886,8 +1886,10 @@ class FshuService : Service() {
             ))
             if (!com.fshu.next.ui.chat.ChatActivity.isActive ||
                 com.fshu.next.ui.chat.ChatActivity.currentPeer != groupId) {
-                val groupName = group?.name ?: groupId
-                notifyGroupMessage(groupId, groupName, from, content)
+                if (!db.muteDao().isMuted(me, groupId)) {
+                    val groupName = group?.name ?: groupId
+                    notifyGroupMessage(groupId, groupName, from, content)
+                }
             }
         }
 

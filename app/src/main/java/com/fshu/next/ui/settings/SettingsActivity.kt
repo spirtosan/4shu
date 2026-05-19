@@ -455,7 +455,7 @@ class SettingsActivity : AppCompatActivity() {
 
         val pm = getSystemService(PowerManager::class.java)
         rows += PermRow(
-            name = "Battery optimization (disabled)",
+            name = "Battery optimization exempt",
             granted = pm.isIgnoringBatteryOptimizations(packageName),
             settingsIntent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
                 data = Uri.parse("package:$packageName")

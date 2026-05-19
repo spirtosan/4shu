@@ -909,8 +909,12 @@ class MainActivity : AppCompatActivity() {
         if (type == "text/plain") {
             pendingShareText = intent.getStringExtra(Intent.EXTRA_TEXT)
         } else {
-            @Suppress("DEPRECATION")
-            pendingShareUri = intent.getParcelableExtra(Intent.EXTRA_STREAM)
+            pendingShareUri = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                intent.getParcelableExtra(Intent.EXTRA_STREAM, android.net.Uri::class.java)
+            } else {
+                @Suppress("DEPRECATION")
+                intent.getParcelableExtra(Intent.EXTRA_STREAM)
+            }
         }
     }
 
@@ -925,6 +929,7 @@ class MainActivity : AppCompatActivity() {
                 withContext(Dispatchers.Main) {
                     mutedTargets.remove(user.username)
                     scheduleListRefresh()
+                    (supportFragmentManager.findFragmentByTag("contacts") as? com.fshu.next.ui.ContactsFragment)?.refreshContacts()
                     Toast.makeText(this@MainActivity, getString(R.string.toast_unmuted), Toast.LENGTH_SHORT).show()
                 }
             }
@@ -954,6 +959,7 @@ class MainActivity : AppCompatActivity() {
                         withContext(Dispatchers.Main) {
                             mutedTargets.add(user.username)
                             scheduleListRefresh()
+                            (supportFragmentManager.findFragmentByTag("contacts") as? com.fshu.next.ui.ContactsFragment)?.refreshContacts()
                             Toast.makeText(this@MainActivity, getString(R.string.toast_muted), Toast.LENGTH_SHORT).show()
                         }
                     }
