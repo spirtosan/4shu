@@ -272,10 +272,11 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                 sink.writeInt(headerBytes.size)
                 sink.write(headerBytes)
                 sink.write(encBytes)
-                val sent = WebSocketClient.sendBinary(sink.readByteString())
+                val frame = sink.readByteString()
+                Log.d("ChatViewModel", "sendGroupFile: binary frame built, size=${frame.size}, sending...")
+                val sent = WebSocketClient.sendBinary(frame)
                 if (!sent) {
-                    Log.e("ChatViewModel", "sendGroupFile: sendBinary returned false for $groupId")
-                    db.messageDao().updateStatus(roomId, "FAILED")
+                    Log.w("ChatViewModel", "sendGroupFile: sendBinary returned false for $groupId — staying SENDING for retry")
                 }
             } catch (e: Exception) {
                 Log.e("ChatViewModel", "sendGroupFile failed", e)

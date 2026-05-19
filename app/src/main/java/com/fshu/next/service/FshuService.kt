@@ -1152,6 +1152,12 @@ class FshuService : Service() {
                                 val sent = WebSocketClient.sendBinary(sink.readByteString())
                                 if (!sent) Log.e("FshuService", "Group file retry: sendBinary false for msg ${msg.id}")
                             }
+                        } catch (e: SecurityException) {
+                            Log.w("FshuService", "Group file retry: URI expired for msg ${msg.id}, marking FAILED")
+                            db.messageDao().updateStatus(msg.id, "FAILED")
+                        } catch (e: java.io.FileNotFoundException) {
+                            Log.w("FshuService", "Group file retry: URI expired for msg ${msg.id}, marking FAILED")
+                            db.messageDao().updateStatus(msg.id, "FAILED")
                         } catch (e: Exception) {
                             Log.e("FshuService", "Group file retry failed for msg ${msg.id}", e)
                         }
@@ -1188,6 +1194,12 @@ class FshuService : Service() {
                         sink.write(headerBytes)
                         sink.write(encBytes)
                         WebSocketClient.sendBinary(sink.readByteString())
+                    } catch (e: SecurityException) {
+                        Log.w("FshuService", "File retry: URI expired for msg ${msg.id}, marking FAILED")
+                        db.messageDao().updateStatus(msg.id, "FAILED")
+                    } catch (e: java.io.FileNotFoundException) {
+                        Log.w("FshuService", "File retry: URI expired for msg ${msg.id}, marking FAILED")
+                        db.messageDao().updateStatus(msg.id, "FAILED")
                     } catch (e: Exception) {
                         Log.e("FshuService", "File retry failed for msg ${msg.id}", e)
                     }
