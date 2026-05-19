@@ -18,7 +18,7 @@ Last updated after: Ivan notes, Gemini architecture review, Gemini presence revi
 
 | Decision | Outcome |
 |----------|---------|
-| Trust level | **Remove completely** from DB and UI. Per-contact allow_emergency_call / allow_emergency_location replace it with more precision |
+| Trust level | **DECISION PENDING** — deeply embedded across server + Android. effectiveEmergencyAllow() uses trustLevel as fallback when allowEmergencyCall is null. Cannot remove without first backfilling or changing fallback logic. See below |
 | Mutes table PK | **Change to (owner, target, target_type)** + add mute_until INTEGER column for timed mutes |
 | Polls | **New tables** — do not reuse lists. polls + poll_options + poll_votes |
 | Presence | **Implement** — in-memory on client (StateFlow), server broadcasts on connect/disconnect. Privacy enforced server-side |
@@ -39,15 +39,19 @@ Last updated after: Ivan notes, Gemini architecture review, Gemini presence revi
 
 | Version | Changes |
 |---------|---------|
-| 19 | Current |
-| 20 | Fix mutes: drop and recreate with PK=(owner,target,target_type) + add mute_until INTEGER |
-| 21 | Remove trust_level from contacts entity |
+| 22 | Current (confirmed by audit) |
+| 23 | Fix mutes: drop and recreate with PK=(owner,target,target_type) + add owner TEXT NOT NULL + add mute_until INTEGER |
+| 24 | Remove trust_level from contacts entity (pending final decision — see DECISIONS LOG) |
 
 **Server DB changes required:**
-- `ALTER TABLE mutes` — rebuild with new PK (or drop/recreate)
-- `ALTER TABLE users ADD COLUMN hide_presence INTEGER DEFAULT 0`
-- `ALTER TABLE contacts DROP COLUMN trust_level` (SQLite: requires table rebuild)
-- `ALTER TABLE users DROP COLUMN trust_level` (SQLite: requires table rebuild)
+- `mutes` table: rebuild with PK=(owner,target,target_type) + add mute_until INTEGER. Currently server has PK=(owner,target) — target_type not in PK, mute_until missing.
+- `users` table: ADD COLUMN hide_presence INTEGER DEFAULT 0
+- `contacts` table: DROP COLUMN trust_level (SQLite: requires table rebuild) — pending final decision
+- `users` table: DROP COLUMN trust_level (SQLite: requires table rebuild) — pending final decision
+
+**Audit findings on Android vs Server mutes mismatch:**
+- Android Mute entity: PK = target only, no owner column — WRONG, must fix in v23
+- Server mutes table: PK = (owner, target), target_type not in PK, mute_until missing — fix with v23 server migration
 
 ---
 
@@ -186,11 +190,11 @@ BottomNav visibility: Hidden inside DM/Group chat views to maximize screen space
 
 | Item | Status | Notes |
 |------|--------|-------|
-| Attachment button (+) | ⚠️ | Broken in groups. **Must fix before UI rework** |
+| Attachment button (+) | ⚠️ | Deliberately disabled: isEnabled = false in ChatActivity when isGroupChat=true. Fix: remove that line and ensure send path passes groupId. AttachmentBottomSheet itself is fine |
 | Text input | ✅ | |
 | Draft save/restore | ❌ | Same as DM, keyed by group_id |
 | Mic / Send button | ✅ | Voice messages in groups: deferred |
-| Attachment picker items | ⚠️ | Same items as DM but broken in group context |
+| Attachment picker items | ⚠️ | Blocked by same isEnabled=false. Same fix as above |
 
 ### 3.4 Group Message Long Press Menu
 
@@ -238,8 +242,8 @@ BottomNav visibility: Hidden inside DM/Group chat views to maximize screen space
 | Allow Emergency Call (switch) | ✅ | Per-contact. DB: contacts.allow_emergency_call |
 | Allow Emergency Location (switch) | ✅ | Per-contact. DB: contacts.allow_emergency_location |
 | Set Nickname (inline edit or button) | ✅ | |
-| Mute this contact (switch) | ✅ | DB: mutes, target_type='contact' |
-| 🗑️ Trust Level selector | 🗑️ | Remove completely. Replaced by explicit per-contact switches |
+| Mute this contact (switch) | ❌ | MuteDao exists but never called from any UI. onMuteToggle is a no-op default in UserAdapter. Needs full wiring |
+| 🗑️ Trust Level selector | 🗑️ | Pending final decision — deeply embedded. See DECISIONS LOG |
 | Remove Contact | ✅ | |
 | Block User | ✅ | DB: blocks table |
 
@@ -301,7 +305,7 @@ Opened from My Profile. Single location — not duplicated in Settings tab.
 |------|--------|-------|
 | Send Message | ❌ | Opens DM chat |
 | View Profile | ❌ | Opens User Profile screen |
-| Mute | ✅ | Per-contact mute |
+| Mute | ❌ | Listed as ✅ but MuteDao never called from any UI. Needs wiring |
 | Block | ✅ | |
 | Remove Contact | ✅ | |
 
@@ -389,10 +393,10 @@ Opened from My Profile. Single location — not duplicated in Settings tab.
 
 | Item | Status | Notes |
 |------|--------|-------|
-| Create Invite Link | ⚠️ | Server: invites table (48h TTL). Code exists, UI lost in rework |
-| User List | ⚠️ | Search/browse all users. Lost in rework |
-| Reset User Password | ⚠️ | Admin resets another user's password. Lost in rework |
-| Remove User | ⚠️ | Admin deletes another account. Lost in rework |
+| Create Invite Link | ⚠️ | AdminPanelActivity exists with full UI. Server handlers all working. No navigation entry point from SettingsFragment — that is the only missing piece |
+| User List | ⚠️ | Same — in AdminPanelActivity, just unreachable from Settings |
+| Reset User Password | ⚠️ | Same — in AdminPanelActivity, just unreachable from Settings |
+| Remove User | ⚠️ | Same — in AdminPanelActivity, just unreachable from Settings |
 
 ### 9.9 Section: DATA & ACCOUNT
 
