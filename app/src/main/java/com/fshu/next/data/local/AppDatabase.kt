@@ -17,7 +17,7 @@ import com.fshu.next.data.model.GroupMember
 import com.fshu.next.data.model.Message
 import com.fshu.next.data.model.PeerKey
 
-@Database(entities = [Message::class, PeerKey::class, Group::class, GroupMember::class, Contact::class, Block::class, Mute::class], version = 22, exportSchema = false)
+@Database(entities = [Message::class, PeerKey::class, Group::class, GroupMember::class, Contact::class, Block::class, Mute::class], version = 24, exportSchema = true)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun messageDao(): MessageDao
     abstract fun peerKeyDao(): PeerKeyDao
@@ -193,6 +193,47 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_22_23 = object : Migration(22, 23) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("DROP TABLE IF EXISTS mutes")
+                database.execSQL("""
+                    CREATE TABLE IF NOT EXISTS mutes (
+                        owner TEXT NOT NULL,
+                        target TEXT NOT NULL,
+                        target_type TEXT NOT NULL,
+                        created_at INTEGER NOT NULL,
+                        mute_until INTEGER,
+                        PRIMARY KEY (owner, target, target_type)
+                    )
+                """.trimIndent())
+            }
+        }
+
+        private val MIGRATION_23_24 = object : Migration(23, 24) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("""
+                    CREATE TABLE IF NOT EXISTS contacts_new (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        owner TEXT NOT NULL,
+                        contact TEXT NOT NULL,
+                        status TEXT NOT NULL,
+                        createdAt INTEGER NOT NULL,
+                        updatedAt INTEGER NOT NULL,
+                        expiresAt INTEGER NOT NULL,
+                        allow_emergency_call INTEGER,
+                        allow_emergency_location INTEGER
+                    )
+                """.trimIndent())
+                database.execSQL("""
+                    INSERT INTO contacts_new (id, owner, contact, status, createdAt, updatedAt, expiresAt, allow_emergency_call, allow_emergency_location)
+                    SELECT id, owner, contact, status, createdAt, updatedAt, expiresAt, allow_emergency_call, allow_emergency_location
+                    FROM contacts
+                """.trimIndent())
+                database.execSQL("DROP TABLE contacts")
+                database.execSQL("ALTER TABLE contacts_new RENAME TO contacts")
+            }
+        }
+
         private val MIGRATION_14_15 = object : Migration(14, 15) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 try { db.execSQL("ALTER TABLE users ADD COLUMN email TEXT") } catch (_: Exception) {}
@@ -236,7 +277,8 @@ abstract class AppDatabase : RoomDatabase() {
                     MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9,
                     MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13,
                     MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19,
-                    MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22
+                    MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22,
+                    MIGRATION_22_23, MIGRATION_23_24
                 ).build().also { INSTANCE = it }
             }
     }

@@ -37,8 +37,7 @@ class UserAdapter(
     private val onRequestLocation: (User) -> Unit = {},
     private val onSetNickname: (User) -> Unit = {},
     private val onToggleFavorite: (User) -> Unit = {},
-    private val onMuteToggle: (User) -> Unit = {},
-    private val onTrustLevel: (User) -> Unit = {}
+    private val onMuteToggle: (User) -> Unit = {}
 ) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
 
     companion object {
@@ -195,7 +194,6 @@ class UserAdapter(
                         R.id.action_user_emergency_call -> { onEmergencyCall(user); true }
                         R.id.action_user_emergency_location -> { onEmergencyWithLocation(user); true }
                         R.id.action_user_set_nickname -> { onSetNickname(user); true }
-                        R.id.action_user_trust_level -> { onTrustLevel(user); true }
                         R.id.action_user_mute -> { onMuteToggle(user); true }
                         else -> false
                     }

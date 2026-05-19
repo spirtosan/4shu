@@ -32,7 +32,6 @@ class UserProfileActivity : AppCompatActivity() {
     private lateinit var binding: ActivityUserProfileBinding
     private lateinit var db: AppDatabase
     private var targetUsername = ""
-    private var currentTrustLevel: String = "contact"
     private var currentAllowEmergency: Int? = null
     private var allowEmergencyLocation: Int? = null
     private var savedEmergencyLocationValue: Int? = null
@@ -173,8 +172,6 @@ class UserProfileActivity : AppCompatActivity() {
                     val contactRow = contacts?.firstOrNull {
                         it.asJsonObject.get("contact")?.asString == targetUsername
                     }?.asJsonObject
-                    currentTrustLevel = contactRow?.get("trustLevel")?.takeIf { !it.isJsonNull }?.asString
-                        ?: Prefs.getPeerTrustLevel(this, targetUsername)
                     val serverAllow = try {
                         contactRow?.get("allow_emergency_call")?.takeIf { !it.isJsonNull }?.asInt
                     } catch (_: Exception) { null }
@@ -183,10 +180,8 @@ class UserProfileActivity : AppCompatActivity() {
                         contactRow?.get("allow_emergency_location")?.takeIf { !it.isJsonNull }?.asInt
                     } catch (_: Exception) { null }
                     if (serverAllowLoc != null) allowEmergencyLocation = serverAllowLoc
-                    // Resolve null → trust-level defaults (family/trusted = 1, others = 0)
-                    val trustDefault = if (currentTrustLevel == "family" || currentTrustLevel == "trusted") 1 else 0
-                    if (currentAllowEmergency == null) currentAllowEmergency = trustDefault
-                    if (allowEmergencyLocation == null) allowEmergencyLocation = trustDefault
+                    if (currentAllowEmergency == null) currentAllowEmergency = 0
+                    if (allowEmergencyLocation == null) allowEmergencyLocation = 0
                     runOnUiThread { updateTrustUI(true) }
                 } else {
                     runOnUiThread { updateTrustUI(false) }
@@ -316,21 +311,10 @@ class UserProfileActivity : AppCompatActivity() {
 
     private fun updateTrustUI(visible: Boolean) {
         if (!visible) {
-            binding.tvTrustLabel.visibility = View.GONE
-            binding.tvTrustValue.visibility = View.GONE
             binding.rowEmergencyAllow.visibility = View.GONE
             binding.rowEmergencyLocation.visibility = View.GONE
             return
         }
-        binding.tvTrustLabel.visibility = View.VISIBLE
-        binding.tvTrustValue.visibility = View.VISIBLE
-        binding.tvTrustValue.text = when (currentTrustLevel) {
-            "family"   -> getString(R.string.trust_family)
-            "trusted"  -> getString(R.string.trust_trusted)
-            "stranger" -> getString(R.string.trust_stranger)
-            else       -> getString(R.string.trust_contact)
-        }
-        binding.tvTrustValue.setOnClickListener { showTrustPicker() }
         binding.rowEmergencyAllow.visibility = View.VISIBLE
         updateEmergencySwitch()
         binding.rowEmergencyLocation.visibility =
@@ -355,8 +339,7 @@ class UserProfileActivity : AppCompatActivity() {
             }
             if (isChecked) {
                 // Restore saved Switch 2 value (or use trust-level default if never saved)
-                val restoreValue = savedEmergencyLocationValue
-                    ?: if (currentTrustLevel in listOf("family", "trusted")) 1 else 0
+                val restoreValue = savedEmergencyLocationValue ?: 0
                 allowEmergencyLocation = restoreValue
                 binding.rowEmergencyLocation.visibility = View.VISIBLE
                 updateEmergencyLocationSwitch()
@@ -401,30 +384,6 @@ class UserProfileActivity : AppCompatActivity() {
                 "allow"  to if (isChecked) 1 else 0
             ))
         }
-    }
-
-    private fun showTrustPicker() {
-        val options = arrayOf(
-            getString(R.string.trust_family),
-            getString(R.string.trust_trusted),
-            getString(R.string.trust_contact),
-            getString(R.string.trust_stranger)
-        )
-        val values = arrayOf("family", "trusted", "contact", "stranger")
-        val currentIndex = values.indexOf(currentTrustLevel).takeIf { it >= 0 } ?: 2
-        AlertDialog.Builder(this)
-            .setTitle(getString(R.string.label_trust_level))
-            .setSingleChoiceItems(options, currentIndex) { dialog, which ->
-                currentTrustLevel = values[which]
-                WebSocketClient.send(mapOf(
-                    "type"           to "set-trust",
-                    "targetUsername" to targetUsername,
-                    "trustLevel"     to currentTrustLevel
-                ))
-                updateTrustUI(true)
-                dialog.dismiss()
-            }
-            .show()
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {

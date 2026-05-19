@@ -257,12 +257,6 @@ object Prefs {
     fun setContactNickname(ctx: Context, username: String, value: String) =
         ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE).edit().putString("contact_nick_$username", value).apply()
 
-    fun getPeerTrustLevel(ctx: Context, peer: String): String =
-        ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE).getString("trust_$peer", "contact") ?: "contact"
-
-    fun setPeerTrustLevel(ctx: Context, peer: String, level: String) =
-        ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE).edit().putString("trust_$peer", level).apply()
-
     fun getFavorites(ctx: Context): Set<String> =
         ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE)
             .getStringSet("favorites", emptySet()) ?: emptySet()

@@ -11,7 +11,6 @@ data class User(
     val groupId: String? = null,
     val avatarPath: String? = null,
     val personalAvatar: String? = null,
-    val trustLevel: String = "contact",
     val email: String? = null,
     val phone: String? = null,
     val bio: String? = null,

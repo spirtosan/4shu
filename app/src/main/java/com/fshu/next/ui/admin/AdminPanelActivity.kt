@@ -32,8 +32,7 @@ import java.util.Locale
 data class AdminUser(
     val username: String,
     val createdAt: String,
-    val isAdmin: Boolean,
-    val trustLevel: String = "contact"
+    val isAdmin: Boolean
 )
 
 data class AdminInvite(
@@ -63,8 +62,7 @@ class AdminPanelActivity : AppCompatActivity() {
         adapter = AdminUserAdapter(
             userItems,
             onResetPassword = { user -> showResetPasswordDialog(user) },
-            onRemove = { user -> showRemoveDialog(user) },
-            onSetTrust = { user -> showTrustLevelDialog(user) }
+            onRemove = { user -> showRemoveDialog(user) }
         )
         binding.rvAdminUsers.layoutManager = LinearLayoutManager(this)
         binding.rvAdminUsers.adapter = adapter
@@ -158,8 +156,7 @@ class AdminPanelActivity : AppCompatActivity() {
                 AdminUser(
                     username   = obj.get("username")?.asString ?: "",
                     createdAt  = obj.get("createdAt")?.asString ?: "",
-                    isAdmin    = obj.get("admin")?.asBoolean ?: false,
-                    trustLevel = obj.get("trustLevel")?.asString ?: "contact"
+                    isAdmin    = obj.get("admin")?.asBoolean ?: false
                 )
             }
             userItems.clear()
@@ -294,21 +291,6 @@ class AdminPanelActivity : AppCompatActivity() {
             .show()
     }
 
-    private fun showTrustLevelDialog(user: AdminUser) {
-        val levels = arrayOf("family", "trusted", "contact", "stranger")
-        val current = levels.indexOf(user.trustLevel).takeIf { it >= 0 } ?: 2
-        AlertDialog.Builder(this)
-            .setTitle(getString(R.string.dialog_trust_level_title, user.username))
-            .setSingleChoiceItems(levels, current, null)
-            .setPositiveButton(getString(R.string.btn_set)) { dlg, _ ->
-                val lv = (dlg as AlertDialog).listView.checkedItemPosition
-                val level = levels.getOrElse(lv) { "contact" }
-                sendAdminAction(mapOf("type" to "admin-set-trust", "username" to user.username, "trustLevel" to level))
-            }
-            .setNegativeButton(getString(R.string.btn_cancel), null)
-            .show()
-    }
-
     private fun sendAdminAction(payload: Map<String, Any>) {
         lifecycleScope.launch {
             val ch = Channel<JsonObject>(1)
@@ -337,17 +319,14 @@ class AdminPanelActivity : AppCompatActivity() {
     inner class AdminUserAdapter(
         private val items: List<AdminUser>,
         private val onResetPassword: (AdminUser) -> Unit,
-        private val onRemove: (AdminUser) -> Unit,
-        private val onSetTrust: (AdminUser) -> Unit
+        private val onRemove: (AdminUser) -> Unit
     ) : RecyclerView.Adapter<AdminUserAdapter.VH>() {
 
         inner class VH(view: View) : RecyclerView.ViewHolder(view) {
             val tvUsername: TextView = view.findViewById(R.id.tvUsername)
             val tvCreatedAt: TextView = view.findViewById(R.id.tvCreatedAt)
             val tvAdminBadge: TextView = view.findViewById(R.id.tvAdminBadge)
-            val tvTrustBadge: TextView = view.findViewById(R.id.tvTrustBadge)
             val btnReset: Button = view.findViewById(R.id.btnResetPassword)
-            val btnSetTrust: Button = view.findViewById(R.id.btnSetTrust)
             val btnRemove: Button = view.findViewById(R.id.btnRemoveUser)
         }
 
@@ -361,17 +340,7 @@ class AdminPanelActivity : AppCompatActivity() {
             holder.tvUsername.text = user.username
             holder.tvCreatedAt.text = if (user.createdAt.isNotBlank()) "Created: ${user.createdAt}" else ""
             holder.tvAdminBadge.visibility = if (user.isAdmin) View.VISIBLE else View.GONE
-            holder.tvTrustBadge.text = user.trustLevel
-            val trustColor = when (user.trustLevel) {
-                "family"   -> android.graphics.Color.parseColor("#4CAF50")
-                "trusted"  -> android.graphics.Color.parseColor("#2196F3")
-                "stranger" -> android.graphics.Color.parseColor("#F44336")
-                else       -> android.graphics.Color.parseColor("#9E9E9E")
-            }
-            holder.tvTrustBadge.backgroundTintList =
-                android.content.res.ColorStateList.valueOf(trustColor)
             holder.btnReset.setOnClickListener { onResetPassword(user) }
-            holder.btnSetTrust.setOnClickListener { onSetTrust(user) }
             holder.btnRemove.setOnClickListener { onRemove(user) }
         }
     }

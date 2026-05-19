@@ -248,7 +248,6 @@ class MainActivity : AppCompatActivity() {
                     .setNegativeButton(getString(R.string.btn_cancel), null)
                     .show()
             },
-            onTrustLevel = { user -> showTrustPickerForContact(user) }
         )
         // Observe group list from Room — groups appear at the top of the list
         AppDatabase.getInstance(this).groupDao().getAllGroups().observe(this) { groups ->
@@ -894,31 +893,6 @@ class MainActivity : AppCompatActivity() {
         users.clear()
         users.addAll(groupItems + contacts)
         adapter.notifyDataSetChanged()
-    }
-
-    private fun showTrustPickerForContact(user: User) {
-        val options = arrayOf(
-            getString(R.string.trust_family),
-            getString(R.string.trust_trusted),
-            getString(R.string.trust_contact),
-            getString(R.string.trust_stranger)
-        )
-        val values = arrayOf("family", "trusted", "contact", "stranger")
-        val currentTrust = Prefs.getPeerTrustLevel(this, user.username)
-        val currentIndex = values.indexOf(currentTrust).takeIf { it >= 0 } ?: 2
-        AlertDialog.Builder(this)
-            .setTitle(getString(R.string.label_trust_level))
-            .setSingleChoiceItems(options, currentIndex) { dialog, which ->
-                val selected = values[which]
-                Prefs.setPeerTrustLevel(this, user.username, selected)
-                WebSocketClient.send(mapOf(
-                    "type"           to "set-trust",
-                    "targetUsername" to user.username,
-                    "trustLevel"     to selected
-                ))
-                dialog.dismiss()
-            }
-            .show()
     }
 
     private fun buildContactList(contacts: List<User>): List<User> {

@@ -667,7 +667,6 @@ class FshuService : Service() {
                         val obj    = el.asJsonObject
                         val uname  = obj.get("username")?.takeIf { !it.isJsonNull }?.asString ?: continue
                         val pubHex = obj.get("publicKey")?.takeIf { !it.isJsonNull }?.asString ?: continue
-                        val trust  = obj.get("trustLevel")?.takeIf { !it.isJsonNull }?.asString ?: "contact"
                         if (uname == me) continue
                         if (pubHex.length != 64 || !pubHex.all { it.isDigit() || it in 'a'..'f' || it in 'A'..'F' }) {
                             Log.w("FshuService", "users-broadcast: key rejected for $uname (len=${pubHex.length})")
@@ -687,7 +686,6 @@ class FshuService : Service() {
                         } catch (e: Exception) {
                             Log.w("FshuService", "cachePeerKey failed for $uname: ${e.message}")
                         }
-                        Prefs.setPeerTrustLevel(this, uname, trust)
                         val pendingFromBroadcast = pendingDecryptQueue.remove(uname)
                         if (!pendingFromBroadcast.isNullOrEmpty()) {
                             scope.launch {
