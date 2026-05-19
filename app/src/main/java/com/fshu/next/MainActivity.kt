@@ -144,7 +144,11 @@ class MainActivity : AppCompatActivity() {
                         putExtra(ChatActivity.EXTRA_PEER, user.username)
                     }
                 }
-                pendingShareUri?.let { chatIntent.putExtra(ChatActivity.EXTRA_SHARE_URI, it.toString()); pendingShareUri = null }
+                pendingShareUri?.let { uri ->
+                    try { grantUriPermission(packageName, uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) } catch (_: Exception) {}
+                    chatIntent.putExtra(ChatActivity.EXTRA_SHARE_URI, uri.toString())
+                    pendingShareUri = null
+                }
                 pendingShareText?.let { chatIntent.putExtra(ChatActivity.EXTRA_SHARE_TEXT, it); pendingShareText = null }
                 startActivity(chatIntent)
             },

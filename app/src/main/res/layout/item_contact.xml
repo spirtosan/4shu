@@ -47,15 +47,14 @@
 
     </LinearLayout>
 
-    <ImageView
-        android:id="@+id/iv_mute_indicator"
-        android:layout_width="18dp"
-        android:layout_height="18dp"
+    <TextView
+        android:id="@+id/tv_mute_icon"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
         android:layout_marginEnd="4dp"
-        android:src="@drawable/ic_mute"
-        android:tint="?android:textColorSecondary"
-        android:visibility="gone"
-        android:contentDescription="@null"/>
+        android:text="&#128263;"
+        android:textSize="14sp"
+        android:visibility="gone"/>
 
     <ImageButton
         android:id="@+id/btn_more"
