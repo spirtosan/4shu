@@ -3,7 +3,7 @@ package com.fshu.next.data.local
 import androidx.room.ColumnInfo
 import androidx.room.Entity
 
-@Entity(tableName = "mutes", primaryKeys = ["owner", "target", "targetType"])
+@Entity(tableName = "mutes", primaryKeys = ["owner", "target", "target_type"])
 data class Mute(
     val owner: String,
     val target: String,
