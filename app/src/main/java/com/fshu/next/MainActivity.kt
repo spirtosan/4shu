@@ -204,11 +204,12 @@ class MainActivity : AppCompatActivity() {
                 val isMuted = mutedTargets.contains(user.username)
                 lifecycleScope.launch(Dispatchers.IO) {
                     val muteDb = AppDatabase.getInstance(this@MainActivity)
+                    val me = Prefs.getUsername(this@MainActivity)
                     if (isMuted) {
-                        muteDb.muteDao().delete(user.username)
+                        muteDb.muteDao().delete(me, user.username)
                         WebSocketClient.send(mapOf("type" to "remove-mute", "target" to user.username, "targetType" to "contact"))
                     } else {
-                        muteDb.muteDao().insert(Mute(target = user.username, targetType = "contact"))
+                        muteDb.muteDao().insert(Mute(owner = me, target = user.username, targetType = "contact", createdAt = System.currentTimeMillis()))
                         WebSocketClient.send(mapOf("type" to "set-mute", "target" to user.username, "targetType" to "contact"))
                     }
                     withContext(Dispatchers.Main) {
@@ -263,7 +264,8 @@ class MainActivity : AppCompatActivity() {
         favorites = Prefs.getFavorites(this).toMutableSet()
 
         lifecycleScope.launch(Dispatchers.IO) {
-            val loaded = AppDatabase.getInstance(this@MainActivity).muteDao().getAll().map { it.target }
+            val me = Prefs.getUsername(this@MainActivity)
+            val loaded = AppDatabase.getInstance(this@MainActivity).muteDao().getAll(me).map { it.target }
             withContext(Dispatchers.Main) { mutedTargets.addAll(loaded) }
         }
 
@@ -966,7 +968,7 @@ class MainActivity : AppCompatActivity() {
         val me = Prefs.getUsername(this)
         val db = AppDatabase.getInstance(this)
         val enriched = withContext(Dispatchers.IO) {
-            val freshMutes = db.muteDao().getAll().map { it.target }.toSet()
+            val freshMutes = db.muteDao().getAll(me).map { it.target }.toSet()
             withContext(Dispatchers.Main) { mutedTargets.clear(); mutedTargets.addAll(freshMutes) }
             list.map { user ->
                 val last = db.messageDao().getLastMessage(user.username, me)

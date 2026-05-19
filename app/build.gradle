@@ -63,6 +63,12 @@ android {
         jvmTarget = '17'
     }
 
+    kapt {
+        arguments {
+            arg("room.schemaLocation", "$projectDir/schemas")
+        }
+    }
+
     buildFeatures {
         viewBinding true
         buildConfig true

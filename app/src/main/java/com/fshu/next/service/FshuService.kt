@@ -594,12 +594,13 @@ class FshuService : Service() {
                 }
                 val mutesArr = json.getAsJsonArray("mutes")
                 if (mutesArr != null) {
-                    db.muteDao().deleteAll()
+                    val me = Prefs.getUsername(this)
+                    db.muteDao().deleteAll(me)
                     for (m in mutesArr) {
                         val obj = m.asJsonObject
                         val target = obj.get("target")?.asString ?: continue
                         val targetType = obj.get("target_type")?.asString ?: "contact"
-                        db.muteDao().insert(Mute(target = target, targetType = targetType))
+                        db.muteDao().insert(Mute(owner = me, target = target, targetType = targetType, createdAt = System.currentTimeMillis()))
                     }
                 }
                 MessageBus.emit(json)
@@ -1401,7 +1402,8 @@ class FshuService : Service() {
     }
 
     private fun notifyMessage(from: String, content: String) {
-        if (db.muteDao().isMuted(from)) return
+        val me = Prefs.getUsername(this)
+        if (db.muteDao().isMuted(me, from)) return
         // Vibrate respecting silent/vibrate mode
         try {
             val am = getSystemService(android.media.AudioManager::class.java)
@@ -1450,7 +1452,8 @@ class FshuService : Service() {
 
     private fun notifyCall(from: String, sdp: String, isVideo: Boolean = false, isEmergency: Boolean = false) {
         cancelCallNotif(this)
-        if (!isEmergency && db.muteDao().isMuted(from)) return
+        val me = Prefs.getUsername(this)
+        if (!isEmergency && db.muteDao().isMuted(me, from)) return
 
         val intent = Intent(this, CallActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
@@ -1863,10 +1866,11 @@ class FshuService : Service() {
     private suspend fun handleMuteUpdated(json: JsonObject) {
         val target = json.get("target")?.asString ?: return
         val muted = json.get("muted")?.asBoolean ?: return
+        val me = Prefs.getUsername(this)
         if (muted) {
-            db.muteDao().insert(Mute(target = target, targetType = json.get("targetType")?.asString ?: "contact"))
+            db.muteDao().insert(Mute(owner = me, target = target, targetType = json.get("targetType")?.asString ?: "contact", createdAt = System.currentTimeMillis()))
         } else {
-            db.muteDao().delete(target)
+            db.muteDao().delete(me, target)
         }
     }
 
