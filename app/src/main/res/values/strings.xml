@@ -203,6 +203,7 @@
     <string name="toast_downloading">Downloading…</string>
     <string name="toast_cannot_play_voice">Cannot play voice message</string>
     <string name="toast_location_error">Could not get location — check GPS</string>
+    <string name="toast_not_available_in_groups">Not available in group chats</string>
     <string name="menu_find_people">Find People</string>
     <string name="menu_server_info">Server info</string>
     <string name="menu_voice_call">Voice call</string>
@@ -330,6 +331,8 @@
     <string name="hint_sos_message">Emergency message…</string>
     <string name="label_security">Security</string>
     <string name="label_devices">Devices</string>
+    <string name="label_admin">Admin</string>
+    <string name="label_admin_panel">Admin Panel</string>
     <string name="label_danger_zone">Danger zone</string>
     <string name="btn_delete_account">Delete my account</string>
     <string name="dialog_delete_account_title">Delete account?</string>

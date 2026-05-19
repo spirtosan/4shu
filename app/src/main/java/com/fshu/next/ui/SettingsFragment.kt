@@ -56,6 +56,7 @@ class SettingsFragment : Fragment() {
         setupPrivacy()
         setupEmergency()
         setupSecurity()
+        setupAdmin()
         setupDangerZone()
         setupVersion()
     }
@@ -300,6 +301,18 @@ class SettingsFragment : Fragment() {
                 refreshLockTimeout()
             }
             .show()
+    }
+
+    private fun setupAdmin() {
+        val ctx = requireContext()
+        if (Prefs.isAdmin(ctx)) {
+            binding.sectionAdmin.visibility = View.VISIBLE
+            binding.rowAdminPanel.setOnClickListener {
+                startActivity(Intent(ctx, com.fshu.next.ui.admin.AdminPanelActivity::class.java))
+            }
+        } else {
+            binding.sectionAdmin.visibility = View.GONE
+        }
     }
 
     private fun setupDangerZone() {

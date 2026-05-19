@@ -152,13 +152,19 @@ class ChatActivity : AppCompatActivity() {
     }
 
     private val pickFile = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        uri?.let { vm.sendFile(peer, it, contentResolver) }
+        uri?.let {
+            if (isGroupChat) vm.sendGroupFile(peer, it, contentResolver)
+            else vm.sendFile(peer, it, contentResolver)
+        }
     }
 
     private var cameraImageUri: android.net.Uri? = null
     private val takePictureLauncher = registerForActivityResult(ActivityResultContracts.TakePicture()) { success ->
         if (success) {
-            cameraImageUri?.let { vm.sendFile(peer, it, contentResolver) }
+            cameraImageUri?.let {
+                if (isGroupChat) vm.sendGroupFile(peer, it, contentResolver)
+                else vm.sendFile(peer, it, contentResolver)
+            }
         }
     }
 
@@ -496,7 +502,6 @@ class ChatActivity : AppCompatActivity() {
         }
 
         if (isGroupChat) {
-            binding.btnAttach.isEnabled = false
             binding.btnMic.isEnabled = false
         }
         binding.btnAttach.setOnClickListener {
@@ -505,7 +510,10 @@ class ChatActivity : AppCompatActivity() {
                 override fun onGalleryClick() { pickFile.launch("image/*") }
                 override fun onCameraClick() { launchCamera() }
                 override fun onFileClick() { pickFile.launch("*/*") }
-                override fun onLocationClick() { vm.sendCurrentLocation(peer) }
+                override fun onLocationClick() {
+                    if (isGroupChat) Toast.makeText(this@ChatActivity, getString(R.string.toast_not_available_in_groups), Toast.LENGTH_SHORT).show()
+                    else vm.sendCurrentLocation(peer)
+                }
                 override fun onContactClick() { showContactPicker() }
             }
             sheet.show(supportFragmentManager, AttachmentBottomSheet.TAG)

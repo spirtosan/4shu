@@ -887,11 +887,21 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun rebuildCombinedList() {
-        val contacts = buildContactList(
-            users.filter { !it.isGroup && it.username != UserAdapter.DIVIDER_USERNAME }
-        )
+        val rawContacts = users.filter { !it.isGroup && it.username != UserAdapter.DIVIDER_USERNAME }
+        val marked = rawContacts.map { it.copy(isFavorite = it.username in favorites, isMuted = it.username in mutedTargets) }
+        val favs = applyUserOrder(marked.filter { it.isFavorite })
+        val nonFavContacts = marked.filter { !it.isFavorite }
+        // Mix non-favorite contacts and groups together, sorted by lastMessageTime desc
+        val others = (nonFavContacts + groupItems)
+            .sortedByDescending { it.lastMessageTime ?: Long.MIN_VALUE }
+        val result = mutableListOf<User>()
+        result.addAll(favs)
+        if (favs.isNotEmpty() && others.isNotEmpty()) {
+            result.add(User(username = UserAdapter.DIVIDER_USERNAME))
+        }
+        result.addAll(others)
         users.clear()
-        users.addAll(groupItems + contacts)
+        users.addAll(result)
         adapter.notifyDataSetChanged()
     }
 

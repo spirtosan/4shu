@@ -81,6 +81,7 @@ app/src/main/java/com/fshu/
 | `location-response` | both | `from`, `to`, `requestId`, `lat`, `lon`, `accuracy`, `timestamp` — reply to location-request; server stores and forwards |
 | `group-avatar-upload` | client→server | `groupId`, `data` (base64 JPEG ≤300KB) — owner/admin sets group avatar; server saves as `group_{groupId}.jpg`, broadcasts `group-avatar` to all members |
 | `group-avatar` | server→client | `groupId`, `data` (base64 JPEG) — group avatar pushed to all members after upload or queued for offline members |
+| `group-file` | binary (client→server upload); JSON (server→client fan-out) | upload: binary frame with header `{type:"group-file", from, groupId, filename, mimeType, nonce, size, tempId, messageId, timestamp}` + AES-GCM ciphertext using group key; fan-out JSON: same fields + `fileId`, `serverMsgId` |
 | `set-auto-location` | client→server | `peer`, `enabled` (bool) — toggle auto-respond to location-requests from this peer |
 | `get-auto-location` | client→server | _(no extra fields)_ — request current auto-location peer list |
 | `auto-location-peers` | server→client | `peers: [string]` — full list of peers for whom auto-location is enabled |

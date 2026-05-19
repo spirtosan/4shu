@@ -226,6 +226,58 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    fun sendGroupFile(groupId: String, uri: Uri, resolver: ContentResolver) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val group = db.groupDao().getById(groupId) ?: return@launch
+                val groupKeyHex = group.groupKey
+                if (groupKeyHex.isEmpty()) {
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(getApplication(), "Cannot send: missing group key", Toast.LENGTH_LONG).show()
+                    }
+                    return@launch
+                }
+                val fileBytes = resolver.openInputStream(uri)?.use { it.readBytes() } ?: return@launch
+                val filename = resolveDisplayName(uri, resolver)
+                val mimeType = resolver.getType(uri) ?: "application/octet-stream"
+                val tempId = UUID.randomUUID().toString()
+                val ts = System.currentTimeMillis()
+
+                val roomId = db.messageDao().insert(
+                    Message(from = me, to = "", content = "📎 $filename", type = "file",
+                        filename = filename, mimeType = mimeType,
+                        localUri = uri.toString(), tempId = tempId,
+                        timestamp = ts, isSent = true, status = "SENDING", groupId = groupId)
+                )
+
+                val groupKey = with(EcdhHelper) { groupKeyHex.fromHex() }
+                val (encBytes, nonce) = CryptoHelper.encryptGroupFile(groupKey, fileBytes)
+                val nonceHex = CryptoHelper.bytesToHex(nonce)
+
+                val header = JsonObject().apply {
+                    addProperty("tempId", tempId)
+                    addProperty("from", me)
+                    addProperty("groupId", groupId)
+                    addProperty("filename", filename)
+                    addProperty("mimeType", mimeType)
+                    addProperty("size", encBytes.size)
+                    addProperty("nonce", nonceHex)
+                    addProperty("type", "group-file")
+                    addProperty("messageId", roomId)
+                    addProperty("timestamp", ts)
+                }
+                val headerBytes = header.toString().toByteArray(Charsets.UTF_8)
+                val sink = okio.Buffer()
+                sink.writeInt(headerBytes.size)
+                sink.write(headerBytes)
+                sink.write(encBytes)
+                WebSocketClient.sendBinary(sink.readByteString())
+            } catch (e: Exception) {
+                Log.e("ChatViewModel", "sendGroupFile failed", e)
+            }
+        }
+    }
+
     private fun resolveDisplayName(uri: Uri, resolver: ContentResolver): String {
         if (uri.scheme == "content") {
             resolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME),

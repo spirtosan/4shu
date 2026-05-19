@@ -203,6 +203,7 @@
     <string name="toast_downloading">Изтегляне…</string>
     <string name="toast_cannot_play_voice">Гласовото съобщение не може да се пусне</string>
     <string name="toast_location_error">Местоположението не може да се получи — провери GPS</string>
+    <string name="toast_not_available_in_groups">Не е налично в групови чатове</string>
     <string name="menu_find_people">Намери хора</string>
     <string name="menu_server_info">Информация за сървъра</string>
     <string name="menu_voice_call">Гласово повикване</string>
@@ -330,6 +331,8 @@
     <string name="hint_sos_message">Спешно съобщение…</string>
     <string name="label_security">Сигурност</string>
     <string name="label_devices">Устройства</string>
+    <string name="label_admin">Админ</string>
+    <string name="label_admin_panel">Административен панел</string>
     <string name="label_danger_zone">Опасна зона</string>
     <string name="btn_delete_account">Изтрий моя акаунт</string>
     <string name="dialog_delete_account_title">Изтриване на акаунт?</string>

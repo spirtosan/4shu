@@ -217,13 +217,19 @@ class ChatsFragment : Fragment() {
         override fun onBindViewHolder(holder: VH, position: Int) {
             val user = items[position]
             val b = holder.b
-            b.tvUsername.text = user.username
-            val localNick = Prefs.getContactNickname(requireContext(), user.username)
-            if (localNick.isNotEmpty() && localNick != user.username) {
-                b.tvHandle.visibility = View.VISIBLE
-                b.tvHandle.text = localNick
-            } else {
+            if (user.isGroup) {
+                b.tvUsername.text = user.displayName
                 b.tvHandle.visibility = View.GONE
+            } else {
+                val localNick = Prefs.getContactNickname(requireContext(), user.username)
+                if (localNick.isNotEmpty()) {
+                    b.tvUsername.text = localNick
+                    b.tvHandle.visibility = View.VISIBLE
+                    b.tvHandle.text = "@${user.username}"
+                } else {
+                    b.tvUsername.text = user.displayName
+                    b.tvHandle.visibility = View.GONE
+                }
             }
             b.tvLastMessage.text = user.lastMessage ?: ""
             b.tvTime.text = ""

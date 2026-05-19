@@ -36,19 +36,6 @@
             android:layout_marginStart="4dp"
             android:visibility="gone" />
 
-        <TextView
-            android:id="@+id/tvTrustBadge"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:textSize="11sp"
-            android:textColor="#FFFFFF"
-            android:background="#9E9E9E"
-            android:paddingStart="6dp"
-            android:paddingEnd="6dp"
-            android:paddingTop="2dp"
-            android:paddingBottom="2dp"
-            android:layout_marginStart="4dp"
-            android:text="@string/item_trust_default" />
     </LinearLayout>
 
     <TextView
@@ -71,13 +58,6 @@
             android:text="@string/btn_reset_password"
             style="@style/Widget.MaterialComponents.Button.TextButton"
             android:layout_marginEnd="8dp" />
-
-        <Button
-            android:id="@+id/btnSetTrust"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/btn_trust"
-            style="@style/Widget.MaterialComponents.Button.TextButton" />
 
         <Button
             android:id="@+id/btnRemoveUser"

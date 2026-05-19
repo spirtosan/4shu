@@ -523,6 +523,7 @@ class FshuService : Service() {
             "peer-test-result"        -> MessageBus.emit(json)
             "group-state"             -> handleGroupState(json)
             "group-message"           -> persistGroupMessage(json)
+            "group-file"              -> persistIncomingGroupFile(json)
             "group-removed"           -> handleGroupRemoved(json)
             "group-delivery-update"   -> handleGroupDeliveryUpdate(json)
             "group-key-update"        -> handleGroupKeyUpdate(json)
@@ -1048,13 +1049,26 @@ class FshuService : Service() {
             val filename = header.get("filename")?.asString ?: return
             val mimeType = header.get("mimeType")?.asString ?: "application/octet-stream"
             val nonceHex = header.get("nonce")?.asString ?: return
+            val groupId = header.get("groupId")?.asString
 
-            val peerPubKey = Prefs.getPeerPublicKey(this, from)
-            val decrypted = if (peerPubKey.isNotEmpty())
-                CryptoHelper.decryptFileFromPeer(this, from, nonceHex, encBytes)
-            else {
-                Log.w("FshuService", "No peer key for $from — saving raw bytes")
-                encBytes
+            val decrypted = if (groupId != null) {
+                val group = db.groupDao().getById(groupId)
+                val groupKeyHex = group?.groupKey ?: ""
+                if (groupKeyHex.isNotEmpty()) {
+                    val groupKey = with(com.fshu.next.util.EcdhHelper) { groupKeyHex.fromHex() }
+                    CryptoHelper.decryptGroupFile(groupKey, nonceHex, encBytes)
+                } else {
+                    Log.w("FshuService", "No group key for $groupId — saving raw bytes")
+                    encBytes
+                }
+            } else {
+                val peerPubKey = Prefs.getPeerPublicKey(this, from)
+                if (peerPubKey.isNotEmpty())
+                    CryptoHelper.decryptFileFromPeer(this, from, nonceHex, encBytes)
+                else {
+                    Log.w("FshuService", "No peer key for $from — saving raw bytes")
+                    encBytes
+                }
             }
 
             val localUri = decrypted?.let { saveFileToStorage(filename, mimeType, it) }
@@ -1774,6 +1788,24 @@ class FshuService : Service() {
 
         MessageBus.tryEmit(json)
         MessageBus.emit(JsonObject().apply { addProperty("type", "group-preview-update") })
+    }
+
+    private suspend fun persistIncomingGroupFile(json: JsonObject) {
+        val groupId  = json.get("groupId")?.asString ?: return
+        val from     = json.get("from")?.asString ?: return
+        val filename = json.get("filename")?.asString ?: return
+        val mimeType = json.get("mimeType")?.asString ?: "application/octet-stream"
+        val ts       = json.get("timestamp")?.asLong ?: System.currentTimeMillis()
+        val fileId   = json.get("fileId")?.asString ?: return
+        val me       = Prefs.getUsername(this)
+
+        db.messageDao().insert(
+            Message(from = from, to = "", content = "📎 $filename",
+                type = "file", filename = filename, mimeType = mimeType,
+                fileId = fileId, timestamp = ts, isSent = false, groupId = groupId)
+        )
+        WebSocketClient.send(mapOf("type" to "file-request", "fileId" to fileId, "from" to me))
+        MessageBus.tryEmit(json)
     }
 
     private suspend fun handleGroupRemoved(json: JsonObject) {

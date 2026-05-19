@@ -138,6 +138,17 @@ object CryptoHelper {
     fun decryptGroupMessage(groupKey: ByteArray, ciphertext: String): String? =
         EcdhHelper.decryptGroupMessage(groupKey, ciphertext)
 
+    fun encryptGroupFile(groupKey: ByteArray, plaintext: ByteArray): Pair<ByteArray, ByteArray> {
+        val nonce = ByteArray(12).also { java.security.SecureRandom().nextBytes(it) }
+        val encrypted = EcdhHelper.encryptBytes(groupKey, nonce, plaintext)
+        return Pair(encrypted, nonce)
+    }
+
+    fun decryptGroupFile(groupKey: ByteArray, nonceHex: String, ciphertext: ByteArray): ByteArray? {
+        val nonce = with(EcdhHelper) { nonceHex.fromHex() }
+        return EcdhHelper.decryptBytes(groupKey, nonce, ciphertext)
+    }
+
     /** MD5 hex — for list integrity checks only, not security. */
     fun md5(input: String): String {
         val bytes = java.security.MessageDigest.getInstance("MD5")
