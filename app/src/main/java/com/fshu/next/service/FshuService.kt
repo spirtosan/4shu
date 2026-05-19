@@ -175,6 +175,7 @@ class FshuService : Service() {
         super.onCreate()
         serviceStartTime = System.currentTimeMillis()
         writeGroupDebug("=== FshuService started ===")
+        scope.launch(Dispatchers.IO) { cleanGroupFilesCache() }
         // CryptoHelper.initDebugLog(applicationContext)
         val pm = getSystemService(PowerManager::class.java)
         wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "fshu:connection").apply {
@@ -1097,6 +1098,20 @@ class FshuService : Service() {
         }
     }
 
+    private fun deleteCacheFile(uriStr: String) {
+        try {
+            val u = android.net.Uri.parse(uriStr)
+            if (u.scheme == "file") java.io.File(u.path ?: return).delete()
+        } catch (_: Exception) {}
+    }
+
+    private fun cleanGroupFilesCache() {
+        val dir = java.io.File(cacheDir, "group_files")
+        if (!dir.exists()) return
+        val cutoff = System.currentTimeMillis() - 7L * 24 * 60 * 60 * 1000
+        dir.listFiles()?.forEach { f -> if (f.lastModified() < cutoff) f.delete() }
+    }
+
     private suspend fun checkStaleSending() {
         val cutoff = System.currentTimeMillis() - 10_000L
         val stale = db.messageDao().getStaleSending(cutoff)
@@ -1151,6 +1166,7 @@ class FshuService : Service() {
                                 sink.write(encBytes)
                                 val sent = WebSocketClient.sendBinary(sink.readByteString())
                                 if (!sent) Log.e("FshuService", "Group file retry: sendBinary false for msg ${msg.id}")
+                                else deleteCacheFile(gUri)
                             }
                         } catch (e: SecurityException) {
                             Log.w("FshuService", "Group file retry: URI expired for msg ${msg.id}, marking FAILED")
@@ -1193,7 +1209,8 @@ class FshuService : Service() {
                         sink.writeInt(headerBytes.size)
                         sink.write(headerBytes)
                         sink.write(encBytes)
-                        WebSocketClient.sendBinary(sink.readByteString())
+                        val dmSent = WebSocketClient.sendBinary(sink.readByteString())
+                        if (dmSent) deleteCacheFile(uri)
                     } catch (e: SecurityException) {
                         Log.w("FshuService", "File retry: URI expired for msg ${msg.id}, marking FAILED")
                         db.messageDao().updateStatus(msg.id, "FAILED")

@@ -186,12 +186,15 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                 val mimeType = resolver.getType(uri) ?: "application/octet-stream"
                 val tempId = UUID.randomUUID().toString()
                 val ts = System.currentTimeMillis()
+                val localUri = cacheFileBytes(fileBytes, tempId, filename)
+                    ?.let { android.net.Uri.fromFile(it).toString() }
+                    ?: uri.toString()
 
                 val roomId = db.messageDao().insert(
                     Message(from = me, to = peer,
                         content = "\uD83D\uDCCE $filename", type = "file",
                         filename = filename, mimeType = mimeType,
-                        localUri = uri.toString(), tempId = tempId,
+                        localUri = localUri, tempId = tempId,
                         timestamp = ts, isSent = true, status = "SENDING")
                 )
 
@@ -237,11 +240,14 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                 val tempId = UUID.randomUUID().toString()
                 val ts = System.currentTimeMillis()
                 Log.d("ChatViewModel", "sendGroupFile: groupId=$groupId keyLen=${groupKeyHex.length} fileSize=${fileBytes.size}")
+                val localUri = cacheFileBytes(fileBytes, tempId, filename)
+                    ?.let { android.net.Uri.fromFile(it).toString() }
+                    ?: uri.toString()
 
                 val roomId = db.messageDao().insert(
                     Message(from = me, to = "", content = "📎 $filename", type = "file",
                         filename = filename, mimeType = mimeType,
-                        localUri = uri.toString(), tempId = tempId,
+                        localUri = localUri, tempId = tempId,
                         timestamp = ts, isSent = true, status = "SENDING", groupId = groupId)
                 )
 
@@ -281,6 +287,20 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
             } catch (e: Exception) {
                 Log.e("ChatViewModel", "sendGroupFile failed", e)
             }
+        }
+    }
+
+    private fun cacheFileBytes(bytes: ByteArray, tempId: String, filename: String): java.io.File? {
+        return try {
+            val dir = java.io.File(getApplication<Application>().cacheDir, "group_files")
+            dir.mkdirs()
+            val safe = filename.replace(Regex("[/\\\\:*?\"<>|]"), "_").take(80)
+            val f = java.io.File(dir, "${tempId}_$safe")
+            f.writeBytes(bytes)
+            f
+        } catch (e: Exception) {
+            Log.e("ChatViewModel", "cacheFileBytes failed for $tempId", e)
+            null
         }
     }
 

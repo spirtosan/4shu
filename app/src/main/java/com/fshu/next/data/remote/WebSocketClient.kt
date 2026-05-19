@@ -301,8 +301,10 @@ object WebSocketClient {
         webSocket?.send(gson.toJson(data)) ?: false
 
     /** Send a binary frame (file upload). Returns true if enqueued. */
-    fun sendBinary(bytes: ByteString): Boolean =
-        webSocket?.send(bytes) ?: false
+    fun sendBinary(bytes: ByteString): Boolean {
+        if (!isConnected) return false
+        return webSocket?.send(bytes) ?: false
+    }
 
     fun addHandler(handler: MessageHandler) = handlers.add(handler)
     fun removeHandler(handler: MessageHandler) = handlers.remove(handler)
