@@ -22,6 +22,7 @@
     <string name="btn_connect">Свържи</string>
     <string name="forgot_password">Забравена парола?</string>
     <string name="toast_server_url_required">Моля, задай URL на сървъра</string>
+    <string name="error_cannot_reach_server">Не може да се достигне сървърът</string>
     <string name="btn_send_emergency">Изпрати спешен сигнал</string>
     <string name="btn_add_member">Добави член</string>
     <string name="btn_delete_group">Изтрий група</string>

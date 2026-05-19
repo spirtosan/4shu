@@ -20,6 +20,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.yield
 
 class LoginActivity : AppCompatActivity() {
 
@@ -108,10 +109,12 @@ class LoginActivity : AppCompatActivity() {
                     }
             }
 
-            startService(Intent(this, FshuService::class.java))
-
             lifecycleScope.launch {
-                val result = withTimeoutOrNull(10_000) { authChannel.receive() }
+                // yield() suspends here, allowing the collector coroutine above to reach
+                // .collect{} before the service starts and can emit auth events.
+                yield()
+                startService(Intent(this@LoginActivity, FshuService::class.java))
+                val result = withTimeoutOrNull(20_000) { authChannel.receive() }
                 collector.cancel()
                 authChannel.close()
                 when {
@@ -121,7 +124,7 @@ class LoginActivity : AppCompatActivity() {
                         Prefs.setPassword(this@LoginActivity, "")
                         getSharedPreferences("fshu_boot", Context.MODE_PRIVATE)
                             .edit().putBoolean("was_logged_in", false).apply()
-                        showError("Could not reach server")
+                        showError(getString(R.string.error_cannot_reach_server))
                         setLoading(false)
                     }
                     result.first == "auth-ok" -> {

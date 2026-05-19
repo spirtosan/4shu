@@ -22,6 +22,7 @@
     <string name="btn_connect">Connect</string>
     <string name="forgot_password">Forgot password?</string>
     <string name="toast_server_url_required">Please set server URL first</string>
+    <string name="error_cannot_reach_server">Could not reach server</string>
     <string name="btn_send_emergency">Send Emergency</string>
     <string name="btn_add_member">Add member</string>
     <string name="btn_delete_group">Delete group</string>
