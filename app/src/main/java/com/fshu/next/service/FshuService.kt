@@ -489,6 +489,7 @@ class FshuService : Service() {
                 }
                 db.peerKeyDao().upsert(com.fshu.next.data.model.PeerKey(uname, pubHex))
                 CryptoHelper.cachePeerKey(this, uname, pubHex)
+                scope.launch { retryPendingGroupKeyDecryption(uname) }
                 Log.d("Crypto", "peer key received for $uname pub=${pubHex.take(16)}")
                 val pending = pendingDecryptQueue.remove(uname)
                 if (!pending.isNullOrEmpty()) {
@@ -603,6 +604,7 @@ class FshuService : Service() {
                         db.muteDao().insert(Mute(owner = me, target = target, targetType = targetType, createdAt = System.currentTimeMillis()))
                     }
                 }
+                scope.launch { retryPendingGroupKeyDecryption(Prefs.getUsername(this@FshuService)) }
                 MessageBus.emit(json)
             }
             "passphrase-hint"         -> MessageBus.emit(json)
@@ -1749,6 +1751,8 @@ class FshuService : Service() {
                     db.groupDao().clearGroupKey(groupId)
                     writeGroupDebug("handleGroupState: cleared stale local groupKey for $groupId")
                 }
+            } else {
+                Log.w("FshuService", "group-state: skipping key decrypt for $groupId — ownerPub not yet available (owner=$owner), will retry when key arrives")
             }
         }
 
@@ -1764,6 +1768,30 @@ class FshuService : Service() {
         db.groupMemberDao().upsertAll(members)
 
         MessageBus.emit(json)
+    }
+
+    private suspend fun retryPendingGroupKeyDecryption(ownerUsername: String) {
+        val me     = Prefs.getUsername(this)
+        val myPriv = Prefs.getEcPrivateKey(this)
+        if (myPriv.isEmpty()) return
+        val ownerPub = if (ownerUsername == me) Prefs.getEcPublicKey(this)
+                       else db.peerKeyDao().get(ownerUsername)?.publicKey ?: return
+        if (ownerPub.isEmpty()) return
+        val groups = db.groupDao().getAllGroupsDirect()
+        for (group in groups) {
+            if (group.groupKey.isNotEmpty()) continue
+            if (group.owner != ownerUsername) continue
+            val encKey = group.encryptedGroupKey
+            if (encKey.isEmpty()) continue
+            val groupKey = CryptoHelper.decryptGroupKey(encKey, ownerPub, myPriv)
+            if (groupKey != null) {
+                db.groupDao().updateGroupKey(group.groupId, with(EcdhHelper) { groupKey.toHex() })
+                Log.d("FshuService", "retryPendingGroupKeyDecryption: key resolved for ${group.groupId} (owner=$ownerUsername)")
+                retryDecryptPendingBlobs(group.groupId, groupKey)
+            } else {
+                Log.w("FshuService", "retryPendingGroupKeyDecryption: decrypt still failed for ${group.groupId} (owner=$ownerUsername)")
+            }
+        }
     }
 
     private suspend fun retryDecryptPendingBlobs(groupId: String, groupKey: ByteArray) {
