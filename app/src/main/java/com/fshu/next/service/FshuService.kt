@@ -1135,7 +1135,7 @@ class FshuService : Service() {
                     if (!msg.groupId.isNullOrEmpty()) {
                         val gUri = msg.localUri
                         if (gUri == null) { db.messageDao().updateStatus(msg.id, "FAILED"); continue }
-                        val gGroupId = msg.groupId!!
+                        val gGroupId = msg.groupId
                         val group = db.groupDao().getById(gGroupId)
                         if (group == null) { db.messageDao().updateStatus(msg.id, "FAILED"); continue }
                         val gKeyHex = group.groupKey
