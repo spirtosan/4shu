@@ -37,7 +37,8 @@ class UserAdapter(
     private val onRequestLocation: (User) -> Unit = {},
     private val onSetNickname: (User) -> Unit = {},
     private val onToggleFavorite: (User) -> Unit = {},
-    private val onMuteToggle: (User) -> Unit = {}
+    private val onMuteToggle: (User) -> Unit = {},
+    private val onDeleteChat: (User) -> Unit = {}
 ) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
 
     companion object {
@@ -109,8 +110,25 @@ class UserAdapter(
             h.binding.tvLastMessage.text = user.lastMessage ?: ""
             h.binding.tvTime.text = user.lastMessageTime?.let { formatTime(it) } ?: ""
             h.itemView.setOnClickListener { onClick(user) }
-            h.binding.btnMore.visibility = android.view.View.GONE
             h.binding.tvFavStar.visibility = android.view.View.GONE
+            h.binding.tvMuteIcon.visibility = if (user.isMuted) android.view.View.VISIBLE else android.view.View.GONE
+            h.binding.btnMore.visibility = android.view.View.VISIBLE
+            h.binding.btnMore.setOnClickListener { anchor ->
+                PopupMenu(anchor.context, anchor).apply {
+                    menu.add(0, R.id.action_user_mute, 0,
+                        if (user.isMuted) anchor.context.getString(R.string.action_unmute)
+                        else anchor.context.getString(R.string.action_mute))
+                    menu.add(0, R.id.action_delete_chat, 1, anchor.context.getString(R.string.action_delete_chat))
+                    setOnMenuItemClickListener { item ->
+                        when (item.itemId) {
+                            R.id.action_user_mute -> { onMuteToggle(user); true }
+                            R.id.action_delete_chat -> { onDeleteChat(user); true }
+                            else -> false
+                        }
+                    }
+                    show()
+                }
+            }
             return
         }
 
@@ -195,6 +213,7 @@ class UserAdapter(
                         R.id.action_user_emergency_location -> { onEmergencyWithLocation(user); true }
                         R.id.action_user_set_nickname -> { onSetNickname(user); true }
                         R.id.action_user_mute -> { onMuteToggle(user); true }
+                        R.id.action_delete_chat -> { onDeleteChat(user); true }
                         else -> false
                     }
                 }

@@ -257,6 +257,15 @@ object Prefs {
     fun setContactNickname(ctx: Context, username: String, value: String) =
         ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE).edit().putString("contact_nick_$username", value).apply()
 
+    fun getDraft(ctx: Context, chatId: String): String =
+        ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE).getString("draft_$chatId", "") ?: ""
+
+    fun setDraft(ctx: Context, chatId: String, text: String) =
+        ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE).edit().putString("draft_$chatId", text).apply()
+
+    fun clearDraft(ctx: Context, chatId: String) =
+        ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE).edit().remove("draft_$chatId").apply()
+
     fun getFavorites(ctx: Context): Set<String> =
         ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE)
             .getStringSet("favorites", emptySet()) ?: emptySet()

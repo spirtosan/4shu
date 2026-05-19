@@ -435,7 +435,7 @@ class SettingsActivity : AppCompatActivity() {
 
         val p8 = (8 * dp).toInt()
 
-        data class PermRow(val name: String, val granted: Boolean)
+        data class PermRow(val name: String, val granted: Boolean, val settingsIntent: Intent? = null)
 
         val rows = mutableListOf<PermRow>()
 
@@ -454,8 +454,13 @@ class SettingsActivity : AppCompatActivity() {
             ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED)
 
         val pm = getSystemService(PowerManager::class.java)
-        rows += PermRow("Battery optimization (disabled)",
-            pm.isIgnoringBatteryOptimizations(packageName))
+        rows += PermRow(
+            name = "Battery optimization (disabled)",
+            granted = pm.isIgnoringBatteryOptimizations(packageName),
+            settingsIntent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                data = Uri.parse("package:$packageName")
+            }
+        )
 
         rows += PermRow("Display over other apps",
             Settings.canDrawOverlays(this))
@@ -485,9 +490,10 @@ class SettingsActivity : AppCompatActivity() {
                 )
                 if (!row.granted) {
                     setOnClickListener {
-                        startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                        val target = row.settingsIntent ?: Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
                             data = Uri.parse("package:$packageName")
-                        })
+                        }
+                        startActivity(target)
                     }
                 }
             }

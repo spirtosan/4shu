@@ -73,6 +73,7 @@
     <string name="toast_image_copied">Image copied</string>
     <string name="toast_filename_copied">Filename copied</string>
     <string name="toast_copied">Copied</string>
+    <string name="toast_cannot_copy_voice">Voice messages cannot be copied</string>
     <string name="toast_list_copied">List copied as text</string>
     <string name="toast_location_link_copied">Location link copied</string>
     <string name="toast_hold_longer_to_record">Hold longer to record</string>
@@ -160,6 +161,17 @@
     <string name="action_unmute">Unmute</string>
     <string name="toast_muted">Muted</string>
     <string name="toast_unmuted">Unmuted</string>
+    <string name="action_send_message">Send message</string>
+    <string name="action_view_profile">View profile</string>
+    <string name="action_delete_chat">Delete chat</string>
+    <string name="toast_chat_deleted">Chat deleted</string>
+    <string name="dialog_delete_chat_title">Delete conversation?</string>
+    <string name="dialog_delete_chat_body">All messages with %1$s will be removed from this device. This cannot be undone.</string>
+    <string name="dialog_mute_title">Mute notifications</string>
+    <string name="mute_1h">For 1 hour</string>
+    <string name="mute_8h">For 8 hours</string>
+    <string name="mute_24h">For 24 hours</string>
+    <string name="mute_forever">Until I turn it on</string>
     <string name="toast_no_known_peers">No known peers</string>
     <string name="title_admin_panel">Admin Panel</string>
     <string name="label_access_denied">Access denied</string>
@@ -231,6 +243,7 @@
     <string name="notif_channel_messages">Messages</string>
     <string name="notif_channel_messages_desc">Incoming message notifications</string>
     <string name="notif_channel_calls">Calls</string>
+    <string name="notif_channel_groups">Groups</string>
     <string name="connection_test_testing_with">Testing with %s</string>
     <string name="connection_test_peer_label">Server → %s</string>
     <string name="permission_step_indicator">Step %1$d of %2$d</string>

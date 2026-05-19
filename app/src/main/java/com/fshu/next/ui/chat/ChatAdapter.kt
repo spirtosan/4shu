@@ -446,6 +446,7 @@ class ChatAdapter : ListAdapter<Message, RecyclerView.ViewHolder>(DIFF) {
             tv.visibility = View.GONE
             tv.isLongClickable = false
             iv.load(Uri.parse(msg.localUri))
+            iv.setOnLongClickListener { bubble.performLongClick(); true }
         } else {
             iv.visibility = View.GONE
             tv.visibility = View.VISIBLE
@@ -668,6 +669,8 @@ class ChatAdapter : ListAdapter<Message, RecyclerView.ViewHolder>(DIFF) {
 
     private fun bindVoiceSent(holder: SentVoiceVH, msg: Message, time: String) {
         holder.b.bubble.setOnLongClickListener { toggleSelection(msg); true }
+        holder.b.waveformView.setOnLongClickListener { holder.b.bubble.performLongClick(); true }
+        holder.b.btnPlay.setOnLongClickListener { holder.b.bubble.performLongClick(); true }
         holder.b.bubble.alpha = if (msg.id in selectedIds) 0.5f else 1.0f
         holder.b.tvTime.text = time
         when (msg.status) {
@@ -683,6 +686,8 @@ class ChatAdapter : ListAdapter<Message, RecyclerView.ViewHolder>(DIFF) {
 
     private fun bindVoiceRecv(holder: RecvVoiceVH, msg: Message, time: String) {
         holder.b.bubble.setOnLongClickListener { toggleSelection(msg); true }
+        holder.b.waveformView.setOnLongClickListener { holder.b.bubble.performLongClick(); true }
+        holder.b.btnPlay.setOnLongClickListener { holder.b.bubble.performLongClick(); true }
         holder.b.bubble.alpha = if (msg.id in selectedIds) 0.5f else 1.0f
         holder.b.tvTime.text = time
         bindVoicePlayer(msg, holder.b.waveformView, holder.b.tvDuration, holder.b.btnPlay)

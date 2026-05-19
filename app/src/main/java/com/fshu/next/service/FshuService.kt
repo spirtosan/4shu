@@ -75,6 +75,7 @@ class FshuService : Service() {
         // v3: enableVibration(true) + vibration pattern (channel settings are immutable after first creation)
         private const val CHANNEL_CALLS = "fshu_calls_v3"
         private const val CHANNEL_CALLS_LEGACY = "fshu_calls"
+        private const val CHANNEL_GROUPS = "fshu_groups_v1"
 
         const val ACTION_RESTART = "com.fshu.next.ACTION_RESTART_SERVICE"
         const val ACTION_RECONNECT = "com.fshu.next.ACTION_RECONNECT"
@@ -1934,7 +1935,7 @@ class FshuService : Service() {
                 this, groupId.hashCode(), intent,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
-            val notif = NotificationCompat.Builder(this, CHANNEL_MESSAGES)
+            val notif = NotificationCompat.Builder(this, CHANNEL_GROUPS)
                 .setSmallIcon(R.drawable.ic_notification)
                 .setContentTitle(getString(R.string.notif_group_update))
                 .setContentText(notifText)
@@ -2123,11 +2124,11 @@ class FshuService : Service() {
             this, groupId.hashCode().and(Int.MAX_VALUE), intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        val notif = NotificationCompat.Builder(this, CHANNEL_MESSAGES)
+        val notif = NotificationCompat.Builder(this, CHANNEL_GROUPS)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle("$groupName · $from")
             .setContentText(content)
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
             .setAutoCancel(true)
             .setContentIntent(pi)
@@ -2263,6 +2264,14 @@ class FshuService : Service() {
                 enableVibration(true)
                 setVibrationPattern(longArrayOf(0, 1000, 1000, 1000, 1000, 1000, 1000))
                 lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
+            }
+        )
+        nm.createNotificationChannel(
+            NotificationChannel(CHANNEL_GROUPS, getString(R.string.notif_channel_groups), NotificationManager.IMPORTANCE_DEFAULT).apply {
+                setSound(null, null)
+                enableVibration(false)
+                setShowBadge(true)
+                lockscreenVisibility = android.app.Notification.VISIBILITY_PRIVATE
             }
         )
     }

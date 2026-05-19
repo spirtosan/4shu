@@ -75,6 +75,8 @@ class MainActivity : AppCompatActivity() {
     private var pendingEmergencyLocationUser: User? = null
     private var enrichJob: kotlinx.coroutines.Job? = null
     private var refreshJob: kotlinx.coroutines.Job? = null
+    private var pendingShareUri: android.net.Uri? = null
+    private var pendingShareText: String? = null
 
     private val requestLocationPermission = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -133,15 +135,18 @@ class MainActivity : AppCompatActivity() {
         adapter = UserAdapter(
             users,
             onClick = { user ->
-                if (user.isGroup) {
-                    startActivity(Intent(this, ChatActivity::class.java).apply {
+                val chatIntent = if (user.isGroup) {
+                    Intent(this, ChatActivity::class.java).apply {
                         putExtra(ChatActivity.EXTRA_GROUP_ID, user.groupId)
-                    })
+                    }
                 } else {
-                    startActivity(Intent(this, ChatActivity::class.java).apply {
+                    Intent(this, ChatActivity::class.java).apply {
                         putExtra(ChatActivity.EXTRA_PEER, user.username)
-                    })
+                    }
                 }
+                pendingShareUri?.let { chatIntent.putExtra(ChatActivity.EXTRA_SHARE_URI, it.toString()); pendingShareUri = null }
+                pendingShareText?.let { chatIntent.putExtra(ChatActivity.EXTRA_SHARE_TEXT, it); pendingShareText = null }
+                startActivity(chatIntent)
             },
             onCall = { user ->
                 startActivity(Intent(this, CallActivity::class.java).apply {
@@ -200,25 +205,8 @@ class MainActivity : AppCompatActivity() {
                 }
             },
             onToggleFavorite = { user -> toggleFavorite(user.username) },
-            onMuteToggle = { user ->
-                val isMuted = mutedTargets.contains(user.username)
-                lifecycleScope.launch(Dispatchers.IO) {
-                    val muteDb = AppDatabase.getInstance(this@MainActivity)
-                    val me = Prefs.getUsername(this@MainActivity)
-                    if (isMuted) {
-                        muteDb.muteDao().delete(me, user.username)
-                        WebSocketClient.send(mapOf("type" to "remove-mute", "target" to user.username, "targetType" to "contact"))
-                    } else {
-                        muteDb.muteDao().insert(Mute(owner = me, target = user.username, targetType = "contact", createdAt = System.currentTimeMillis()))
-                        WebSocketClient.send(mapOf("type" to "set-mute", "target" to user.username, "targetType" to "contact"))
-                    }
-                    withContext(Dispatchers.Main) {
-                        if (isMuted) mutedTargets.remove(user.username) else mutedTargets.add(user.username)
-                        scheduleListRefresh()
-                        Toast.makeText(this@MainActivity, if (isMuted) getString(R.string.toast_unmuted) else getString(R.string.toast_muted), Toast.LENGTH_SHORT).show()
-                    }
-                }
-            },
+            onMuteToggle = { user -> showMuteDialog(user) },
+            onDeleteChat = { user -> confirmDeleteChat(user) },
             onSetNickname = { user ->
                 val current = Prefs.getContactNickname(this, user.username)
                 val et = android.widget.EditText(this).apply {
@@ -300,6 +288,7 @@ class MainActivity : AppCompatActivity() {
             R.id.nav_settings -> bottomNav.selectedItemId = R.id.nav_settings
             else -> showFragment("chats") { ChatsFragment() }
         }
+        handleShareIntent(intent)
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
@@ -880,6 +869,100 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun confirmDeleteChat(user: User) {
+        val displayName = if (user.isGroup) user.displayName else
+            Prefs.getContactNickname(this, user.username).ifEmpty { user.displayName }
+        val body = if (user.isGroup)
+            getString(R.string.dialog_delete_chat_body, displayName)
+        else
+            getString(R.string.dialog_delete_chat_body, displayName)
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle(getString(R.string.dialog_delete_chat_title))
+            .setMessage(body)
+            .setPositiveButton(getString(R.string.btn_delete)) { _, _ ->
+                lifecycleScope.launch(Dispatchers.IO) {
+                    val me = Prefs.getUsername(this@MainActivity)
+                    val db = AppDatabase.getInstance(this@MainActivity)
+                    if (user.isGroup) {
+                        val gid = user.groupId ?: return@launch
+                        db.messageDao().deleteMessagesForGroup(gid)
+                    } else {
+                        db.messageDao().deleteConversation(me, user.username)
+                    }
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(this@MainActivity, getString(R.string.toast_chat_deleted), Toast.LENGTH_SHORT).show()
+                        scheduleListRefresh()
+                    }
+                }
+            }
+            .setNegativeButton(getString(R.string.btn_cancel), null)
+            .show()
+            .also { d ->
+                d.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE)
+                    ?.setTextColor(android.graphics.Color.parseColor("#E53935"))
+            }
+    }
+
+    private fun handleShareIntent(intent: Intent) {
+        if (intent.action != Intent.ACTION_SEND) return
+        val type = intent.type ?: return
+        if (type == "text/plain") {
+            pendingShareText = intent.getStringExtra(Intent.EXTRA_TEXT)
+        } else {
+            @Suppress("DEPRECATION")
+            pendingShareUri = intent.getParcelableExtra(Intent.EXTRA_STREAM)
+        }
+    }
+
+    internal fun showMuteDialog(user: User) {
+        val isMuted = mutedTargets.contains(user.username)
+        val targetType = if (user.isGroup) "group" else "contact"
+        if (isMuted) {
+            lifecycleScope.launch(Dispatchers.IO) {
+                val me = Prefs.getUsername(this@MainActivity)
+                AppDatabase.getInstance(this@MainActivity).muteDao().delete(me, user.username)
+                com.fshu.next.data.remote.WebSocketClient.send(mapOf("type" to "remove-mute", "target" to user.username, "targetType" to targetType))
+                withContext(Dispatchers.Main) {
+                    mutedTargets.remove(user.username)
+                    scheduleListRefresh()
+                    Toast.makeText(this@MainActivity, getString(R.string.toast_unmuted), Toast.LENGTH_SHORT).show()
+                }
+            }
+        } else {
+            val options = arrayOf(
+                getString(R.string.mute_1h),
+                getString(R.string.mute_8h),
+                getString(R.string.mute_24h),
+                getString(R.string.mute_forever)
+            )
+            androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle(getString(R.string.dialog_mute_title))
+                .setItems(options) { _, which ->
+                    val muteUntil: Long? = when (which) {
+                        0 -> System.currentTimeMillis() + 3_600_000L
+                        1 -> System.currentTimeMillis() + 28_800_000L
+                        2 -> System.currentTimeMillis() + 86_400_000L
+                        else -> null
+                    }
+                    lifecycleScope.launch(Dispatchers.IO) {
+                        val me = Prefs.getUsername(this@MainActivity)
+                        AppDatabase.getInstance(this@MainActivity).muteDao().insert(
+                            Mute(owner = me, target = user.username, targetType = targetType,
+                                createdAt = System.currentTimeMillis(), muteUntil = muteUntil)
+                        )
+                        com.fshu.next.data.remote.WebSocketClient.send(mapOf("type" to "set-mute", "target" to user.username, "targetType" to targetType))
+                        withContext(Dispatchers.Main) {
+                            mutedTargets.add(user.username)
+                            scheduleListRefresh()
+                            Toast.makeText(this@MainActivity, getString(R.string.toast_muted), Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+                .setNegativeButton(getString(R.string.btn_cancel), null)
+                .show()
+        }
+    }
+
     private fun scheduleListRefresh() {
         refreshJob?.cancel()
         refreshJob = lifecycleScope.launch {
@@ -894,7 +977,8 @@ class MainActivity : AppCompatActivity() {
         val favs = applyUserOrder(marked.filter { it.isFavorite })
         val nonFavContacts = marked.filter { !it.isFavorite }
         // Mix non-favorite contacts and groups together, sorted by lastMessageTime desc
-        val others = (nonFavContacts + groupItems)
+        val markedGroups = groupItems.map { it.copy(isMuted = it.username in mutedTargets) }
+        val others = (nonFavContacts + markedGroups)
             .sortedByDescending { it.lastMessageTime ?: Long.MIN_VALUE }
         val result = mutableListOf<User>()
         result.addAll(favs)

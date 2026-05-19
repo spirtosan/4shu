@@ -23,13 +23,17 @@ import com.fshu.next.data.model.User
 import com.fshu.next.data.remote.WebSocketClient
 import com.fshu.next.databinding.FragmentContactsBinding
 import com.fshu.next.databinding.ItemContactBinding
+import android.widget.PopupMenu
 import com.fshu.next.ui.chat.ChatActivity
 import com.fshu.next.ui.contacts.RequestsActivity
 import com.fshu.next.ui.search.SearchActivity
+import com.fshu.next.ui.search.UserProfileActivity
 import com.fshu.next.util.MessageBus
 import com.fshu.next.util.Prefs
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 
 class ContactsFragment : Fragment() {
@@ -74,6 +78,13 @@ class ContactsFragment : Fragment() {
         }
 
         refreshContacts()
+
+        lifecycleScope.launch(Dispatchers.IO) {
+            val me = Prefs.getUsername(requireContext())
+            val db = com.fshu.next.data.local.AppDatabase.getInstance(requireContext())
+            val count = db.contactDao().getPendingReceived(me).size
+            withContext(Dispatchers.Main) { updateRequestsRow(count) }
+        }
     }
 
     override fun onResume() {
@@ -153,6 +164,38 @@ class ContactsFragment : Fragment() {
                     canvas.drawText(letter, sizePx / 2f, sizePx / 2f - (it.descent() + it.ascent()) / 2f, it)
                 }
                 b.ivContactAvatar.setImageBitmap(bmp)
+            }
+
+            b.btnMore.setOnClickListener { anchor ->
+                PopupMenu(anchor.context, anchor).apply {
+                    menu.add(0, R.id.action_send_message, 0, getString(R.string.action_send_message))
+                    menu.add(0, R.id.action_view_profile, 1, getString(R.string.action_view_profile))
+                    menu.add(0, R.id.action_user_mute,   2,
+                        if (user.isMuted) getString(R.string.action_unmute)
+                        else getString(R.string.action_mute))
+                    setOnMenuItemClickListener { item ->
+                        when (item.itemId) {
+                            R.id.action_send_message -> {
+                                startActivity(Intent(requireContext(), ChatActivity::class.java).apply {
+                                    putExtra(ChatActivity.EXTRA_PEER, user.username)
+                                })
+                                true
+                            }
+                            R.id.action_view_profile -> {
+                                startActivity(Intent(requireContext(), UserProfileActivity::class.java).apply {
+                                    putExtra("username", user.username)
+                                })
+                                true
+                            }
+                            R.id.action_user_mute -> {
+                                (requireActivity() as? com.fshu.next.MainActivity)?.showMuteDialog(user)
+                                true
+                            }
+                            else -> false
+                        }
+                    }
+                    show()
+                }
             }
         }
     }

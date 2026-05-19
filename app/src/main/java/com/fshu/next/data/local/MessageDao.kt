@@ -163,6 +163,13 @@ interface MessageDao {
     """)
     suspend fun markDeletedForAll(msgId: Long, content: String)
 
+    @Query("""
+        DELETE FROM messages
+        WHERE groupId IS NULL
+        AND ((`from` = :a AND `to` = :b) OR (`from` = :b AND `to` = :a))
+    """)
+    suspend fun deleteConversation(a: String, b: String)
+
     @Query("DELETE FROM messages WHERE groupId = :groupId")
     suspend fun deleteMessagesForGroup(groupId: String)
 

@@ -71,6 +71,8 @@ class ChatActivity : AppCompatActivity() {
         const val EXTRA_PEER = "peer"
         const val EXTRA_GROUP_ID = "group_id"
         const val REQUEST_PICK_PHONE_CONTACT = 3001
+        const val EXTRA_SHARE_URI = "share_uri"
+        const val EXTRA_SHARE_TEXT = "share_text"
         @Volatile var isActive = false
         @Volatile var currentPeer = ""
     }
@@ -309,6 +311,11 @@ class ChatActivity : AppCompatActivity() {
                             Toast.makeText(this, getString(R.string.toast_copied), Toast.LENGTH_SHORT).show()
                         }
                     }
+                    "voice" -> {
+                        Toast.makeText(this, getString(R.string.toast_cannot_copy_voice), Toast.LENGTH_SHORT).show()
+                        adapter.clearSelection()
+                        return@setOnClickListener
+                    }
                     "list" -> {
                         val text = formatListForCopy(msg)
                         cm.setPrimaryClip(ClipData.newPlainText("list", text))
@@ -348,24 +355,9 @@ class ChatActivity : AppCompatActivity() {
         binding.btnSelectionReply.setOnClickListener {
             val msg = adapter.getSelectedMessages().firstOrNull() ?: return@setOnClickListener
             val preview = when (msg.type) {
-                "file" -> "📎 ${msg.filename ?: "file"}"
-                else   -> msg.content.take(120)
-            }
-            pendingReplyId = msg.id
-            pendingReplySender = msg.from
-            pendingReplyContent = preview
-            binding.tvReplyPreviewSender.text = msg.from
-            binding.tvReplyPreviewContent.text = preview
-            binding.replyPreview.visibility = View.VISIBLE
-            binding.etMessage.requestFocus()
-            adapter.clearSelection()
-        }
-
-        binding.btnSelectionReply.setOnClickListener {
-            val msg = adapter.getSelectedMessages().firstOrNull() ?: return@setOnClickListener
-            val preview = when (msg.type) {
-                "file" -> "📎 ${msg.filename ?: "file"}"
-                else   -> msg.content.take(120)
+                "file"  -> "📎 ${msg.filename ?: "file"}"
+                "voice" -> "🎤 ${msg.voiceDuration.let { "%d:%02d".format(it / 60, it % 60) }}"
+                else    -> msg.content.take(120)
             }
             pendingReplyId = msg.id
             pendingReplySender = msg.from
@@ -497,6 +489,7 @@ class ChatActivity : AppCompatActivity() {
                     vm.sendText(peer, text, pendingReplyId, pendingReplySender, pendingReplyContent)
                 }
                 binding.etMessage.text?.clear()
+                Prefs.clearDraft(this, peer)
                 clearReply()
             }
         }
@@ -700,6 +693,16 @@ class ChatActivity : AppCompatActivity() {
                 }
             }
         }
+
+        intent.getStringExtra(EXTRA_SHARE_URI)?.let { uriStr ->
+            val uri = android.net.Uri.parse(uriStr)
+            if (isGroupChat) vm.sendGroupFile(peer, uri, contentResolver)
+            else vm.sendFile(peer, uri, contentResolver)
+        }
+        intent.getStringExtra(EXTRA_SHARE_TEXT)?.let { text ->
+            binding.etMessage.setText(text)
+            binding.etMessage.setSelection(text.length)
+        }
     }
 
     private fun launchCamera() {
@@ -864,6 +867,11 @@ class ChatActivity : AppCompatActivity() {
             invalidateOptionsMenu()
         }
         registerReceiver(screenOnReceiver, IntentFilter(Intent.ACTION_SCREEN_ON))
+        val draft = Prefs.getDraft(this, peer)
+        if (draft.isNotEmpty()) {
+            binding.etMessage.setText(draft)
+            binding.etMessage.setSelection(draft.length)
+        }
     }
 
     override fun onPause() {
@@ -871,6 +879,8 @@ class ChatActivity : AppCompatActivity() {
         isActive = false
         ChatAdapter.stopAll()
         unregisterReceiver(screenOnReceiver)
+        val draft = binding.etMessage.text.toString()
+        if (draft.isBlank()) Prefs.clearDraft(this, peer) else Prefs.setDraft(this, peer, draft)
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
