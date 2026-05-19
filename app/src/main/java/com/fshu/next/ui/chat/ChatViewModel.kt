@@ -231,17 +231,12 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
             try {
                 val group = db.groupDao().getById(groupId) ?: return@launch
                 val groupKeyHex = group.groupKey
-                if (groupKeyHex.isEmpty()) {
-                    withContext(Dispatchers.Main) {
-                        Toast.makeText(getApplication(), "Cannot send: missing group key", Toast.LENGTH_LONG).show()
-                    }
-                    return@launch
-                }
                 val fileBytes = resolver.openInputStream(uri)?.use { it.readBytes() } ?: return@launch
                 val filename = resolveDisplayName(uri, resolver)
                 val mimeType = resolver.getType(uri) ?: "application/octet-stream"
                 val tempId = UUID.randomUUID().toString()
                 val ts = System.currentTimeMillis()
+                Log.d("ChatViewModel", "sendGroupFile: groupId=$groupId keyLen=${groupKeyHex.length} fileSize=${fileBytes.size}")
 
                 val roomId = db.messageDao().insert(
                     Message(from = me, to = "", content = "📎 $filename", type = "file",
@@ -249,6 +244,12 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                         localUri = uri.toString(), tempId = tempId,
                         timestamp = ts, isSent = true, status = "SENDING", groupId = groupId)
                 )
+
+                if (groupKeyHex.isBlank() || groupKeyHex.length != 64) {
+                    Log.e("ChatViewModel", "sendGroupFile: invalid group key for $groupId — length=${groupKeyHex.length}")
+                    db.messageDao().updateStatus(roomId, "FAILED")
+                    return@launch
+                }
 
                 val groupKey = with(EcdhHelper) { groupKeyHex.fromHex() }
                 val (encBytes, nonce) = CryptoHelper.encryptGroupFile(groupKey, fileBytes)
@@ -271,7 +272,11 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                 sink.writeInt(headerBytes.size)
                 sink.write(headerBytes)
                 sink.write(encBytes)
-                WebSocketClient.sendBinary(sink.readByteString())
+                val sent = WebSocketClient.sendBinary(sink.readByteString())
+                if (!sent) {
+                    Log.e("ChatViewModel", "sendGroupFile: sendBinary returned false for $groupId")
+                    db.messageDao().updateStatus(roomId, "FAILED")
+                }
             } catch (e: Exception) {
                 Log.e("ChatViewModel", "sendGroupFile failed", e)
             }

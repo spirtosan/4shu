@@ -1112,6 +1112,49 @@ class FshuService : Service() {
                     ))
                 }
                 "file" -> {
+                    if (!msg.groupId.isNullOrEmpty()) {
+                        val gUri = msg.localUri
+                        if (gUri == null) { db.messageDao().updateStatus(msg.id, "FAILED"); continue }
+                        val gGroupId = msg.groupId!!
+                        val group = db.groupDao().getById(gGroupId)
+                        if (group == null) { db.messageDao().updateStatus(msg.id, "FAILED"); continue }
+                        val gKeyHex = group.groupKey
+                        if (gKeyHex.length != 64) { db.messageDao().updateStatus(msg.id, "FAILED"); continue }
+                        try {
+                            val fileBytes = contentResolver.openInputStream(android.net.Uri.parse(gUri))
+                                ?.use { it.readBytes() }
+                            if (fileBytes == null) {
+                                db.messageDao().updateStatus(msg.id, "FAILED")
+                            } else {
+                                val gKey = with(com.fshu.next.util.EcdhHelper) { gKeyHex.fromHex() }
+                                val (encBytes, nonce) = CryptoHelper.encryptGroupFile(gKey, fileBytes)
+                                val nonceHex = CryptoHelper.bytesToHex(nonce)
+                                val retryTempId = msg.tempId ?: msg.id.toString()
+                                val headerObj = com.google.gson.JsonObject().apply {
+                                    addProperty("tempId", retryTempId)
+                                    addProperty("from", msg.from)
+                                    addProperty("groupId", gGroupId)
+                                    addProperty("filename", msg.filename ?: "file")
+                                    addProperty("mimeType", msg.mimeType ?: "application/octet-stream")
+                                    addProperty("size", encBytes.size)
+                                    addProperty("nonce", nonceHex)
+                                    addProperty("type", "group-file")
+                                    addProperty("messageId", msg.id)
+                                    addProperty("timestamp", msg.timestamp)
+                                }
+                                val headerBytes = headerObj.toString().toByteArray(Charsets.UTF_8)
+                                val sink = okio.Buffer()
+                                sink.writeInt(headerBytes.size)
+                                sink.write(headerBytes)
+                                sink.write(encBytes)
+                                val sent = WebSocketClient.sendBinary(sink.readByteString())
+                                if (!sent) Log.e("FshuService", "Group file retry: sendBinary false for msg ${msg.id}")
+                            }
+                        } catch (e: Exception) {
+                            Log.e("FshuService", "Group file retry failed for msg ${msg.id}", e)
+                        }
+                        continue
+                    }
                     val uri = msg.localUri ?: continue
                     val tempId = msg.tempId ?: continue
                     val peer = msg.to
@@ -1793,13 +1836,14 @@ class FshuService : Service() {
     }
 
     private suspend fun persistIncomingGroupFile(json: JsonObject) {
+        val me       = Prefs.getUsername(this)
         val groupId  = json.get("groupId")?.asString ?: return
         val from     = json.get("from")?.asString ?: return
+        if (from == me) return
         val filename = json.get("filename")?.asString ?: return
         val mimeType = json.get("mimeType")?.asString ?: "application/octet-stream"
         val ts       = json.get("timestamp")?.asLong ?: System.currentTimeMillis()
         val fileId   = json.get("fileId")?.asString ?: return
-        val me       = Prefs.getUsername(this)
 
         db.messageDao().insert(
             Message(from = from, to = "", content = "📎 $filename",
