@@ -105,6 +105,9 @@ interface MessageDao {
     @Query("UPDATE messages SET localUri = :localUri WHERE fileId = :fileId")
     suspend fun updateFileLocalUri(fileId: String, localUri: String)
 
+    @Query("SELECT * FROM messages WHERE fileId = :fileId LIMIT 1")
+    suspend fun getByFileId(fileId: String): Message?
+
     /** Store the server-confirmed message_id as remoteId on a sent message after ack. */
     @Query("UPDATE messages SET remoteId = :remoteId WHERE id = :localId AND isSent = 1")
     suspend fun updateRemoteId(localId: Long, remoteId: Long)

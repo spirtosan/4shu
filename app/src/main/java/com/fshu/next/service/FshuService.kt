@@ -1053,7 +1053,9 @@ class FshuService : Service() {
             val filename = header.get("filename")?.asString ?: return
             val mimeType = header.get("mimeType")?.asString ?: "application/octet-stream"
             val nonceHex = header.get("nonce")?.asString ?: return
+            // Server never includes groupId in file-request response; recover from Room.
             val groupId = header.get("groupId")?.asString
+                ?: db.messageDao().getByFileId(fileId)?.groupId
 
             val decrypted = if (groupId != null) {
                 val group = db.groupDao().getById(groupId)
