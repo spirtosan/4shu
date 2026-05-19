@@ -155,11 +155,6 @@
     <string name="app_lock_timeout_1m">1 minute</string>
     <string name="app_lock_timeout_5m">5 minutes</string>
     <string name="app_lock_timeout_30m">30 minutes</string>
-    <string name="label_trust_level">Trust level</string>
-    <string name="trust_family">Family</string>
-    <string name="trust_trusted">Trusted</string>
-    <string name="trust_contact">Contact</string>
-    <string name="trust_stranger">Stranger</string>
     <string name="action_mute">Mute</string>
     <string name="action_unmute">Unmute</string>
     <string name="toast_muted">Muted</string>
@@ -177,11 +172,8 @@
     <string name="toast_password_required">Password required</string>
     <string name="dialog_remove_user_title">Remove user</string>
     <string name="dialog_remove_user_message">Remove %s? This cannot be undone.</string>
-    <string name="dialog_trust_level_title">Trust level for %s</string>
     <string name="item_admin_badge">ADMIN</string>
-    <string name="item_trust_default">contact</string>
     <string name="btn_reset_password">Reset password</string>
-    <string name="btn_trust">Trust</string>
     <string name="dialog_change_password_title">Change password</string>
     <string name="toast_all_fields_required">All fields required</string>
     <string name="toast_passwords_dont_match">Passwords don\'t match</string>

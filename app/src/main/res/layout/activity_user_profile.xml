@@ -101,28 +101,6 @@
                 android:textSize="13sp"
                 android:visibility="gone" />
 
-            <TextView
-                android:id="@+id/tvTrustLabel"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="@string/label_trust_level"
-                android:textColor="?attr/colorTextSecondary"
-                android:textSize="13sp"
-                android:gravity="center"
-                android:layout_marginTop="16dp"
-                android:visibility="gone"/>
-
-            <TextView
-                android:id="@+id/tvTrustValue"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:textColor="@color/brand_orange"
-                android:textSize="15sp"
-                android:gravity="center"
-                android:paddingTop="4dp"
-                android:paddingBottom="4dp"
-                android:visibility="gone"/>
-
             <!-- Emergency call opt-in -->
             <LinearLayout
                 android:id="@+id/rowEmergencyAllow"

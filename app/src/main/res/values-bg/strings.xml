@@ -155,11 +155,6 @@
     <string name="app_lock_timeout_1m">1 минута</string>
     <string name="app_lock_timeout_5m">5 минути</string>
     <string name="app_lock_timeout_30m">30 минути</string>
-    <string name="label_trust_level">Ниво на доверие</string>
-    <string name="trust_family">Семейство</string>
-    <string name="trust_trusted">Доверен</string>
-    <string name="trust_contact">Контакт</string>
-    <string name="trust_stranger">Непознат</string>
     <string name="action_mute">Заглуши</string>
     <string name="action_unmute">Включи звука</string>
     <string name="toast_muted">Заглушен</string>
@@ -177,11 +172,8 @@
     <string name="toast_password_required">Нужна е парола</string>
     <string name="dialog_remove_user_title">Премахни потребител</string>
     <string name="dialog_remove_user_message">Да премахнеш %s? Това не може да се отмени.</string>
-    <string name="dialog_trust_level_title">Ниво на доверие за %s</string>
     <string name="item_admin_badge">ADMIN</string>
-    <string name="item_trust_default">контакт</string>
     <string name="btn_reset_password">Нулирай паролата</string>
-    <string name="btn_trust">Довери</string>
     <string name="dialog_change_password_title">Промени паролата</string>
     <string name="toast_all_fields_required">Всички полета са задължителни</string>
     <string name="toast_passwords_dont_match">Паролите не съвпадат</string>
