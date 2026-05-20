@@ -897,15 +897,6 @@ class ChatActivity : AppCompatActivity() {
         menu.findItem(R.id.action_delete_group)?.isVisible = isGroupChat && isOwner
         menu.findItem(R.id.action_export)?.isVisible = !isGroupChat
         menu.findItem(R.id.action_new_todo)?.isVisible = !isGroupChat
-        menu.findItem(R.id.action_share_location)?.isVisible = !isGroupChat
-        menu.findItem(R.id.action_request_location)?.isVisible = !isGroupChat
-        menu.findItem(R.id.action_auto_location)?.apply {
-            isVisible = !isGroupChat
-            title = if (isAutoLocationEnabled)
-                getString(R.string.auto_location_on)
-            else
-                getString(R.string.auto_location_off)
-        }
         return super.onPrepareOptionsMenu(menu)
     }
 
@@ -979,24 +970,6 @@ class ChatActivity : AppCompatActivity() {
                 showTodoDialog(emptyList(), getString(R.string.dialog_new_todo_title)) { items, _ ->
                     vm.createList(peer, items.map { (id, text, _) -> Pair(id, text) })
                 }
-                return true
-            }
-            R.id.action_share_location -> {
-                vm.sendCurrentLocation(peer)
-                return true
-            }
-            R.id.action_request_location -> {
-                vm.sendLocationRequest(peer)
-                return true
-            }
-            R.id.action_auto_location -> {
-                isAutoLocationEnabled = !isAutoLocationEnabled
-                com.fshu.next.data.remote.WebSocketClient.send(mapOf(
-                    "type" to "set-auto-location",
-                    "peer" to peer,
-                    "enabled" to isAutoLocationEnabled
-                ))
-                invalidateOptionsMenu()
                 return true
             }
         }

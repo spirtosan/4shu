@@ -47,20 +47,5 @@
         android:title="@string/menu_new_todo_list"
         app:showAsAction="never" />
 
-    <item
-        android:id="@+id/action_share_location"
-        android:title="@string/menu_share_location"
-        app:showAsAction="never" />
-
-    <item
-        android:id="@+id/action_request_location"
-        android:title="@string/menu_request_location"
-        app:showAsAction="never" />
-
-    <item
-        android:id="@+id/action_auto_location"
-        android:title="@string/auto_location_off"
-        android:orderInCategory="150"
-        app:showAsAction="never" />
 
 </menu>
