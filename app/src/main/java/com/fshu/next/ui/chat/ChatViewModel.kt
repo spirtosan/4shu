@@ -191,7 +191,6 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                 val ts = System.currentTimeMillis()
                 val localUri = cacheFileBytes(fileBytes, tempId, filename)
                     ?.let { androidx.core.content.FileProvider.getUriForFile(getApplication(), "${getApplication<Application>().packageName}.fileprovider", it).toString() }
-                    ?: uri.toString()
 
                 val roomId = db.messageDao().insert(
                     Message(from = me, to = peer,
@@ -248,7 +247,6 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                 Log.d("ChatViewModel", "sendGroupFile: groupId=$groupId keyLen=${groupKeyHex.length} fileSize=${fileBytes.size}")
                 val localUri = cacheFileBytes(fileBytes, tempId, filename)
                     ?.let { androidx.core.content.FileProvider.getUriForFile(getApplication(), "${getApplication<Application>().packageName}.fileprovider", it).toString() }
-                    ?: uri.toString()
 
                 val roomId = db.messageDao().insert(
                     Message(from = me, to = "", content = "📎 $filename", type = "file",
