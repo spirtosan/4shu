@@ -955,7 +955,7 @@ class MainActivity : AppCompatActivity() {
             val dir = java.io.File(cacheDir, "shares").also { it.mkdirs() }
             val dest = java.io.File(dir, name)
             contentResolver.openInputStream(uri)?.use { it.copyTo(dest.outputStream()) }
-            android.net.Uri.fromFile(dest)
+            androidx.core.content.FileProvider.getUriForFile(this, "$packageName.fileprovider", dest)
         } catch (_: Exception) { null }
     }
 

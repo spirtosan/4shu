@@ -183,11 +183,14 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                 }
                 val fileBytes = resolver.openInputStream(uri)?.use { it.readBytes() } ?: return@launch
                 val filename = resolveDisplayName(uri, resolver)
-                val mimeType = resolver.getType(uri) ?: "application/octet-stream"
+                val mimeType = resolver.getType(uri)
+                    ?: android.webkit.MimeTypeMap.getSingleton().getMimeTypeFromExtension(
+                        android.webkit.MimeTypeMap.getFileExtensionFromUrl(uri.toString()).lowercase()
+                    ) ?: "application/octet-stream"
                 val tempId = UUID.randomUUID().toString()
                 val ts = System.currentTimeMillis()
                 val localUri = cacheFileBytes(fileBytes, tempId, filename)
-                    ?.let { android.net.Uri.fromFile(it).toString() }
+                    ?.let { androidx.core.content.FileProvider.getUriForFile(getApplication(), "${getApplication<Application>().packageName}.fileprovider", it).toString() }
                     ?: uri.toString()
 
                 val roomId = db.messageDao().insert(
@@ -236,12 +239,15 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                 val groupKeyHex = group.groupKey
                 val fileBytes = resolver.openInputStream(uri)?.use { it.readBytes() } ?: return@launch
                 val filename = resolveDisplayName(uri, resolver)
-                val mimeType = resolver.getType(uri) ?: "application/octet-stream"
+                val mimeType = resolver.getType(uri)
+                    ?: android.webkit.MimeTypeMap.getSingleton().getMimeTypeFromExtension(
+                        android.webkit.MimeTypeMap.getFileExtensionFromUrl(uri.toString()).lowercase()
+                    ) ?: "application/octet-stream"
                 val tempId = UUID.randomUUID().toString()
                 val ts = System.currentTimeMillis()
                 Log.d("ChatViewModel", "sendGroupFile: groupId=$groupId keyLen=${groupKeyHex.length} fileSize=${fileBytes.size}")
                 val localUri = cacheFileBytes(fileBytes, tempId, filename)
-                    ?.let { android.net.Uri.fromFile(it).toString() }
+                    ?.let { androidx.core.content.FileProvider.getUriForFile(getApplication(), "${getApplication<Application>().packageName}.fileprovider", it).toString() }
                     ?: uri.toString()
 
                 val roomId = db.messageDao().insert(

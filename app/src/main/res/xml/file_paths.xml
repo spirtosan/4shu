@@ -2,4 +2,6 @@
 <paths>
     <!-- Covers Environment.getExternalStoragePublicDirectory(...) on Android ≤ 9 -->
     <external-path name="external_storage" path="." />
+    <!-- Covers cacheDir — sent/shared files cached in group_files/ and shares/ -->
+    <cache-path name="cache" path="." />
 </paths>
