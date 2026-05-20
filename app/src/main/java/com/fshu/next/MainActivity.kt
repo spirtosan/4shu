@@ -943,7 +943,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateShareBanner() {
         val hasPending = pendingShareUri != null || pendingShareText != null
-        binding.tvShareBanner.visibility = if (hasPending) View.VISIBLE else View.GONE
+        binding.tvShareBanner.visibility = if (hasPending) android.view.View.VISIBLE else android.view.View.GONE
     }
 
     private fun copyUriToCache(uri: android.net.Uri): android.net.Uri? {
