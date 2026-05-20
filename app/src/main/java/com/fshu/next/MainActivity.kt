@@ -144,13 +144,23 @@ class MainActivity : AppCompatActivity() {
                         putExtra(ChatActivity.EXTRA_PEER, user.username)
                     }
                 }
-                pendingShareUri?.let { uri ->
-                    try { grantUriPermission(packageName, uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) } catch (_: Exception) {}
-                    chatIntent.putExtra(ChatActivity.EXTRA_SHARE_URI, uri.toString())
-                    pendingShareUri = null
+                val uri = pendingShareUri
+                val text = pendingShareText
+                pendingShareUri = null
+                pendingShareText = null
+                updateShareBanner()
+                if (uri != null) {
+                    lifecycleScope.launch(Dispatchers.IO) {
+                        val cached = copyUriToCache(uri)
+                        withContext(Dispatchers.Main) {
+                            chatIntent.putExtra(ChatActivity.EXTRA_SHARE_URI, (cached ?: uri).toString())
+                            startActivity(chatIntent)
+                        }
+                    }
+                } else {
+                    text?.let { chatIntent.putExtra(ChatActivity.EXTRA_SHARE_TEXT, it) }
+                    startActivity(chatIntent)
                 }
-                pendingShareText?.let { chatIntent.putExtra(ChatActivity.EXTRA_SHARE_TEXT, it); pendingShareText = null }
-                startActivity(chatIntent)
             },
             onCall = { user ->
                 startActivity(Intent(this, CallActivity::class.java).apply {
@@ -293,12 +303,14 @@ class MainActivity : AppCompatActivity() {
             else -> showFragment("chats") { ChatsFragment() }
         }
         handleShareIntent(intent)
+        updateShareBanner()
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
         handleShareIntent(intent)
+        updateShareBanner()
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
@@ -927,6 +939,24 @@ class MainActivity : AppCompatActivity() {
         } else if (type == "text/plain") {
             pendingShareText = intent.getStringExtra(Intent.EXTRA_TEXT)
         }
+    }
+
+    private fun updateShareBanner() {
+        val hasPending = pendingShareUri != null || pendingShareText != null
+        binding.tvShareBanner.visibility = if (hasPending) View.VISIBLE else View.GONE
+    }
+
+    private fun copyUriToCache(uri: android.net.Uri): android.net.Uri? {
+        return try {
+            val name = contentResolver.query(
+                uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null
+            )?.use { c -> if (c.moveToFirst()) c.getString(0) else null }
+                ?: uri.lastPathSegment ?: "shared_file"
+            val dir = java.io.File(cacheDir, "shares").also { it.mkdirs() }
+            val dest = java.io.File(dir, name)
+            contentResolver.openInputStream(uri)?.use { it.copyTo(dest.outputStream()) }
+            android.net.Uri.fromFile(dest)
+        } catch (_: Exception) { null }
     }
 
     internal fun showMuteDialog(user: User) {

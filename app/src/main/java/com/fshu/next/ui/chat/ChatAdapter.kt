@@ -447,6 +447,7 @@ class ChatAdapter : ListAdapter<Message, RecyclerView.ViewHolder>(DIFF) {
             tv.isLongClickable = false
             iv.load(Uri.parse(msg.localUri))
             iv.setOnLongClickListener { bubble.performLongClick(); true }
+            iv.setOnClickListener { openFile(iv, msg) }
         } else {
             iv.visibility = View.GONE
             tv.visibility = View.VISIBLE
@@ -469,6 +470,8 @@ class ChatAdapter : ListAdapter<Message, RecyclerView.ViewHolder>(DIFF) {
                 null
             tv.setLinkTextColor(android.graphics.Color.parseColor("#E8711A"))
             tv.setOnLongClickListener { bubble.performLongClick(); true }
+            if (msg.type == "file") tv.setOnClickListener { openFile(tv, msg) }
+            else tv.setOnClickListener(null)
             if (msg.editedAt > 0L) {
                 val full = android.text.SpannableStringBuilder(tv.text)
                 val start = full.length
