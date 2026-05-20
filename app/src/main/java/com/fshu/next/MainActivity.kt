@@ -916,15 +916,16 @@ class MainActivity : AppCompatActivity() {
     private fun handleShareIntent(intent: Intent) {
         if (intent.action != Intent.ACTION_SEND) return
         val type = intent.type ?: return
-        if (type == "text/plain") {
-            pendingShareText = intent.getStringExtra(Intent.EXTRA_TEXT)
+        val stream = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            intent.getParcelableExtra(Intent.EXTRA_STREAM, android.net.Uri::class.java)
         } else {
-            pendingShareUri = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-                intent.getParcelableExtra(Intent.EXTRA_STREAM, android.net.Uri::class.java)
-            } else {
-                @Suppress("DEPRECATION")
-                intent.getParcelableExtra(Intent.EXTRA_STREAM)
-            }
+            @Suppress("DEPRECATION")
+            intent.getParcelableExtra<android.net.Uri>(Intent.EXTRA_STREAM)
+        }
+        if (stream != null) {
+            pendingShareUri = stream
+        } else if (type == "text/plain") {
+            pendingShareText = intent.getStringExtra(Intent.EXTRA_TEXT)
         }
     }
 
