@@ -1372,7 +1372,7 @@ class FshuService : Service() {
             WebSocketClient.send(mapOf("type" to "delivered", "messageId" to remoteId, "from" to me, "to" to from))
         }
         playLocationRequestSound()
-        if (Prefs.isAutoLocationEnabled(this, from)) {
+        if (db.contactDao().getEmergencyLocationAllow(me, from) == 1) {
             scope.launch {
                 val location = LocationHelper.getCurrentLocation(this@FshuService) ?: return@launch
                 val mapsUrl = LocationHelper.buildMapsUrl(location.latitude, location.longitude)

@@ -85,7 +85,6 @@ class ChatActivity : AppCompatActivity() {
     private val adapter = ChatAdapter()
 
     private var myGroupRole = "member"
-    private var isAutoLocationEnabled = false
 
     private var lastTypingSent = 0L
     private val typingHideHandler = Handler(Looper.getMainLooper())
@@ -684,12 +683,6 @@ class ChatActivity : AppCompatActivity() {
                     }
                     "contact-accepted-refresh",
                     "messages-updated"         -> { /* Room LiveData re-delivers the updated list automatically */ }
-                    "auto-location-peers" -> {
-                        val arr = json.getAsJsonArray("peers") ?: return@collect
-                        val enabled = arr.any { !it.isJsonNull && it.asString == peer }
-                        isAutoLocationEnabled = enabled
-                        runOnUiThread { invalidateOptionsMenu() }
-                    }
                 }
             }
         }
@@ -862,8 +855,6 @@ class ChatActivity : AppCompatActivity() {
             if (pm.isInteractive) {
                 vm.sendReadReceipts(peer)
             }
-            isAutoLocationEnabled = Prefs.isAutoLocationEnabled(this, peer)
-            com.fshu.next.data.remote.WebSocketClient.send(mapOf("type" to "get-auto-location"))
             invalidateOptionsMenu()
         }
         registerReceiver(screenOnReceiver, IntentFilter(Intent.ACTION_SCREEN_ON))
