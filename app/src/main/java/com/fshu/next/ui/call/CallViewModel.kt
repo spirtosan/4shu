@@ -55,6 +55,7 @@ class CallViewModel(app: Application) : AndroidViewModel(app) {
     val isVideoCall: Boolean get() = _isVideoCall
 
     private var _isEmergency = false
+    private val pendingIceCandidates = mutableListOf<IceCandidate>()
 
     private val audioManager = app.getSystemService(Context.AUDIO_SERVICE) as AudioManager
     private var audioFocusRequest: AudioFocusRequest? = null  // API 26+
@@ -296,6 +297,8 @@ class CallViewModel(app: Application) : AndroidViewModel(app) {
         webRTC.handleOffer(SessionDescription(SessionDescription.Type.OFFER, sdp)) { answer ->
             WebSocketClient.send(mapOf("type" to "call-answer", "from" to me, "to" to peer,
                 "sdp" to answer.description))
+            pendingIceCandidates.forEach { webRTC.addIceCandidate(it) }
+            pendingIceCandidates.clear()
             acquireAudioFocus()
             state.postValue(State.IN_CALL)
             startTimer()
@@ -349,7 +352,12 @@ class CallViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun handleIce(sdpMid: String, sdpMLineIndex: Int, candidate: String) {
-        webRTC.addIceCandidate(IceCandidate(sdpMid, sdpMLineIndex, candidate))
+        val ice = IceCandidate(sdpMid, sdpMLineIndex, candidate)
+        if (state.value == State.INCOMING) {
+            pendingIceCandidates.add(ice)
+        } else {
+            webRTC.addIceCandidate(ice)
+        }
     }
 
     /** Local user ended the call — send WS message and tear down. */

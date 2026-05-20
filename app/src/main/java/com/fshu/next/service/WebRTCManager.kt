@@ -80,20 +80,26 @@ class WebRTCManager(
         videoCapturer?.switchCamera(null)
     }
 
-    private val iceServers: List<PeerConnection.IceServer> = try {
+    private fun buildIceServers(): List<PeerConnection.IceServer> = try {
         val turnUrl = turnUrlFromServerUrl(context)
+        val host = java.net.URI(Prefs.getServerUrl(context)).host ?: "localhost"
+        val stunUrl = "stun:$host:3478"
         val turnUsername = Prefs.getTurnUsername(context)
         val turnPassword = Prefs.getTurnPassword(context)
-        if (turnUsername.isNotEmpty()) {
-            listOf(
+        val servers = mutableListOf<PeerConnection.IceServer>()
+        // Always add STUN
+        servers.add(PeerConnection.IceServer.builder(stunUrl).createIceServer())
+        servers.add(PeerConnection.IceServer.builder("stun:stun.l.google.com:19302").createIceServer())
+        // Add TURN if credentials available
+        if (turnUsername.isNotEmpty() && turnPassword.isNotEmpty()) {
+            servers.add(
                 PeerConnection.IceServer.builder(turnUrl)
                     .setUsername(turnUsername)
                     .setPassword(turnPassword)
                     .createIceServer()
             )
-        } else {
-            emptyList() // no credentials yet — WebRTC will use direct P2P only
         }
+        servers
     } catch (e: Exception) {
         Log.e("WebRTCManager", "IceServer build failed, falling back", e)
         emptyList()
@@ -103,7 +109,7 @@ class WebRTCManager(
         val serverUrl = Prefs.getServerUrl(ctx)
         return try {
             val host = java.net.URI(serverUrl).host ?: return "turn:localhost:3478"
-            "turn:$host:3478"
+            "turn:$host:3478?transport=udp"
         } catch (e: Exception) {
             "turn:localhost:3478"
         }
@@ -111,7 +117,7 @@ class WebRTCManager(
 
     private fun buildRtcConfig(
         transports: PeerConnection.IceTransportsType = PeerConnection.IceTransportsType.ALL
-    ) = PeerConnection.RTCConfiguration(iceServers).apply {
+    ) = PeerConnection.RTCConfiguration(buildIceServers()).apply {
         sdpSemantics = PeerConnection.SdpSemantics.UNIFIED_PLAN
         iceTransportsType = transports
     }
@@ -173,7 +179,7 @@ class WebRTCManager(
             override fun onIceConnectionReceivingChange(p: Boolean) {}
         }) ?: throw IllegalStateException(
             "createPeerConnection returned null — " +
-            "iceServers: ${iceServers.map { it.urls }}"
+            "iceServers: ${buildIceServers().map { it.urls }}"
         )
     }
 
@@ -313,7 +319,7 @@ class WebRTCManager(
             }
 
             dbg("=== checkTurnReachable start ===")
-            dbg("ICE servers: ${iceServers.map { it.urls }}")
+            dbg("ICE servers: ${buildIceServers().map { it.urls }}")
 
             var tempPc: PeerConnection? = null
             var dummyTrack: AudioTrack? = null
