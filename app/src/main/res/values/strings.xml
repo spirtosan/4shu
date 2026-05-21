@@ -341,6 +341,12 @@
     <string name="label_admin_panel">Admin Panel</string>
     <string name="label_danger_zone">Danger zone</string>
     <string name="btn_delete_account">Delete my account</string>
+    <string name="label_secret_question">Secret Question</string>
+    <string name="label_connection_advanced">Connection &amp; Advanced</string>
+    <string name="label_data_account">Data &amp; Account</string>
+    <string name="label_export_data">Export my data</string>
+    <string name="desc_export_data">Save your conversations to Downloads</string>
+    <string name="desc_privacy_settings">Privacy switches, read receipts, presence</string>
     <string name="dialog_delete_account_title">Delete account?</string>
     <string name="dialog_delete_account_message">This will permanently delete your account and all data. This cannot be undone.</string>
 
