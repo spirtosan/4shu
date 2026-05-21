@@ -3,7 +3,7 @@
     <dimen name="radius_bubble">12dp</dimen>
     <dimen name="radius_card">28dp</dimen>
     <dimen name="radius_button">8dp</dimen>
-    <dimen name="radius_dialog">16dp</dimen>
+    <dimen name="radius_dialog">28dp</dimen>
     <dimen name="radius_favorites_avatar">20dp</dimen>
 
     <dimen name="avatar_size_list">48dp</dimen>
