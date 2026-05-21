@@ -322,6 +322,18 @@ object Prefs {
     fun setPrivacyPhoneSearchable(ctx: Context, value: Int) =
         ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE).edit().putInt("privacy_phone_searchable", value).apply()
 
+    fun getPrivacyHidePresence(ctx: Context): Boolean =
+        ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE).getBoolean("privacy_hide_presence", false)
+
+    fun setPrivacyHidePresence(ctx: Context, value: Boolean) =
+        ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE).edit().putBoolean("privacy_hide_presence", value).apply()
+
+    fun getReadReceiptsEnabled(ctx: Context): Boolean =
+        ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE).getBoolean("read_receipts_enabled", true)
+
+    fun setReadReceiptsEnabled(ctx: Context, value: Boolean) =
+        ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE).edit().putBoolean("read_receipts_enabled", value).apply()
+
     fun getDisplayName(ctx: Context, username: String): String {
         val contactNick = getContactNickname(ctx, username)
         if (contactNick.isNotEmpty()) return contactNick

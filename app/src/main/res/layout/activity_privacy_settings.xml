@@ -22,7 +22,6 @@
             android:layout_height="wrap_content"
             android:orientation="vertical">
 
-            <!-- Discoverable -->
             <LinearLayout
                 android:id="@+id/rowDiscoverable"
                 android:layout_width="match_parent"
@@ -36,20 +35,17 @@
                 android:background="?attr/selectableItemBackground"
                 android:clickable="true"
                 android:focusable="true">
-
                 <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:orientation="vertical">
-
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/label_discoverable"
                         android:textSize="16sp"
                         android:textColor="?android:attr/textColorPrimary" />
-
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
@@ -57,9 +53,7 @@
                         android:text="@string/desc_discoverable"
                         android:textSize="13sp"
                         android:textColor="?android:attr/textColorSecondary" />
-
                 </LinearLayout>
-
                 <androidx.appcompat.widget.SwitchCompat
                     android:id="@+id/switchDiscoverable"
                     android:layout_width="wrap_content"
@@ -67,15 +61,10 @@
                     android:layout_marginStart="12dp"
                     android:clickable="false"
                     android:focusable="false" />
-
             </LinearLayout>
 
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="0.5dp"
-                android:background="@color/border" />
+            <View android:layout_width="match_parent" android:layout_height="0.5dp" android:background="@color/border" />
 
-            <!-- Show avatar -->
             <LinearLayout
                 android:id="@+id/rowShowAvatar"
                 android:layout_width="match_parent"
@@ -89,20 +78,17 @@
                 android:background="?attr/selectableItemBackground"
                 android:clickable="true"
                 android:focusable="true">
-
                 <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:orientation="vertical">
-
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/label_show_avatar"
                         android:textSize="16sp"
                         android:textColor="?android:attr/textColorPrimary" />
-
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
@@ -110,9 +96,7 @@
                         android:text="@string/desc_show_avatar"
                         android:textSize="13sp"
                         android:textColor="?android:attr/textColorSecondary" />
-
                 </LinearLayout>
-
                 <androidx.appcompat.widget.SwitchCompat
                     android:id="@+id/switchShowAvatar"
                     android:layout_width="wrap_content"
@@ -120,15 +104,10 @@
                     android:layout_marginStart="12dp"
                     android:clickable="false"
                     android:focusable="false" />
-
             </LinearLayout>
 
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="0.5dp"
-                android:background="@color/border" />
+            <View android:layout_width="match_parent" android:layout_height="0.5dp" android:background="@color/border" />
 
-            <!-- Show nickname -->
             <LinearLayout
                 android:id="@+id/rowShowNickname"
                 android:layout_width="match_parent"
@@ -142,20 +121,17 @@
                 android:background="?attr/selectableItemBackground"
                 android:clickable="true"
                 android:focusable="true">
-
                 <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:orientation="vertical">
-
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/label_show_nickname"
                         android:textSize="16sp"
                         android:textColor="?android:attr/textColorPrimary" />
-
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
@@ -163,9 +139,7 @@
                         android:text="@string/desc_show_nickname"
                         android:textSize="13sp"
                         android:textColor="?android:attr/textColorSecondary" />
-
                 </LinearLayout>
-
                 <androidx.appcompat.widget.SwitchCompat
                     android:id="@+id/switchShowNickname"
                     android:layout_width="wrap_content"
@@ -173,15 +147,10 @@
                     android:layout_marginStart="12dp"
                     android:clickable="false"
                     android:focusable="false" />
-
             </LinearLayout>
 
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="1dp"
-                android:background="?attr/dividerHorizontal" />
+            <View android:layout_width="match_parent" android:layout_height="0.5dp" android:background="@color/border" />
 
-            <!-- Email searchable -->
             <LinearLayout
                 android:id="@+id/rowEmailSearchable"
                 android:layout_width="match_parent"
@@ -195,20 +164,17 @@
                 android:background="?attr/selectableItemBackground"
                 android:clickable="true"
                 android:focusable="true">
-
                 <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:orientation="vertical">
-
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/label_email_searchable"
                         android:textSize="16sp"
                         android:textColor="?android:attr/textColorPrimary" />
-
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
@@ -216,9 +182,7 @@
                         android:text="@string/desc_email_searchable"
                         android:textSize="13sp"
                         android:textColor="?android:attr/textColorSecondary" />
-
                 </LinearLayout>
-
                 <androidx.appcompat.widget.SwitchCompat
                     android:id="@+id/switchEmailSearchable"
                     android:layout_width="wrap_content"
@@ -226,15 +190,10 @@
                     android:layout_marginStart="12dp"
                     android:clickable="false"
                     android:focusable="false" />
-
             </LinearLayout>
 
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="0.5dp"
-                android:background="@color/border" />
+            <View android:layout_width="match_parent" android:layout_height="0.5dp" android:background="@color/border" />
 
-            <!-- Phone searchable -->
             <LinearLayout
                 android:id="@+id/rowPhoneSearchable"
                 android:layout_width="match_parent"
@@ -248,20 +207,17 @@
                 android:background="?attr/selectableItemBackground"
                 android:clickable="true"
                 android:focusable="true">
-
                 <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:orientation="vertical">
-
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/label_phone_searchable"
                         android:textSize="16sp"
                         android:textColor="?android:attr/textColorPrimary" />
-
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
@@ -269,9 +225,7 @@
                         android:text="@string/desc_phone_searchable"
                         android:textSize="13sp"
                         android:textColor="?android:attr/textColorSecondary" />
-
                 </LinearLayout>
-
                 <androidx.appcompat.widget.SwitchCompat
                     android:id="@+id/switchPhoneSearchable"
                     android:layout_width="wrap_content"
@@ -279,7 +233,92 @@
                     android:layout_marginStart="12dp"
                     android:clickable="false"
                     android:focusable="false" />
+            </LinearLayout>
 
+            <View android:layout_width="match_parent" android:layout_height="0.5dp" android:background="@color/border" />
+
+            <LinearLayout
+                android:id="@+id/rowReadReceipts"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:paddingTop="14dp"
+                android:paddingBottom="14dp"
+                android:background="?attr/selectableItemBackground"
+                android:clickable="true"
+                android:focusable="true">
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/label_read_receipts"
+                        android:textSize="16sp"
+                        android:textColor="?android:attr/textColorPrimary" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:text="@string/desc_read_receipts"
+                        android:textSize="13sp"
+                        android:textColor="?android:attr/textColorSecondary" />
+                </LinearLayout>
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/switchReadReceipts"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:clickable="false"
+                    android:focusable="false" />
+            </LinearLayout>
+
+            <View android:layout_width="match_parent" android:layout_height="0.5dp" android:background="@color/border" />
+
+            <LinearLayout
+                android:id="@+id/rowHidePresence"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:paddingTop="14dp"
+                android:paddingBottom="14dp"
+                android:background="?attr/selectableItemBackground"
+                android:clickable="true"
+                android:focusable="true">
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/label_hide_presence"
+                        android:textSize="16sp"
+                        android:textColor="?android:attr/textColorPrimary" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:text="@string/desc_hide_presence"
+                        android:textSize="13sp"
+                        android:textColor="?android:attr/textColorSecondary" />
+                </LinearLayout>
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/switchHidePresence"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:clickable="false"
+                    android:focusable="false" />
             </LinearLayout>
 
         </LinearLayout>

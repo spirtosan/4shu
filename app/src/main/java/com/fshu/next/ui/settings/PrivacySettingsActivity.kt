@@ -29,6 +29,8 @@ class PrivacySettingsActivity : AppCompatActivity() {
         binding.switchShowNickname.isChecked    = Prefs.getPrivacyShowNickname(this) == 1
         binding.switchEmailSearchable.isChecked = Prefs.getPrivacyEmailSearchable(this) == 1
         binding.switchPhoneSearchable.isChecked = Prefs.getPrivacyPhoneSearchable(this) == 1
+        binding.switchReadReceipts.isChecked    = Prefs.getReadReceiptsEnabled(this)
+        binding.switchHidePresence.isChecked    = Prefs.getPrivacyHidePresence(this)
 
         binding.rowDiscoverable.setOnClickListener {
             binding.switchDiscoverable.isChecked = !binding.switchDiscoverable.isChecked
@@ -45,6 +47,12 @@ class PrivacySettingsActivity : AppCompatActivity() {
         binding.rowPhoneSearchable.setOnClickListener {
             binding.switchPhoneSearchable.isChecked = !binding.switchPhoneSearchable.isChecked
         }
+        binding.rowReadReceipts.setOnClickListener {
+            binding.switchReadReceipts.isChecked = !binding.switchReadReceipts.isChecked
+        }
+        binding.rowHidePresence.setOnClickListener {
+            binding.switchHidePresence.isChecked = !binding.switchHidePresence.isChecked
+        }
 
         binding.btnSave.setOnClickListener { save() }
     }
@@ -55,21 +63,26 @@ class PrivacySettingsActivity : AppCompatActivity() {
         val showNickname    = if (binding.switchShowNickname.isChecked) 1 else 0
         val emailSearchable = if (binding.switchEmailSearchable.isChecked) 1 else 0
         val phoneSearchable = if (binding.switchPhoneSearchable.isChecked) 1 else 0
+        val readReceipts    = binding.switchReadReceipts.isChecked
+        val hidePresence    = binding.switchHidePresence.isChecked
 
         Prefs.setPrivacyDiscoverable(this, discoverable)
         Prefs.setPrivacyShowAvatar(this, showAvatar)
         Prefs.setPrivacyShowNickname(this, showNickname)
         Prefs.setPrivacyEmailSearchable(this, emailSearchable)
         Prefs.setPrivacyPhoneSearchable(this, phoneSearchable)
+        Prefs.setReadReceiptsEnabled(this, readReceipts)
+        Prefs.setPrivacyHidePresence(this, hidePresence)
 
         if (WebSocketClient.isConnected) {
             WebSocketClient.send(mapOf(
-                "type"            to "privacy-update",
+                "type"            to "update-privacy",
                 "discoverable"    to discoverable,
                 "showAvatar"      to showAvatar,
                 "showNickname"    to showNickname,
                 "emailSearchable" to emailSearchable,
-                "phoneSearchable" to phoneSearchable
+                "phoneSearchable" to phoneSearchable,
+                "hidePresence"    to hidePresence
             ))
         }
 
