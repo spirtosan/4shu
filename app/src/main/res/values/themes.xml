@@ -34,6 +34,13 @@
         <item name="colorSwitchThumbNormal">@color/light_text_tertiary</item>
         <item name="materialCardViewStyle">@style/Widget.Fshu.Card</item>
         <item name="materialAlertDialogTheme">@style/ThemeOverlay.Fshu.Dialog</item>
+        <item name="popupMenuStyle">@style/Widget.Fshu.PopupMenu</item>
+        <item name="android:popupMenuStyle">@style/Widget.Fshu.PopupMenu</item>
+        <item name="actionOverflowMenuStyle">@style/Widget.Fshu.PopupMenu</item>
+    </style>
+
+    <style name="Widget.Fshu.PopupMenu" parent="Widget.MaterialComponents.PopupMenu">
+        <item name="android:popupBackground">@drawable/bg_popup_menu</item>
     </style>
 
     <style name="Widget.Fshu.Toolbar" parent="Widget.MaterialComponents.Toolbar">
