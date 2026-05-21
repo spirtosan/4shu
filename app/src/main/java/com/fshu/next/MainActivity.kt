@@ -926,18 +926,34 @@ R.id.action_admin_panel -> {
 
     internal fun markChatRead(user: User) {
         Log.d("MarkRead", "markChatRead called for ${user.username} isGroup=${user.isGroup}")
-        lifecycleScope.launch(Dispatchers.IO) {
-            val me = Prefs.getUsername(this@MainActivity)
-            val db = AppDatabase.getInstance(this@MainActivity)
-            if (user.isGroup) {
-                val gid = user.groupId ?: return@launch
-                db.messageDao().markGroupRead(gid)
-                Log.d("MarkRead", "markGroupRead done for $gid")
-            } else {
-                db.messageDao().markConversationRead(me, user.username)
-                Log.d("MarkRead", "markConversationRead done me=$me peer=${user.username}")
+        lifecycleScope.launch {
+            // Write to DB first — so any concurrent scheduleListRefresh reads 0, not stale count
+            withContext(Dispatchers.IO) {
+                val me = Prefs.getUsername(this@MainActivity)
+                val db = AppDatabase.getInstance(this@MainActivity)
+                if (user.isGroup) {
+                    val gid = user.groupId ?: return@withContext
+                    db.messageDao().markGroupRead(gid)
+                    Log.d("MarkRead", "markGroupRead done for $gid")
+                } else {
+                    db.messageDao().markConversationRead(me, user.username)
+                    Log.d("MarkRead", "markConversationRead done me=$me peer=${user.username}")
+                }
             }
-            withContext(Dispatchers.Main) { scheduleListRefresh() }
+            // Patch visible list after DB is committed — no stale re-emit can overwrite this
+            if (user.isGroup) {
+                val idx = groupItems.indexOfFirst { it.groupId == user.groupId }
+                if (idx >= 0) {
+                    groupItems[idx] = groupItems[idx].copy(unreadCount = 0)
+                }
+            } else {
+                val idx = users.indexOfFirst { it.username == user.username }
+                if (idx >= 0) {
+                    users[idx] = users[idx].copy(unreadCount = 0)
+                    adapter.notifyItemChanged(idx)
+                }
+            }
+            scheduleListRefresh()
         }
     }
 
