@@ -49,7 +49,7 @@ import com.fshu.next.util.CryptoHelper
 import com.fshu.next.util.MessageBus
 import com.fshu.next.util.Prefs
 import com.fshu.next.ui.ThemeManager
-import JsonObject
+import com.google.gson.JsonObject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
@@ -324,8 +324,8 @@ class SettingsFragment : Fragment() {
         lifecycleScope.launch {
             val ch = Channel<JsonObject>(1)
             val job = launch {
-                MessageBus.events.collect {
-                    if (it.get("type")?.asString == "my-secret-question") ch.trySend(it)
+                MessageBus.events.collect { msg ->
+                    if (msg.get("type")?.asString == "my-secret-question") ch.trySend(msg)
                 }
             }
             WebSocketClient.send(mapOf("type" to "get-secret-question"))
@@ -360,8 +360,8 @@ class SettingsFragment : Fragment() {
             lifecycleScope.launch {
                 val ch = Channel<JsonObject>(1)
                 val job = launch {
-                    MessageBus.events.collect {
-                        if (it.get("type")?.asString == "device-list") ch.trySend(it)
+                    MessageBus.events.collect { msg ->
+                        if (msg.get("type")?.asString == "device-list") ch.trySend(msg)
                     }
                 }
                 WebSocketClient.send(mapOf("type" to "device-remove", "deviceId" to item.deviceId))
@@ -396,8 +396,8 @@ class SettingsFragment : Fragment() {
                     lifecycleScope.launch {
                         val ch = Channel<JsonObject>(1)
                         val job = launch {
-                            MessageBus.events.collect {
-                                if (it.get("type")?.asString == "device-list") ch.trySend(it)
+                            MessageBus.events.collect { msg ->
+                                if (msg.get("type")?.asString == "device-list") ch.trySend(msg)
                             }
                         }
                         WebSocketClient.send(mapOf("type" to "device-rename", "deviceName" to newName))
@@ -416,8 +416,8 @@ class SettingsFragment : Fragment() {
         lifecycleScope.launch {
             val ch = Channel<JsonObject>(1)
             val job = launch {
-                MessageBus.events.collect {
-                    if (it.get("type")?.asString == "device-list") ch.trySend(it)
+                MessageBus.events.collect { msg ->
+                    if (msg.get("type")?.asString == "device-list") ch.trySend(msg)
                 }
             }
             WebSocketClient.send(mapOf("type" to "device-list"))
@@ -432,9 +432,9 @@ class SettingsFragment : Fragment() {
         val currentDeviceId = json.get("currentDeviceId")?.asString ?: ""
         val arr = json.getAsJsonArray("devices") ?: return
         deviceItems.clear()
-        for (el in arr) {
+        arr.forEach { el ->
             val obj = el.asJsonObject
-            val did = obj.get("device_id")?.asString ?: continue
+            val did = obj.get("device_id")?.asString ?: return@forEach
             deviceItems.add(DeviceItem(
                 deviceId   = did,
                 deviceName = obj.get("device_name")?.takeIf { !it.isJsonNull }?.asString,
@@ -636,9 +636,9 @@ class SettingsFragment : Fragment() {
                 lifecycleScope.launch {
                     val ch = Channel<JsonObject>(1)
                     val job = launch {
-                        MessageBus.events.collect {
-                            val t = it.get("type")?.asString
-                            if (t == "delete-account-ok" || t == "delete-account-error") ch.trySend(it)
+                        MessageBus.events.collect { msg ->
+                            val t = msg.get("type")?.asString
+                            if (t == "delete-account-ok" || t == "delete-account-error") ch.trySend(msg)
                         }
                     }
                     WebSocketClient.send(mapOf("type" to "delete-account", "currentPassword" to password))
