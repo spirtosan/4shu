@@ -356,4 +356,13 @@
     <string name="emerg_sos_message_hint">Изпраща местоположение + спешен текст</string>
     <string name="emerg_request_location">Заявка за местоположение</string>
     <string name="emerg_request_location_hint">Незабавна заявка за местоположението на контакта</string>
+
+    <string name="label_hide_presence">Скрий онлайн статуса ми</string>
+    <string name="desc_hide_presence">Другите няма да виждат кога си онлайн или кога последно си бил. Ти също няма да виждаш статуса на другите.</string>
+
+    <string name="menu_search_conversation">Търси в разговора</string>
+    <string name="menu_search_group">Търси в групата</string>
+    <string name="menu_media_files_links">Медия, файлове и линкове</string>
+    <string name="menu_mute_group">Заглуши група</string>
+    <string name="menu_unmute_group">Включи звука на групата</string>
 </resources>
