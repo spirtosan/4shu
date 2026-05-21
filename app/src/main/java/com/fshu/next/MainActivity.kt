@@ -221,6 +221,7 @@ class MainActivity : AppCompatActivity() {
             onToggleFavorite = { user -> toggleFavorite(user.username) },
             onMuteToggle = { user -> showMuteDialog(user) },
             onDeleteChat = { user -> confirmDeleteChat(user) },
+            onMarkRead = { user -> markChatRead(user) },
             onSetNickname = { user ->
                 val current = Prefs.getContactNickname(this, user.username)
                 val et = android.widget.EditText(this).apply {
@@ -875,9 +876,11 @@ R.id.action_admin_panel -> {
                     "voice" -> "\uD83C\uDF99\uFE0F Voice message"
                     else    -> last?.content
                 }
+                val unread = db.messageDao().countUnreadGroup(g.groupId)
                 User(username = g.groupId, nickname = g.name, isGroup = true, groupId = g.groupId,
                      lastMessage = preview, lastMessageTime = last?.timestamp,
-                     avatarPath = g.avatarPath, personalAvatar = g.personalAvatar)
+                     avatarPath = g.avatarPath, personalAvatar = g.personalAvatar,
+                     unreadCount = unread)
             }
         }
         runOnUiThread {
@@ -919,6 +922,20 @@ R.id.action_admin_panel -> {
                 d.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE)
                     ?.setTextColor(android.graphics.Color.parseColor("#E53935"))
             }
+    }
+
+    internal fun markChatRead(user: User) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            val me = Prefs.getUsername(this@MainActivity)
+            val db = AppDatabase.getInstance(this@MainActivity)
+            if (user.isGroup) {
+                val gid = user.groupId ?: return@launch
+                db.messageDao().markGroupRead(gid)
+            } else {
+                db.messageDao().markConversationRead(me, user.username)
+            }
+            withContext(Dispatchers.Main) { scheduleListRefresh() }
+        }
     }
 
     private fun handleShareIntent(intent: Intent) {
@@ -1109,7 +1126,8 @@ R.id.action_admin_panel -> {
                     "voice"              -> "\uD83C\uDFA4 Voice message"
                     else                 -> last?.content
                 }
-                user.copy(lastMessage = preview, lastMessageTime = last?.timestamp)
+                val unread = db.messageDao().countUnread(me, user.username)
+                user.copy(lastMessage = preview, lastMessageTime = last?.timestamp, unreadCount = unread)
             }
         }
         runOnUiThread {

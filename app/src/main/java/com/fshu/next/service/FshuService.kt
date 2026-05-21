@@ -816,11 +816,14 @@ class FshuService : Service() {
                 }
             }
             val isRequest = json.get("isRequest").safeBoolean() ?: false
+            val isRead = com.fshu.next.ui.chat.ChatActivity.isActive &&
+                com.fshu.next.ui.chat.ChatActivity.currentPeer == from
             val insertedId = db.messageDao().insert(
                 Message(from = from, to = me, content = content, type = "text",
                     timestamp = ts, isSent = false, remoteId = remoteId,
                     replyToId = replyToId, replyToSender = replyToSender,
-                    replyToContent = replyToContent, isRequest = isRequest)
+                    replyToContent = replyToContent, isRequest = isRequest,
+                    isRead = isRead)
             )
             if (needsRetry) {
                 pendingDecryptQueue.getOrPut(from) { mutableListOf() }.add(Pair(insertedId, rawContent))
@@ -882,11 +885,14 @@ class FshuService : Service() {
         val voiceWaveform = if (msgType == "voice") json.get("waveform").safeString()?.takeIf { it.isNotEmpty() } else null
         val isRequest = json.get("isRequest").safeBoolean() ?: false
 
+        val isRead = com.fshu.next.ui.chat.ChatActivity.isActive &&
+            com.fshu.next.ui.chat.ChatActivity.currentPeer == from
         db.messageDao().insert(
             Message(from = from, to = me, content = content,
                 type = msgType, filename = filename, mimeType = mimeType,
                 fileId = fileId, timestamp = ts, isSent = false, remoteId = remoteId,
-                voiceDuration = voiceDuration, voiceWaveform = voiceWaveform, isRequest = isRequest)
+                voiceDuration = voiceDuration, voiceWaveform = voiceWaveform,
+                isRequest = isRequest, isRead = isRead)
         )
 
         val seq = json.get("seq").safeDouble()?.toLong() ?: 0L
@@ -1873,12 +1879,14 @@ class FshuService : Service() {
         val content = decrypted ?: rawContent
         writeGroupDebug("persistGroupMessage: decrypt result=${if (isBlob) "FAILED/fallback" else "OK"}")
 
+        val isRead = from == me || (com.fshu.next.ui.chat.ChatActivity.isActive &&
+            com.fshu.next.ui.chat.ChatActivity.currentPeer == groupId)
         db.messageDao().insert(
             Message(
                 from = from, to = "", content = content, type = "text",
                 timestamp = ts, isSent = from == me, remoteId = 0,
                 tempId = serverMsgId, groupId = groupId,
-                encryptedBlob = isBlob
+                encryptedBlob = isBlob, isRead = isRead
             )
         )
 
@@ -1909,10 +1917,13 @@ class FshuService : Service() {
         val ts       = json.get("timestamp")?.asLong ?: System.currentTimeMillis()
         val fileId   = json.get("fileId")?.asString ?: return
 
+        val isRead = com.fshu.next.ui.chat.ChatActivity.isActive &&
+            com.fshu.next.ui.chat.ChatActivity.currentPeer == groupId
         db.messageDao().insert(
             Message(from = from, to = "", content = "📎 $filename",
                 type = "file", filename = filename, mimeType = mimeType,
-                fileId = fileId, timestamp = ts, isSent = false, groupId = groupId)
+                fileId = fileId, timestamp = ts, isSent = false,
+                groupId = groupId, isRead = isRead)
         )
         WebSocketClient.send(mapOf("type" to "file-request", "fileId" to fileId, "from" to me))
         MessageBus.tryEmit(json)

@@ -38,7 +38,8 @@ class UserAdapter(
     private val onSetNickname: (User) -> Unit = {},
     private val onToggleFavorite: (User) -> Unit = {},
     private val onMuteToggle: (User) -> Unit = {},
-    private val onDeleteChat: (User) -> Unit = {}
+    private val onDeleteChat: (User) -> Unit = {},
+    private val onMarkRead: (User) -> Unit = {}
 ) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
 
     companion object {
@@ -120,16 +121,24 @@ class UserAdapter(
             }
             h.binding.tvFavStar.setOnClickListener { onToggleFavorite(user) }
             h.binding.tvMuteIcon.visibility = if (user.isMuted) android.view.View.VISIBLE else android.view.View.GONE
+            if (user.unreadCount > 0) {
+                h.binding.tvUnreadBadge.visibility = android.view.View.VISIBLE
+                h.binding.tvUnreadBadge.text = if (user.unreadCount > 99) "99+" else user.unreadCount.toString()
+            } else {
+                h.binding.tvUnreadBadge.visibility = android.view.View.GONE
+            }
             h.binding.btnMore.visibility = android.view.View.VISIBLE
             h.binding.btnMore.setOnClickListener { anchor ->
                 PopupMenu(anchor.context, anchor).apply {
                     menu.add(0, R.id.action_user_mute, 0,
                         if (user.isMuted) anchor.context.getString(R.string.action_unmute)
                         else anchor.context.getString(R.string.action_mute))
-                    menu.add(0, R.id.action_delete_chat, 1, anchor.context.getString(R.string.action_delete_chat))
+                    menu.add(0, R.id.action_mark_read, 1, anchor.context.getString(R.string.action_mark_read))
+                    menu.add(0, R.id.action_delete_chat, 2, anchor.context.getString(R.string.action_delete_chat))
                     setOnMenuItemClickListener { item ->
                         when (item.itemId) {
                             R.id.action_user_mute -> { onMuteToggle(user); true }
+                            R.id.action_mark_read -> { onMarkRead(user); true }
                             R.id.action_delete_chat -> { onDeleteChat(user); true }
                             else -> false
                         }
@@ -198,6 +207,13 @@ class UserAdapter(
         h.binding.tvMuteIcon.visibility =
             if (user.isMuted) android.view.View.VISIBLE else android.view.View.GONE
 
+        if (user.unreadCount > 0) {
+            h.binding.tvUnreadBadge.visibility = android.view.View.VISIBLE
+            h.binding.tvUnreadBadge.text = if (user.unreadCount > 99) "99+" else user.unreadCount.toString()
+        } else {
+            h.binding.tvUnreadBadge.visibility = android.view.View.GONE
+        }
+
         h.binding.btnMore.visibility = android.view.View.VISIBLE
         h.binding.btnMore.setOnClickListener { anchor ->
             PopupMenu(anchor.context, anchor).apply {
@@ -221,6 +237,7 @@ class UserAdapter(
                         R.id.action_user_emergency_location -> { onEmergencyWithLocation(user); true }
                         R.id.action_user_set_nickname -> { onSetNickname(user); true }
                         R.id.action_user_mute -> { onMuteToggle(user); true }
+                        R.id.action_mark_read -> { onMarkRead(user); true }
                         R.id.action_delete_chat -> { onDeleteChat(user); true }
                         else -> false
                     }

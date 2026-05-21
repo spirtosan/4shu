@@ -164,6 +164,7 @@
     <string name="action_send_message">Send message</string>
     <string name="action_view_profile">View profile</string>
     <string name="action_delete_chat">Delete chat</string>
+    <string name="action_mark_read">Mark as read</string>
     <string name="toast_chat_deleted">Chat deleted</string>
     <string name="dialog_delete_chat_title">Delete conversation?</string>
     <string name="dialog_delete_chat_body">All messages with %1$s will be removed from this device. This cannot be undone.</string>

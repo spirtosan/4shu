@@ -21,6 +21,7 @@ data class User(
     val phoneSearchable: Int = 1,
     val isFavorite: Boolean = false,
     val isMuted: Boolean = false,
+    val unreadCount: Int = 0,
 ) {
     /** Display name — nickname if set, otherwise username. */
     val displayName: String get() = if (!nickname.isNullOrBlank()) nickname else username

@@ -49,5 +49,7 @@ data class Message(
     // True when message arrived from a non-contact (routed to request inbox).
     val isRequest: Boolean = false,
     // True when content is a raw encrypted blob (key was missing at receive time). Retry on key arrival.
-    val encryptedBlob: Boolean = false
+    val encryptedBlob: Boolean = false,
+    // False for incoming messages received while the chat was not open; true otherwise.
+    val isRead: Boolean = true
 )

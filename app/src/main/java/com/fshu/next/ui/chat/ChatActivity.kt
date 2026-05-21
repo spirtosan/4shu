@@ -848,6 +848,15 @@ class ChatActivity : AppCompatActivity() {
         super.onResume()
         isActive = true
         currentPeer = peer
+        lifecycleScope.launch(Dispatchers.IO) {
+            val db = com.fshu.next.data.local.AppDatabase.getInstance(this@ChatActivity)
+            val me = com.fshu.next.util.Prefs.getUsername(this@ChatActivity)
+            if (isGroupChat) {
+                groupId?.let { db.messageDao().markGroupRead(it) }
+            } else {
+                db.messageDao().markConversationRead(me, peer)
+            }
+        }
         FshuService.stopSosAlarm(peer, this)
         applyBackground()
         refreshNicknameMap()

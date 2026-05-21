@@ -201,4 +201,16 @@ interface MessageDao {
     /** Deletes all received messages (isSent=0) from [peer] — used to clear stale dedup state. */
     @Query("DELETE FROM messages WHERE `from` = :peer AND isSent = 0")
     suspend fun deleteReceivedFrom(peer: String)
+
+    @Query("UPDATE messages SET isRead = 1 WHERE `from` = :peer AND `to` = :me AND isRead = 0")
+    suspend fun markConversationRead(me: String, peer: String)
+
+    @Query("UPDATE messages SET isRead = 1 WHERE groupId = :groupId AND isSent = 0 AND isRead = 0")
+    suspend fun markGroupRead(groupId: String)
+
+    @Query("SELECT COUNT(*) FROM messages WHERE `from` = :peer AND `to` = :me AND isRead = 0")
+    suspend fun countUnread(me: String, peer: String): Int
+
+    @Query("SELECT COUNT(*) FROM messages WHERE groupId = :groupId AND isSent = 0 AND isRead = 0")
+    suspend fun countUnreadGroup(groupId: String): Int
 }
