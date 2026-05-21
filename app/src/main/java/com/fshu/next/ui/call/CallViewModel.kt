@@ -107,6 +107,7 @@ class CallViewModel(app: Application) : AndroidViewModel(app) {
 
     fun startCall(peerUsername: String) {
         peer = peerUsername
+        acquireAudioFocus()
         state.value = State.CALLING
         val callType = if (_isEmergency) "call-emergency" else "call-offer"
         webRTC.startCall { sdp ->
@@ -148,7 +149,6 @@ class CallViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun startRingback() {
         stopRingback()
-        acquireAudioFocus()   // acquire focus first so AudioTrack is not silenced
         try {
             audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {

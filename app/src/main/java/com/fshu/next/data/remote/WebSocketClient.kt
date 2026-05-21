@@ -6,6 +6,9 @@ import com.google.gson.JsonObject
 import kotlinx.coroutines.*
 import okhttp3.*
 import okio.ByteString
+import android.content.Context
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import java.util.concurrent.atomic.AtomicBoolean
 
 typealias MessageHandler = (JsonObject) -> Unit
@@ -49,6 +52,9 @@ object WebSocketClient {
 
     /** Timestamp of the most recent outgoing ping — used to compute RTT. */
     @Volatile private var pingTime: Long = 0
+    @Volatile var lastPongTimestamp: Long = 0
+    private var disconnectCallback: (() -> Unit)? = null
+    var context: Context? = null
 
     /** Called on the IO dispatcher each time a heartbeat ping is sent. */
     var onHeartbeat: (() -> Unit)? = null
@@ -113,6 +119,7 @@ object WebSocketClient {
         onAuthError: (String) -> Unit = {},
     ) {
         intentionalDisconnect = false
+        disconnectCallback = onDisconnected
         if (isConnected || !isConnecting.compareAndSet(false, true)) {
             Log.d(TAG, "connect() skipped — already connected or connecting")
             return
@@ -207,6 +214,7 @@ object WebSocketClient {
                         }
                         "pong" -> {
                             pongReceived.set(true)
+                            lastPongTimestamp = System.currentTimeMillis()
                             val rtt = System.currentTimeMillis() - pingTime
                             if (pingTime > 0) onPong?.invoke(rtt)
                             if (pingTime > 0) {
@@ -263,7 +271,9 @@ object WebSocketClient {
         heartbeatJob?.cancel()
         rttHistory.clear()
         heartbeatJob = heartbeatScope.launch {
-            var intervalMs = 10_000L  // start at 10s
+            val cellular = isCellular()
+            val pongTimeoutMs = if (cellular) 10_000L else PONG_TIMEOUT_MS
+            var intervalMs = if (cellular) 20_000L else 10_000L
             while (isActive) {
                 delay(intervalMs)
                 onHeartbeat?.invoke()
@@ -271,22 +281,36 @@ object WebSocketClient {
                 pingTime = System.currentTimeMillis()
                 val listVersions = listVersionsProvider?.invoke() ?: emptyMap<String, Int>()
                 ws.send(gson.toJson(mapOf("type" to "ping", "lastSeq" to lastSeq, "listVersions" to listVersions)))
-                delay(PONG_TIMEOUT_MS)
+                delay(pongTimeoutMs)
                 if (!pongReceived.get()) {
-                    Log.w(TAG, "Pong timeout — forcing reconnect")
+                    Log.w(TAG, "Pong timeout — forcing reconnect (cellular=$cellular)")
                     ws.cancel()
+                    // Hard fallback: ws.cancel() on dead cellular often stalls without firing onFailure.
+                    // If isConnected is still true 5s after cancel, force the disconnect path manually.
+                    heartbeatScope.launch {
+                        delay(5_000)
+                        if (isConnected) {
+                            Log.w(TAG, "ws.cancel() stalled — forcing disconnect manually")
+                            isConnecting.set(false)
+                            isConnected = false
+                            stopHeartbeat()
+                            onConnectionLost?.invoke()
+                            disconnectCallback?.invoke()
+                        }
+                    }
                     break
                 }
-                // Adjust interval based on rolling average RTT
-                val avgRtt = if (rttHistory.isNotEmpty()) rttHistory.average() else 0.0
-                intervalMs = when {
-                    avgRtt == 0.0   -> 10_000L                  // no data yet
-                    avgRtt < 100    -> PING_INTERVAL_MAX_MS     // very stable → 30s
-                    avgRtt < 300    -> 20_000L                  // good → 20s
-                    avgRtt < 800    -> 10_000L                  // moderate → 10s
-                    else            -> PING_INTERVAL_MIN_MS     // poor → 5s
+                if (!cellular) {
+                    val avgRtt = if (rttHistory.isNotEmpty()) rttHistory.average() else 0.0
+                    intervalMs = when {
+                        avgRtt == 0.0 -> 10_000L
+                        avgRtt < 100  -> PING_INTERVAL_MAX_MS
+                        avgRtt < 300  -> 20_000L
+                        avgRtt < 800  -> 10_000L
+                        else          -> PING_INTERVAL_MIN_MS
+                    }
+                    Log.d(TAG, "heartbeat: avgRtt=${avgRtt.toLong()}ms → next interval=${intervalMs/1000}s")
                 }
-                Log.d(TAG, "heartbeat: avgRtt=${avgRtt.toLong()}ms → next interval=${intervalMs/1000}s")
             }
         }
     }
@@ -294,6 +318,13 @@ object WebSocketClient {
     private fun stopHeartbeat() {
         heartbeatJob?.cancel()
         heartbeatJob = null
+    }
+
+    private fun isCellular(): Boolean {
+        val ctx = context ?: return false
+        val cm = ctx.getSystemService(ConnectivityManager::class.java) ?: return false
+        val caps = cm.getNetworkCapabilities(cm.activeNetwork) ?: return false
+        return caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)
     }
 
     /** Returns true if the message was successfully enqueued on the socket. */

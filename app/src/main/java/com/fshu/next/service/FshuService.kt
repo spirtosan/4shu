@@ -289,6 +289,7 @@ class FshuService : Service() {
                 val password = Prefs.getPassword(this)
                 WebSocketClient.deviceId = Prefs.getDeviceId(this)
                 WebSocketClient.deviceName = Prefs.getDeviceName(this).ifEmpty { Build.MODEL }
+                WebSocketClient.context = applicationContext
                 WebSocketClient.disconnect()
                 connect(url, username, password)
             } catch (e: Exception) {
@@ -313,6 +314,7 @@ class FshuService : Service() {
                 WebSocketClient.deviceId = deviceId
                 if (Prefs.getDeviceName(this).isEmpty()) Prefs.setDeviceName(this, Build.MODEL)
                 WebSocketClient.deviceName = Prefs.getDeviceName(this)
+                WebSocketClient.context = applicationContext
 
                 // Generate EC keypair on first launch; load peer key cache from DB
                 if (Prefs.getEcPrivateKey(this).isEmpty()) {
@@ -2156,8 +2158,13 @@ class FshuService : Service() {
         connectionWatchdogJob = scope.launch {
             while (isActive) {
                 delay(60_000)
-                if (!WebSocketClient.isConnected && !WebSocketClient.isConnectingNow) {
-                    Log.w("FshuService", "Internal watchdog: not connected — forcing reconnect")
+                val connected = WebSocketClient.isConnected
+                val lastPong = WebSocketClient.lastPongTimestamp
+                val pongStale = lastPong > 0 && (System.currentTimeMillis() - lastPong) > 45_000
+                if ((!connected || pongStale) && !WebSocketClient.isConnectingNow) {
+                    Log.w("FshuService", "Watchdog: connected=$connected pongStale=$pongStale — forcing reconnect")
+                    if (pongStale && connected) WebSocketClient.disconnect()
+                    delay(300)
                     connect(url, username, password)
                 }
             }
