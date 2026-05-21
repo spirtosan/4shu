@@ -368,7 +368,7 @@ class UserProfileActivity : AppCompatActivity() {
                     val mute = Mute(
                         owner = me,
                         target = targetUsername,
-                        targetType = "user",
+                        targetType = "contact",
                         createdAt = System.currentTimeMillis(),
                         muteUntil = if (until == -1L) null else until
                     )
