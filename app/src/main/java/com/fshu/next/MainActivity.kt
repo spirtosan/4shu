@@ -44,7 +44,6 @@ import com.fshu.next.ui.call.CallActivity
 import com.fshu.next.ui.chat.ChatActivity
 import com.fshu.next.ui.login.LoginActivity
 import com.fshu.next.ui.search.SearchActivity
-import com.fshu.next.ui.settings.SettingsActivity
 import com.fshu.next.util.CrashHandler
 import com.fshu.next.util.CryptoHelper
 import com.fshu.next.util.LocationHelper
@@ -333,11 +332,7 @@ class MainActivity : AppCompatActivity() {
                 showNewGroupDialog()
                 true
             }
-            R.id.action_settings -> {
-                startActivity(Intent(this, SettingsActivity::class.java))
-                true
-            }
-            R.id.action_admin_panel -> {
+R.id.action_admin_panel -> {
                 startActivity(Intent(this, AdminPanelActivity::class.java))
                 true
             }

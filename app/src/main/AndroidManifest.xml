@@ -102,7 +102,7 @@
             android:exported="false"/>
 
         <activity
-            android:name=".ui.settings.SettingsActivity"
+            android:name=".ui.settings.DevicesActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustResize"/>
 

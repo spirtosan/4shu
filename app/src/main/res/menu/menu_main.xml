@@ -29,11 +29,6 @@
         app:showAsAction="never" />
 
     <item
-        android:id="@+id/action_settings"
-        android:title="@string/menu_settings"
-        app:showAsAction="never" />
-
-    <item
         android:id="@+id/action_set_nickname"
         android:title="@string/menu_set_my_nickname"
         app:showAsAction="never" />
