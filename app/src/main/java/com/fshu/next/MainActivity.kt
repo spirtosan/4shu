@@ -925,14 +925,17 @@ R.id.action_admin_panel -> {
     }
 
     internal fun markChatRead(user: User) {
+        Log.d("MarkRead", "markChatRead called for ${user.username} isGroup=${user.isGroup}")
         lifecycleScope.launch(Dispatchers.IO) {
             val me = Prefs.getUsername(this@MainActivity)
             val db = AppDatabase.getInstance(this@MainActivity)
             if (user.isGroup) {
                 val gid = user.groupId ?: return@launch
                 db.messageDao().markGroupRead(gid)
+                Log.d("MarkRead", "markGroupRead done for $gid")
             } else {
                 db.messageDao().markConversationRead(me, user.username)
+                Log.d("MarkRead", "markConversationRead done me=$me peer=${user.username}")
             }
             withContext(Dispatchers.Main) { scheduleListRefresh() }
         }
