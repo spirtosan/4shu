@@ -337,6 +337,7 @@
     <string name="hint_sos_message">Emergency message…</string>
     <string name="label_security">Security</string>
     <string name="label_devices">Devices</string>
+    <string name="label_manage_devices">Manage Devices</string>
     <string name="label_admin">Admin</string>
     <string name="label_admin_panel">Admin Panel</string>
     <string name="label_danger_zone">Danger zone</string>

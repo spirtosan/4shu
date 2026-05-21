@@ -324,6 +324,7 @@
     <string name="hint_sos_message">Спешно съобщение…</string>
     <string name="label_security">Сигурност</string>
     <string name="label_devices">Устройства</string>
+    <string name="label_manage_devices">Управление на устройства</string>
     <string name="label_admin">Админ</string>
     <string name="label_admin_panel">Административен панел</string>
     <string name="label_danger_zone">Опасна зона</string>
