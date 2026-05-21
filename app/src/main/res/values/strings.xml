@@ -398,4 +398,9 @@
         <item quantity="one">This will delete the selected message from your device only.</item>
         <item quantity="other">This will delete the selected messages from your device only.</item>
     </plurals>
+    <string name="menu_search_conversation">Search in conversation</string>
+    <string name="menu_search_group">Search in group</string>
+    <string name="menu_media_files_links">Media, Files &amp; Links</string>
+    <string name="menu_mute_group">Mute group</string>
+    <string name="menu_unmute_group">Unmute group</string>
 </resources>
