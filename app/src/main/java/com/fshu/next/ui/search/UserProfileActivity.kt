@@ -18,6 +18,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.fshu.next.R
 import com.fshu.next.data.local.AppDatabase
+import com.fshu.next.data.local.Mute
 import com.fshu.next.data.remote.WebSocketClient
 import com.fshu.next.databinding.ActivityUserProfileBinding
 import com.fshu.next.util.MessageBus
@@ -35,6 +36,7 @@ class UserProfileActivity : AppCompatActivity() {
     private var currentAllowEmergency: Int? = null
     private var allowEmergencyLocation: Int? = null
     private var savedEmergencyLocationValue: Int? = null
+    private var isMuted = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -55,18 +57,22 @@ class UserProfileActivity : AppCompatActivity() {
             MessageBus.events.collect { handleMessage(it) }
         }
 
-        // Load initial emergency-allow states from Room DB
+        // Load initial emergency-allow and mute states from Room DB
         lifecycleScope.launch {
             val me = Prefs.getUsername(this@UserProfileActivity)
-            val (emergCall, emergLoc) = withContext(Dispatchers.IO) {
-                Pair(
+            val (emergCall, emergLoc, muted) = withContext(Dispatchers.IO) {
+                Triple(
                     db.contactDao().getEmergencyAllow(me, targetUsername),
-                    db.contactDao().getEmergencyLocationAllow(me, targetUsername)
+                    db.contactDao().getEmergencyLocationAllow(me, targetUsername),
+                    db.muteDao().isMuted(me, targetUsername)
                 )
             }
             currentAllowEmergency = emergCall
             allowEmergencyLocation = emergLoc
+            isMuted = muted
         }
+
+        binding.rowMute.setOnClickListener { onMuteRowClick() }
 
         binding.rowEmergencyAllow.setOnClickListener {
             binding.switchEmergencyAllow.toggle()
@@ -311,15 +317,70 @@ class UserProfileActivity : AppCompatActivity() {
 
     private fun updateTrustUI(visible: Boolean) {
         if (!visible) {
+            binding.rowMute.visibility = View.GONE
             binding.rowEmergencyAllow.visibility = View.GONE
             binding.rowEmergencyLocation.visibility = View.GONE
             return
         }
+        binding.rowMute.visibility = View.VISIBLE
+        updateMuteUI()
         binding.rowEmergencyAllow.visibility = View.VISIBLE
         updateEmergencySwitch()
         binding.rowEmergencyLocation.visibility =
             if (binding.switchEmergencyAllow.isChecked) View.VISIBLE else View.GONE
         updateEmergencyLocationSwitch()
+    }
+
+    private fun updateMuteUI() {
+        binding.switchMute.isChecked = isMuted
+        binding.tvMuteStatus.text = if (isMuted)
+            getString(R.string.action_unmute)
+        else
+            getString(R.string.toast_unmuted)
+    }
+
+    private fun onMuteRowClick() {
+        if (isMuted) {
+            val me = Prefs.getUsername(this)
+            lifecycleScope.launch(Dispatchers.IO) {
+                db.muteDao().delete(me, targetUsername)
+            }
+            isMuted = false
+            updateMuteUI()
+        } else {
+            val options = arrayOf(
+                getString(R.string.mute_1h),
+                getString(R.string.mute_8h),
+                getString(R.string.mute_24h),
+                getString(R.string.mute_forever)
+            )
+            val durations = longArrayOf(
+                System.currentTimeMillis() + 60 * 60_000L,
+                System.currentTimeMillis() + 8 * 60 * 60_000L,
+                System.currentTimeMillis() + 24 * 60 * 60_000L,
+                -1L
+            )
+            AlertDialog.Builder(this)
+                .setTitle(getString(R.string.dialog_mute_title))
+                .setItems(options) { _, which ->
+                    val me = Prefs.getUsername(this)
+                    val until = durations[which]
+                    val mute = Mute(
+                        owner = me,
+                        target = targetUsername,
+                        targetType = "user",
+                        createdAt = System.currentTimeMillis(),
+                        muteUntil = if (until == -1L) null else until
+                    )
+                    lifecycleScope.launch(Dispatchers.IO) {
+                        db.muteDao().insert(mute)
+                    }
+                    isMuted = true
+                    updateMuteUI()
+                }
+                .setNegativeButton(getString(R.string.btn_cancel), null)
+                .show()
+        }
     }
 
     private fun updateEmergencySwitch() {
