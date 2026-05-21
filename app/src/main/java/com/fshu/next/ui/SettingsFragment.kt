@@ -24,6 +24,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.content.ContextCompat
 import androidx.core.os.LocaleListCompat
@@ -171,7 +172,7 @@ class SettingsFragment : Fragment() {
         val values = arrayOf(ThemeManager.THEME_SYSTEM, ThemeManager.THEME_LIGHT, ThemeManager.THEME_DARK)
         val current = ThemeManager.getTheme(requireContext())
         val idx = values.indexOfFirst { it == current }.takeIf { it >= 0 } ?: 2
-        AlertDialog.Builder(requireContext())
+        MaterialAlertDialogBuilder(requireContext())
             .setTitle(getString(R.string.label_theme))
             .setSingleChoiceItems(options, idx) { dialog, which ->
                 ThemeManager.setTheme(requireContext(), values[which])
@@ -191,7 +192,7 @@ class SettingsFragment : Fragment() {
         val prefs = requireContext().getSharedPreferences("fshu_prefs", Context.MODE_PRIVATE)
         val current = prefs.getString("language", "system") ?: "system"
         val idx = codes.indexOfFirst { it == current }.takeIf { it >= 0 } ?: 0
-        AlertDialog.Builder(requireContext())
+        MaterialAlertDialogBuilder(requireContext())
             .setTitle(getString(R.string.label_language))
             .setSingleChoiceItems(options, idx) { dialog, which ->
                 val code = codes[which]
@@ -276,7 +277,7 @@ class SettingsFragment : Fragment() {
         val values = longArrayOf(30_000L, 60_000L, 300_000L, 1_800_000L)
         val current = Prefs.getAppLockTimeoutMs(requireContext())
         val idx = values.indexOfFirst { it == current }.takeIf { it >= 0 } ?: 1
-        AlertDialog.Builder(requireContext())
+        MaterialAlertDialogBuilder(requireContext())
             .setTitle(getString(R.string.app_lock_timeout_title))
             .setSingleChoiceItems(options, idx) { dialog, which ->
                 Prefs.setAppLockTimeoutMs(requireContext(), values[which])
@@ -342,7 +343,7 @@ class SettingsFragment : Fragment() {
             }
             val pad = (16 * resources.displayMetrics.density).toInt()
             val wrap = FrameLayout(ctx).apply { setPadding(pad, 0, pad, 0); addView(et) }
-            AlertDialog.Builder(ctx)
+            MaterialAlertDialogBuilder(ctx)
                 .setTitle(getString(R.string.dialog_server_url_title))
                 .setView(wrap)
                 .setPositiveButton(getString(R.string.btn_save)) { _, _ ->
@@ -478,7 +479,7 @@ class SettingsFragment : Fragment() {
     private fun setupDataAccount() {
         val ctx = requireContext()
         binding.rowExportData.setOnClickListener {
-            AlertDialog.Builder(ctx)
+            MaterialAlertDialogBuilder(ctx)
                 .setTitle(getString(R.string.export_data_title))
                 .setMessage(getString(R.string.export_data_message_local))
                 .setPositiveButton(getString(R.string.export_confirm)) { _, _ ->
@@ -498,7 +499,7 @@ class SettingsFragment : Fragment() {
         }
         val pad = (16 * resources.displayMetrics.density).toInt()
         val wrap = FrameLayout(ctx).apply { setPadding(pad, 0, pad, 0); addView(et) }
-        val dialog = AlertDialog.Builder(ctx)
+        val dialog = MaterialAlertDialogBuilder(ctx)
             .setTitle(getString(R.string.dialog_delete_account_title))
             .setMessage(getString(R.string.dialog_delete_account_message))
             .setView(wrap)
@@ -542,7 +543,7 @@ class SettingsFragment : Fragment() {
 
     private fun performLocalExport() {
         val ctx = requireContext()
-        val progressDialog = AlertDialog.Builder(ctx)
+        val progressDialog = MaterialAlertDialogBuilder(ctx)
             .setMessage(getString(R.string.export_in_progress))
             .setCancelable(false)
             .show()

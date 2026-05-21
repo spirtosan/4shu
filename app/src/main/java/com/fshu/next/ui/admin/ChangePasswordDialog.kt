@@ -4,6 +4,7 @@ import android.app.Dialog
 import android.os.Bundle
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import androidx.fragment.app.DialogFragment
 import androidx.lifecycle.lifecycleScope
 import com.google.gson.JsonObject
@@ -23,7 +24,7 @@ class ChangePasswordDialog : DialogFragment() {
         val etNew = view.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.etNewPassword)
         val etConfirm = view.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.etConfirmPassword)
 
-        val dialog = AlertDialog.Builder(requireContext())
+        val dialog = MaterialAlertDialogBuilder(requireContext())
             .setTitle(getString(R.string.dialog_change_password_title))
             .setView(view)
             .setPositiveButton(getString(R.string.btn_change), null)

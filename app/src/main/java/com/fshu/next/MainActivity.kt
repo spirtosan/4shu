@@ -19,6 +19,7 @@ import android.view.MenuItem
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
@@ -179,7 +180,7 @@ class MainActivity : AppCompatActivity() {
                     .show(supportFragmentManager, "conn_test")
             },
             onEmergencyCall = { user ->
-                AlertDialog.Builder(this)
+                MaterialAlertDialogBuilder(this)
                     .setTitle(getString(R.string.dialog_emergency_call_title))
                     .setMessage(getString(R.string.dialog_emergency_call_message, user.username))
                     .setPositiveButton(getString(R.string.btn_send_emergency)) { _, _ ->
@@ -234,7 +235,7 @@ class MainActivity : AppCompatActivity() {
                     setPadding(pad, pad / 2, pad, 0)
                     addView(et)
                 }
-                AlertDialog.Builder(this)
+                MaterialAlertDialogBuilder(this)
                     .setTitle(getString(R.string.dialog_nickname_for_title, user.username))
                     .setView(wrap)
                     .setPositiveButton(getString(R.string.btn_save)) { _, _ ->
@@ -381,7 +382,7 @@ R.id.action_admin_panel -> {
                     setPadding(pad, pad / 2, pad, 0)
                     addView(et)
                 }
-                androidx.appcompat.app.AlertDialog.Builder(this)
+                MaterialAlertDialogBuilder(this)
                     .setTitle(getString(R.string.dialog_set_nickname_title))
                     .setMessage(getString(R.string.dialog_set_nickname_message))
                     .setView(wrap)
@@ -422,7 +423,7 @@ R.id.action_admin_panel -> {
                     val scroll = android.widget.ScrollView(this).apply {
                         addView(tv)
                     }
-                    androidx.appcompat.app.AlertDialog.Builder(this)
+                    MaterialAlertDialogBuilder(this)
                         .setTitle(getString(R.string.dialog_crash_logs_title, crashes.size))
                         .setView(scroll)
                         .setPositiveButton(getString(R.string.btn_copy_all)) { _, _ ->
@@ -451,7 +452,7 @@ R.id.action_admin_panel -> {
                         textSize = 11f
                     }
                     val gs = android.widget.ScrollView(this).apply { addView(gv) }
-                    androidx.appcompat.app.AlertDialog.Builder(this)
+                    MaterialAlertDialogBuilder(this)
                         .setTitle("Group Debug Log")
                         .setView(gs)
                         .setPositiveButton(getString(R.string.btn_copy_all)) { _, _ ->
@@ -522,7 +523,7 @@ R.id.action_admin_panel -> {
     }
 
     private fun showEmergencyLocationDialog(user: User) {
-        AlertDialog.Builder(this)
+        MaterialAlertDialogBuilder(this)
             .setTitle(getString(R.string.dialog_emergency_location_title))
             .setMessage(getString(R.string.dialog_emergency_location_message, user.username))
             .setPositiveButton(getString(R.string.btn_send_emergency)) { _, _ ->
@@ -596,7 +597,7 @@ R.id.action_admin_panel -> {
             addView(scroll)
         }
 
-        AlertDialog.Builder(this)
+        MaterialAlertDialogBuilder(this)
             .setTitle(getString(R.string.dialog_new_group_title))
             .setView(container)
             .setPositiveButton(getString(R.string.btn_create)) { _, _ ->
@@ -893,7 +894,7 @@ R.id.action_admin_panel -> {
             getString(R.string.dialog_delete_chat_body, displayName)
         else
             getString(R.string.dialog_delete_chat_body, displayName)
-        androidx.appcompat.app.AlertDialog.Builder(this)
+        MaterialAlertDialogBuilder(this)
             .setTitle(getString(R.string.dialog_delete_chat_title))
             .setMessage(body)
             .setPositiveButton(getString(R.string.btn_delete)) { _, _ ->
@@ -976,7 +977,7 @@ R.id.action_admin_panel -> {
                 getString(R.string.mute_24h),
                 getString(R.string.mute_forever)
             )
-            androidx.appcompat.app.AlertDialog.Builder(this)
+            MaterialAlertDialogBuilder(this)
                 .setTitle(getString(R.string.dialog_mute_title))
                 .setItems(options) { _, which ->
                     val muteUntil: Long? = when (which) {

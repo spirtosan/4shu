@@ -16,6 +16,7 @@ import android.widget.LinearLayout
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
@@ -153,7 +154,7 @@ class MyProfileActivity : AppCompatActivity() {
             inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
             maxLines = 2
         }
-        AlertDialog.Builder(this)
+        MaterialAlertDialogBuilder(this)
             .setTitle(getString(R.string.btn_set_secret_question))
             .setView(LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
@@ -178,7 +179,7 @@ class MyProfileActivity : AppCompatActivity() {
             hint = getString(R.string.hint_secret_answer)
             inputType = android.text.InputType.TYPE_CLASS_TEXT
         }
-        AlertDialog.Builder(this)
+        MaterialAlertDialogBuilder(this)
             .setTitle(question)
             .setView(LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
@@ -230,7 +231,7 @@ class MyProfileActivity : AppCompatActivity() {
         val me = Prefs.getUsername(this)
         val hasPhoto = File(filesDir, "avatars/$me.jpg").exists()
         val options = if (hasPhoto) arrayOf("Change photo", "Remove photo") else arrayOf("Change photo")
-        AlertDialog.Builder(this)
+        MaterialAlertDialogBuilder(this)
             .setTitle("Profile photo")
             .setItems(options) { _, which ->
                 if (which == 0) pickAvatarLauncher.launch("image/*")

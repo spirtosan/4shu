@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="ShapeAppearance.Fshu.Dialog" parent="">
+    <style name="ShapeAppearance.Fshu.Dialog" parent="ShapeAppearance.MaterialComponents.MediumComponent">
         <item name="cornerFamily">rounded</item>
-        <item name="cornerSize">@dimen/radius_dialog</item>
+        <item name="cornerSize">28dp</item>
     </style>
 
-    <style name="ThemeOverlay.Fshu.MaterialAlertDialog" parent="ThemeOverlay.MaterialComponents.MaterialAlertDialog">
-        <item name="shapeAppearanceMediumComponent">@style/ShapeAppearance.Fshu.Dialog</item>
+    <style name="ThemeOverlay.Fshu.Dialog" parent="ThemeOverlay.MaterialComponents.MaterialAlertDialog">
+        <item name="shapeAppearanceOverlay">@style/ShapeAppearance.Fshu.Dialog</item>
     </style>
 
     <style name="Theme.Fshu" parent="Theme.MaterialComponents.DayNight.NoActionBar">
@@ -33,7 +33,7 @@
         <item name="toolbarStyle">@style/Widget.Fshu.Toolbar</item>
         <item name="colorSwitchThumbNormal">@color/light_text_tertiary</item>
         <item name="materialCardViewStyle">@style/Widget.Fshu.Card</item>
-        <item name="materialAlertDialogTheme">@style/ThemeOverlay.Fshu.MaterialAlertDialog</item>
+        <item name="materialAlertDialogTheme">@style/ThemeOverlay.Fshu.Dialog</item>
     </style>
 
     <style name="Widget.Fshu.Toolbar" parent="Widget.MaterialComponents.Toolbar">

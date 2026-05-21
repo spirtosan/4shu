@@ -10,6 +10,7 @@ import android.view.ViewGroup
 import android.widget.EditText
 import android.widget.FrameLayout
 import androidx.appcompat.app.AlertDialog
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -99,7 +100,7 @@ class DevicesActivity : AppCompatActivity() {
             }
             val pad = (16 * resources.displayMetrics.density).toInt()
             val wrap = FrameLayout(this).apply { setPadding(pad, 0, pad, 0); addView(et) }
-            AlertDialog.Builder(this)
+            MaterialAlertDialogBuilder(this)
                 .setTitle(getString(R.string.dialog_device_name_title))
                 .setView(wrap)
                 .setPositiveButton(getString(R.string.btn_save)) { _, _ ->

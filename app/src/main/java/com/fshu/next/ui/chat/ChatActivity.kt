@@ -40,6 +40,7 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.appcompat.app.AlertDialog
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import androidx.appcompat.app.AppCompatActivity
 import coil.load
 import coil.transform.CircleCropTransformation
@@ -381,7 +382,7 @@ class ChatActivity : AppCompatActivity() {
                 setPadding(pad, pad / 2, pad, 0)
                 addView(et)
             }
-            AlertDialog.Builder(this)
+            MaterialAlertDialogBuilder(this)
                 .setTitle(getString(R.string.dialog_edit_message_title))
                 .setView(wrap)
                 .setPositiveButton(getString(R.string.btn_save)) { _, _ ->
@@ -400,7 +401,7 @@ class ChatActivity : AppCompatActivity() {
             val myEmoji = findMyEmoji(msg)
             val emojis = arrayOf("👍", "👎", "❤️", "😂", "😮", "😢", "😡", "🔥", "👏", "🎉")
             val labels = emojis.map { if (it == myEmoji) "$it ✓" else it }.toTypedArray()
-            AlertDialog.Builder(this)
+            MaterialAlertDialogBuilder(this)
                 .setTitle(getString(R.string.dialog_react_title))
                 .setItems(labels) { _, which ->
                     val picked = emojis[which]
@@ -420,7 +421,7 @@ class ChatActivity : AppCompatActivity() {
             val canDeleteForAll = count == 1 && single?.isSent == true && (single.remoteId) > 0L
 
             if (canDeleteForAll && single != null) {
-                AlertDialog.Builder(this)
+                MaterialAlertDialogBuilder(this)
                     .setTitle(getString(R.string.dialog_delete_message_title))
                     .setItems(arrayOf(getString(R.string.delete_option_for_everyone), getString(R.string.delete_option_for_me))) { _, which ->
                         if (which == 0) vm.deleteForEveryone(single)
@@ -430,7 +431,7 @@ class ChatActivity : AppCompatActivity() {
                     .setNegativeButton(getString(R.string.btn_cancel), null)
                     .show()
             } else {
-                AlertDialog.Builder(this)
+                MaterialAlertDialogBuilder(this)
                     .setTitle(resources.getQuantityString(R.plurals.dialog_delete_messages_title, count, count))
                     .setMessage(resources.getQuantityString(R.plurals.dialog_delete_messages_body, count))
                     .setPositiveButton(getString(R.string.btn_delete)) { _, _ ->
@@ -631,13 +632,13 @@ class ChatActivity : AppCompatActivity() {
                         if (removedId == groupId) runOnUiThread {
                             val reason = json.get("reason")?.asString
                             when (reason) {
-                                "kicked" -> AlertDialog.Builder(this@ChatActivity)
+                                "kicked" -> MaterialAlertDialogBuilder(this@ChatActivity)
                                     .setTitle(getString(R.string.dialog_removed_from_group_title))
                                     .setMessage(getString(R.string.dialog_removed_from_group_message))
                                     .setPositiveButton(getString(R.string.btn_ok)) { _, _ -> finish() }
                                     .setCancelable(false)
                                     .show()
-                                "deleted" -> AlertDialog.Builder(this@ChatActivity)
+                                "deleted" -> MaterialAlertDialogBuilder(this@ChatActivity)
                                     .setTitle(getString(R.string.dialog_group_deleted_title))
                                     .setMessage(getString(R.string.dialog_group_deleted_message))
                                     .setPositiveButton(getString(R.string.btn_ok)) { _, _ -> finish() }
@@ -722,7 +723,7 @@ class ChatActivity : AppCompatActivity() {
             getString(R.string.contact_pick_phone),
             getString(R.string.contact_pick_fshu)
         )
-        AlertDialog.Builder(this)
+        MaterialAlertDialogBuilder(this)
             .setTitle(getString(R.string.contact_pick_title))
             .setItems(options) { _, which ->
                 when (which) {
@@ -757,7 +758,7 @@ class ChatActivity : AppCompatActivity() {
                     return@withContext
                 }
                 val names = items.map { it.displayName }.toTypedArray()
-                AlertDialog.Builder(this@ChatActivity)
+                MaterialAlertDialogBuilder(this@ChatActivity)
                     .setTitle(getString(R.string.contact_pick_fshu))
                     .setItems(names) { _, which ->
                         val contact = items[which]
@@ -919,7 +920,7 @@ class ChatActivity : AppCompatActivity() {
             R.id.action_group_info -> { showGroupInfo(); return true }
             R.id.action_leave_group -> {
                 val gid = groupId ?: return true
-                AlertDialog.Builder(this)
+                MaterialAlertDialogBuilder(this)
                     .setTitle(getString(R.string.dialog_leave_group_title, title))
                     .setMessage(getString(R.string.dialog_leave_group_confirm))
                     .setPositiveButton(getString(R.string.btn_leave)) { _, _ ->
@@ -938,7 +939,7 @@ class ChatActivity : AppCompatActivity() {
             }
             R.id.action_delete_group -> {
                 val gid = groupId ?: return true
-                AlertDialog.Builder(this)
+                MaterialAlertDialogBuilder(this)
                     .setTitle(getString(R.string.dialog_delete_group_title, title))
                     .setMessage(getString(R.string.dialog_delete_group_message))
                     .setPositiveButton(getString(R.string.btn_delete)) { _, _ ->
@@ -1011,7 +1012,7 @@ class ChatActivity : AppCompatActivity() {
                         System.currentTimeMillis() + 24 * 60 * 60_000L,
                         -1L
                     )
-                    AlertDialog.Builder(this)
+                    MaterialAlertDialogBuilder(this)
                         .setTitle(getString(R.string.dialog_mute_title))
                         .setItems(options) { _, which ->
                             val until = durations[which]
@@ -1138,7 +1139,7 @@ class ChatActivity : AppCompatActivity() {
             addView(outer)
         }
 
-        AlertDialog.Builder(this)
+        MaterialAlertDialogBuilder(this)
             .setTitle(title)
             .setView(scroll)
             .setPositiveButton(getString(R.string.btn_save)) { _, _ ->
@@ -1408,7 +1409,7 @@ class ChatActivity : AppCompatActivity() {
                             minHeight = 0
                             minimumHeight = 0
                             setOnClickListener {
-                                AlertDialog.Builder(this@ChatActivity)
+                                MaterialAlertDialogBuilder(this@ChatActivity)
                                     .setTitle(getString(R.string.dialog_remove_member_title, nick))
                                     .setPositiveButton(getString(R.string.btn_remove)) { _, _ ->
                                         com.fshu.next.data.remote.WebSocketClient.send(mapOf(
@@ -1460,7 +1461,7 @@ class ChatActivity : AppCompatActivity() {
                     )
                 })
 
-                val dialog = AlertDialog.Builder(this@ChatActivity)
+                val dialog = MaterialAlertDialogBuilder(this@ChatActivity)
                     .setTitle(group.name)
                     .setView(root)
                     .setNegativeButton(getString(R.string.btn_close), null)
@@ -1474,7 +1475,7 @@ class ChatActivity : AppCompatActivity() {
 
                 if (myRole == "owner") {
                     dialog.setButton(DialogInterface.BUTTON_POSITIVE, getString(R.string.btn_delete_group)) { _, _ ->
-                        AlertDialog.Builder(this@ChatActivity)
+                        MaterialAlertDialogBuilder(this@ChatActivity)
                             .setTitle(getString(R.string.dialog_delete_group_title, group.name))
                             .setMessage(getString(R.string.dialog_delete_group_message))
                             .setPositiveButton(getString(R.string.btn_delete)) { _, _ ->
@@ -1488,7 +1489,7 @@ class ChatActivity : AppCompatActivity() {
                     }
                 } else {
                     dialog.setButton(DialogInterface.BUTTON_POSITIVE, getString(R.string.btn_leave_group)) { _, _ ->
-                        AlertDialog.Builder(this@ChatActivity)
+                        MaterialAlertDialogBuilder(this@ChatActivity)
                             .setTitle(getString(R.string.dialog_leave_group_title, group.name))
                             .setPositiveButton(getString(R.string.btn_leave)) { _, _ ->
                                 com.fshu.next.data.remote.WebSocketClient.send(mapOf(
@@ -1522,7 +1523,7 @@ class ChatActivity : AppCompatActivity() {
                 val names = candidates.map { c ->
                     Prefs.getContactNickname(this@ChatActivity, c.contact).takeIf { it.isNotBlank() } ?: c.contact
                 }.toTypedArray()
-                AlertDialog.Builder(this@ChatActivity)
+                MaterialAlertDialogBuilder(this@ChatActivity)
                     .setTitle(getString(R.string.btn_add_member))
                     .setItems(names) { _, index ->
                         addMemberByUsername(groupId, existingMembers, candidates[index].contact)

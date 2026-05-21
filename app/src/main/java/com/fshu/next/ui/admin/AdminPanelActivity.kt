@@ -13,6 +13,7 @@ import android.widget.Button
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -117,7 +118,7 @@ class AdminPanelActivity : AppCompatActivity() {
             val filesCount = result.get("filesCount")?.asInt ?: 0
             val filesMB = result.get("filesMB")?.asString ?: "0 MB"
             val historyCount = result.get("historyCount")?.asInt ?: 0
-            androidx.appcompat.app.AlertDialog.Builder(this@AdminPanelActivity)
+            MaterialAlertDialogBuilder(this@AdminPanelActivity)
                 .setTitle(getString(R.string.dialog_server_info_title))
                 .setMessage(getString(R.string.admin_server_info_format, disk, filesCount, filesMB, historyCount))
                 .setPositiveButton(getString(R.string.btn_ok), null)
@@ -246,7 +247,7 @@ class AdminPanelActivity : AppCompatActivity() {
         val view = layoutInflater.inflate(R.layout.dialog_add_user, null)
         val etUsername = view.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.etDialogUsername)
         val etPassword = view.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.etDialogPassword)
-        AlertDialog.Builder(this)
+        MaterialAlertDialogBuilder(this)
             .setTitle(getString(R.string.dialog_add_user_title))
             .setView(view)
             .setPositiveButton(getString(R.string.btn_add)) { _, _ ->
@@ -265,7 +266,7 @@ class AdminPanelActivity : AppCompatActivity() {
     private fun showResetPasswordDialog(user: AdminUser) {
         val view = layoutInflater.inflate(R.layout.dialog_reset_password, null)
         val etPassword = view.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.etDialogNewPassword)
-        AlertDialog.Builder(this)
+        MaterialAlertDialogBuilder(this)
             .setTitle(getString(R.string.dialog_reset_password_title, user.username))
             .setView(view)
             .setPositiveButton(getString(R.string.btn_reset)) { _, _ ->
@@ -281,7 +282,7 @@ class AdminPanelActivity : AppCompatActivity() {
     }
 
     private fun showRemoveDialog(user: AdminUser) {
-        AlertDialog.Builder(this)
+        MaterialAlertDialogBuilder(this)
             .setTitle(getString(R.string.dialog_remove_user_title))
             .setMessage(getString(R.string.dialog_remove_user_message, user.username))
             .setPositiveButton(getString(R.string.btn_remove)) { _, _ ->

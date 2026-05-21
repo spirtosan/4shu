@@ -13,6 +13,7 @@ import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
@@ -97,7 +98,7 @@ class UserProfileActivity : AppCompatActivity() {
                 setPadding(pad, pad / 2, pad, 0)
                 addView(et)
             }
-            AlertDialog.Builder(this)
+            MaterialAlertDialogBuilder(this)
                 .setTitle("Send Contact Request")
                 .setView(wrap)
                 .setPositiveButton("Send") { _, _ ->
@@ -117,7 +118,7 @@ class UserProfileActivity : AppCompatActivity() {
         }
 
         binding.btnBlock.setOnClickListener {
-            AlertDialog.Builder(this)
+            MaterialAlertDialogBuilder(this)
                 .setTitle("Block $targetUsername?")
                 .setMessage("They won't be able to contact you.")
                 .setPositiveButton("Block") { _, _ ->
@@ -132,7 +133,7 @@ class UserProfileActivity : AppCompatActivity() {
         }
 
         binding.btnRemoveContact.setOnClickListener {
-            AlertDialog.Builder(this)
+            MaterialAlertDialogBuilder(this)
                 .setTitle(getString(R.string.remove_contact_title))
                 .setMessage(getString(R.string.remove_contact_message, targetUsername))
                 .setPositiveButton(getString(R.string.btn_remove_contact)) { _, _ ->
@@ -360,7 +361,7 @@ class UserProfileActivity : AppCompatActivity() {
                 System.currentTimeMillis() + 24 * 60 * 60_000L,
                 -1L
             )
-            AlertDialog.Builder(this)
+            MaterialAlertDialogBuilder(this)
                 .setTitle(getString(R.string.dialog_mute_title))
                 .setItems(options) { _, which ->
                     val me = Prefs.getUsername(this)
