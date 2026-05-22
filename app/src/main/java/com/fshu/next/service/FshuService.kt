@@ -74,6 +74,7 @@ class FshuService : Service() {
         private const val CHANNEL_MESSAGES = "fshu_messages_v3"
         // v3: enableVibration(true) + vibration pattern (channel settings are immutable after first creation)
         private const val CHANNEL_CALLS = "fshu_calls_v3"
+        private const val CHANNEL_CALLS_MUTED = "fshu_calls_muted"
         private const val CHANNEL_CALLS_LEGACY = "fshu_calls"
         private const val CHANNEL_GROUPS = "fshu_groups_v1"
 
@@ -1563,16 +1564,15 @@ class FshuService : Service() {
             isVideo     -> "Incoming video call"
             else        -> "Incoming call"
         }
-        val notif = NotificationCompat.Builder(this, CHANNEL_CALLS)
+        val notif = NotificationCompat.Builder(this, if (isMuted) CHANNEL_CALLS_MUTED else CHANNEL_CALLS)
             .setContentTitle(notifTitle)
             .setContentText(from)
             .setSmallIcon(R.drawable.ic_notification)
-            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setPriority(if (isMuted) NotificationCompat.PRIORITY_HIGH else NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_CALL)
             .setFullScreenIntent(pi, true)
             .setContentIntent(pi)
             .setOngoing(true)
-            .setVibrate(if (isMuted) longArrayOf(0L) else longArrayOf(0, 1000, 1000, 1000, 1000, 1000, 1000))
             .build()
         getSystemService(NotificationManager::class.java).notify(id, notif)
 
@@ -2289,6 +2289,13 @@ class FshuService : Service() {
                 setSound(null, null)
                 enableVibration(true)
                 setVibrationPattern(longArrayOf(0, 1000, 1000, 1000, 1000, 1000, 1000))
+                lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
+            }
+        )
+        nm.createNotificationChannel(
+            NotificationChannel(CHANNEL_CALLS_MUTED, getString(R.string.notif_channel_calls), NotificationManager.IMPORTANCE_HIGH).apply {
+                setSound(null, null)
+                enableVibration(false)
                 lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
             }
         )
