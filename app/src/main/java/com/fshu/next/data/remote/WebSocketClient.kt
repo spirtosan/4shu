@@ -187,6 +187,11 @@ object WebSocketClient {
                             busEvent.addProperty("type", "auth-ok")
                             busEvent.addProperty("admin", json.get("admin")?.asBoolean ?: false)
                             json.get("profile")?.takeIf { !it.isJsonNull }?.let { busEvent.add("profile", it) }
+                            json.get("turnUsername")?.takeIf { !it.isJsonNull }?.let { busEvent.add("turnUsername", it) }
+                            json.get("turnPassword")?.takeIf { !it.isJsonNull }?.let { busEvent.add("turnPassword", it) }
+                            json.get("contactNicknames")?.takeIf { !it.isJsonNull }?.let { busEvent.add("contactNicknames", it) }
+                            json.get("autoLocationPeers")?.takeIf { !it.isJsonNull }?.let { busEvent.add("autoLocationPeers", it) }
+                            json.get("mutes")?.takeIf { !it.isJsonNull }?.let { busEvent.add("mutes", it) }
                             handlers.forEach { it(busEvent) }
                             startHeartbeat(webSocket)
                             onConnected()

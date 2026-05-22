@@ -98,6 +98,12 @@ class WebRTCManager(
                     .setPassword(turnPassword)
                     .createIceServer()
             )
+            servers.add(
+                PeerConnection.IceServer.builder("turn:$host:3478?transport=tcp")
+                    .setUsername(turnUsername)
+                    .setPassword(turnPassword)
+                    .createIceServer()
+            )
         }
         servers
     } catch (e: Exception) {

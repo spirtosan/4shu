@@ -14,7 +14,6 @@ Current as of DB work through Phase 5.
 | avatar_path | TEXT | Path to avatar file |
 | last_seen | INTEGER | Timestamp ms |
 | created_at | INTEGER | Timestamp ms |
-| trust_level | TEXT | family/trusted/contact/stranger |
 | public_key | TEXT | X25519 public key hex |
 | status | TEXT | active/deleted |
 | email | TEXT | Optional, unique, used for search/reset |
@@ -27,6 +26,7 @@ Current as of DB work through Phase 5.
 | phone_searchable | INTEGER | 1=searchable (default) |
 | secret_question | TEXT | Account recovery question |
 | secret_answer_hash | TEXT | bcrypt hash of answer (lowercased) |
+| hide_presence | INTEGER | DEFAULT 0; 1=hide last-seen from non-contacts |
 
 ### sessions
 | Column | Type | Notes |
@@ -125,7 +125,8 @@ Current as of DB work through Phase 5.
 | created_at | INTEGER | |
 | updated_at | INTEGER | |
 | expires_at | INTEGER | pending expires after 90 days |
-| trust_level | TEXT | DEFAULT "contact" |
+| allow_emergency_call | INTEGER | null=not set, 1=allowed, 0=denied |
+| allow_emergency_location | INTEGER | null=not set, 1=allowed, 0=denied |
 | PRIMARY KEY | | (owner, contact) |
 
 ### blocks
@@ -143,7 +144,8 @@ Current as of DB work through Phase 5.
 | target | TEXT | Muted contact or group |
 | target_type | TEXT | DEFAULT "contact" |
 | created_at | INTEGER | |
-| PRIMARY KEY | | (owner, target) |
+| mute_until | INTEGER | null=indefinite |
+| PRIMARY KEY | | (owner, target, target_type) |
 
 ### auto_location
 | Column | Type | Notes |
@@ -205,7 +207,7 @@ Current as of DB work through Phase 5.
 ---
 
 ## Android — Room SQLite (local device DB)
-Current version: **19**
+Current version: **25**
 
 ### Key entities
 | Entity | Table | Notes |
@@ -248,6 +250,8 @@ Current version: **19**
 | reactions | String | JSON array of {from, emoji}; "" = none |
 | voiceDuration | Int | seconds; 0 for non-voice |
 | voiceWaveform | String? | compact JSON float array of amplitude samples |
+| encryptedBlob | Int | 0/1; 1 = content is raw encrypted bytes, not JSON |
+| isRead | Int | 0/1 NOT NULL DEFAULT 1; 0 = unread incoming message |
 
 ### Contact entity key fields
 | Field | Type | Notes |
@@ -259,13 +263,18 @@ Current version: **19**
 | createdAt | Long | |
 | updatedAt | Long | |
 | expiresAt | Long | |
-| trustLevel | String | DEFAULT "contact" (column: trust_level) |
+| allowEmergencyCall | Int? | null=not set, 1=allowed, 0=denied (column: allow_emergency_call) |
+| allowEmergencyLocation | Int? | null=not set, 1=allowed, 0=denied (column: allow_emergency_location) |
 
 ### Mute entity fields
 | Field | Type | Notes |
 |-------|------|-------|
-| target | String PK | muted contact or group ID |
+| owner | String | who set the mute |
+| target | String | muted contact or group ID |
 | targetType | String | contact/group (column: target_type) |
+| createdAt | Long | epoch ms (column: created_at) |
+| muteUntil | Long? | epoch ms; null = indefinite (column: mute_until) |
+| PRIMARY KEY | | (owner, target, targetType) |
 
 ### Migration history
 | Version | Changes |
@@ -289,3 +298,9 @@ Current version: **19**
 | 17 | Added trust_level to contacts |
 | 18 | Created mutes table (initial schema with DEFAULT 'contact') |
 | 19 | Dropped and recreated mutes table (removed DEFAULT from target_type) |
+| 20 | Added allow_emergency_call to contacts |
+| 21 | Added allow_emergency_location to contacts |
+| 22 | Added encryptedBlob to messages |
+| 23 | Recreated mutes table: added owner, created_at, mute_until; PK changed to (owner, target, target_type) |
+| 24 | Recreated contacts table: dropped trust_level column |
+| 25 | Added isRead to messages |
