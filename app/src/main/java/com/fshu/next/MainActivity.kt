@@ -1,8 +1,6 @@
 package com.fshu.next
 
-import android.Manifest
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
@@ -47,7 +45,6 @@ import com.fshu.next.ui.login.LoginActivity
 import com.fshu.next.ui.search.SearchActivity
 import com.fshu.next.util.CrashHandler
 import com.fshu.next.util.CryptoHelper
-import com.fshu.next.util.LocationHelper
 import com.fshu.next.util.MessageBus
 import com.fshu.next.data.local.Mute
 import com.fshu.next.util.Prefs
@@ -72,22 +69,10 @@ class MainActivity : AppCompatActivity() {
     private lateinit var adapter: UserAdapter
     private var favorites = mutableSetOf<String>()
     private val mutedTargets = mutableSetOf<String>()
-    private var pendingEmergencyLocationUser: User? = null
     private var enrichJob: kotlinx.coroutines.Job? = null
     private var refreshJob: kotlinx.coroutines.Job? = null
     private var pendingShareUri: android.net.Uri? = null
     private var pendingShareText: String? = null
-
-    private val requestLocationPermission = registerForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        if (granted) {
-            pendingEmergencyLocationUser?.let { showEmergencyLocationDialog(it) }
-        } else {
-            Toast.makeText(this, getString(R.string.toast_location_permission_required), Toast.LENGTH_SHORT).show()
-        }
-        pendingEmergencyLocationUser = null
-    }
 
     private val pickAvatarLauncher = registerForActivityResult(
         ActivityResultContracts.GetContent()
@@ -162,96 +147,10 @@ class MainActivity : AppCompatActivity() {
                     startActivity(chatIntent)
                 }
             },
-            onCall = { user ->
-                startActivity(Intent(this, CallActivity::class.java).apply {
-                    putExtra(CallActivity.EXTRA_PEER, user.username)
-                    putExtra(CallActivity.EXTRA_IS_CALLER, true)
-                })
-            },
-            onVideoCall = { user ->
-                startActivity(Intent(this, CallActivity::class.java).apply {
-                    putExtra(CallActivity.EXTRA_PEER, user.username)
-                    putExtra(CallActivity.EXTRA_IS_CALLER, true)
-                    putExtra(CallActivity.EXTRA_IS_VIDEO_CALL, true)
-                })
-            },
-            onTestConnection = { user ->
-                ConnectionTestSheet.newInstance(user.username, user.online)
-                    .show(supportFragmentManager, "conn_test")
-            },
-            onEmergencyCall = { user ->
-                MaterialAlertDialogBuilder(this)
-                    .setTitle(getString(R.string.dialog_emergency_call_title))
-                    .setMessage(getString(R.string.dialog_emergency_call_message, user.username))
-                    .setPositiveButton(getString(R.string.btn_send_emergency)) { _, _ ->
-                        startActivity(Intent(this, CallActivity::class.java).apply {
-                            putExtra(CallActivity.EXTRA_PEER, user.username)
-                            putExtra(CallActivity.EXTRA_IS_CALLER, true)
-                            putExtra(CallActivity.EXTRA_IS_EMERGENCY, true)
-                        })
-                    }
-                    .setNegativeButton(getString(R.string.btn_cancel), null)
-                    .show()
-            },
-            onEmergencyWithLocation = { user ->
-                if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
-                    != PackageManager.PERMISSION_GRANTED) {
-                    pendingEmergencyLocationUser = user
-                    requestLocationPermission.launch(Manifest.permission.ACCESS_FINE_LOCATION)
-                } else {
-                    showEmergencyLocationDialog(user)
-                }
-            },
-            onRequestLocation = { user ->
-                lifecycleScope.launch(Dispatchers.IO) {
-                    val me = Prefs.getUsername(this@MainActivity)
-                    val requestId = UUID.randomUUID().toString()
-                    val ts = System.currentTimeMillis()
-                    val contentJson = """{"requestId":"$requestId"}"""
-                    AppDatabase.getInstance(this@MainActivity).messageDao().insert(
-                        Message(from = me, to = user.username, content = contentJson,
-                            type = "location-request", timestamp = ts, isSent = true, status = "SENT")
-                    )
-                    WebSocketClient.send(mapOf(
-                        "type" to "location-request", "from" to me, "to" to user.username,
-                        "requestId" to requestId, "timestamp" to ts
-                    ))
-                }
-            },
             onToggleFavorite = { user -> toggleFavorite(user.username) },
             onMuteToggle = { user -> showMuteDialog(user) },
             onDeleteChat = { user -> confirmDeleteChat(user) },
             onMarkRead = { user -> markChatRead(user) },
-            onSetNickname = { user ->
-                val current = Prefs.getContactNickname(this, user.username)
-                val et = android.widget.EditText(this).apply {
-                    setText(current)
-                    hint = getString(R.string.hint_nickname_for_contact, user.username)
-                    inputType = android.text.InputType.TYPE_CLASS_TEXT or
-                        android.text.InputType.TYPE_TEXT_FLAG_CAP_WORDS
-                    filters = arrayOf(android.text.InputFilter.LengthFilter(30))
-                }
-                val pad = (16 * resources.displayMetrics.density).toInt()
-                val wrap = android.widget.FrameLayout(this).apply {
-                    setPadding(pad, pad / 2, pad, 0)
-                    addView(et)
-                }
-                MaterialAlertDialogBuilder(this)
-                    .setTitle(getString(R.string.dialog_nickname_for_title, user.username))
-                    .setView(wrap)
-                    .setPositiveButton(getString(R.string.btn_save)) { _, _ ->
-                        val nick = et.text.toString().trim()
-                        Prefs.setContactNickname(this, user.username, nick)
-                        WebSocketClient.send(mapOf(
-                            "type" to "set-contact-nickname",
-                            "contact" to user.username,
-                            "nickname" to nick
-                        ))
-                        adapter.notifyDataSetChanged()
-                    }
-                    .setNegativeButton(getString(R.string.btn_cancel), null)
-                    .show()
-            },
         )
         // Observe group list from Room — groups appear at the top of the list
         AppDatabase.getInstance(this).groupDao().getAllGroups().observe(this) { groups ->
@@ -521,40 +420,6 @@ R.id.action_admin_panel -> {
         } catch (e: Exception) {
             Log.e("MainActivity", "loadMyAvatar failed", e)
         }
-    }
-
-    private fun showEmergencyLocationDialog(user: User) {
-        MaterialAlertDialogBuilder(this)
-            .setTitle(getString(R.string.dialog_emergency_location_title))
-            .setMessage(getString(R.string.dialog_emergency_location_message, user.username))
-            .setPositiveButton(getString(R.string.btn_send_emergency)) { _, _ ->
-                startActivity(Intent(this, CallActivity::class.java).apply {
-                    putExtra(CallActivity.EXTRA_PEER, user.username)
-                    putExtra(CallActivity.EXTRA_IS_CALLER, true)
-                    putExtra(CallActivity.EXTRA_IS_EMERGENCY, true)
-                })
-                lifecycleScope.launch(Dispatchers.IO) {
-                    val me = Prefs.getUsername(this@MainActivity)
-                    val location = LocationHelper.getCurrentLocation(this@MainActivity)
-                    if (location != null) {
-                        val mapsUrl = LocationHelper.buildMapsUrl(location.latitude, location.longitude)
-                        val ts = System.currentTimeMillis()
-                        val contentJson = """{"lat":${location.latitude},"lon":${location.longitude},"accuracy":${location.accuracy},"timestamp":$ts,"mapsUrl":"$mapsUrl"}"""
-                        val id = AppDatabase.getInstance(this@MainActivity).messageDao().insert(
-                            Message(from = me, to = user.username, content = contentJson,
-                                type = "location", timestamp = ts, isSent = true, status = "SENDING")
-                        )
-                        WebSocketClient.send(mapOf(
-                            "type" to "emergency-location", "from" to me, "to" to user.username,
-                            "lat" to location.latitude, "lon" to location.longitude,
-                            "accuracy" to location.accuracy, "timestamp" to ts,
-                            "messageId" to id
-                        ))
-                    }
-                }
-            }
-            .setNegativeButton(getString(R.string.btn_cancel), null)
-            .show()
     }
 
     private fun showNewGroupDialog() {

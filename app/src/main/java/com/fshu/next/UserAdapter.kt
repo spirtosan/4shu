@@ -5,8 +5,6 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Typeface
-import android.text.SpannableString
-import android.text.style.ForegroundColorSpan
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import android.widget.PopupMenu
@@ -29,13 +27,6 @@ import kotlin.math.absoluteValue
 class UserAdapter(
     private val users: List<User>,
     private val onClick: (User) -> Unit,
-    private val onCall: (User) -> Unit = {},
-    private val onVideoCall: (User) -> Unit = {},
-    private val onTestConnection: (User) -> Unit = {},
-    private val onEmergencyCall: (User) -> Unit = {},
-    private val onEmergencyWithLocation: (User) -> Unit = {},
-    private val onRequestLocation: (User) -> Unit = {},
-    private val onSetNickname: (User) -> Unit = {},
     private val onToggleFavorite: (User) -> Unit = {},
     private val onMuteToggle: (User) -> Unit = {},
     private val onDeleteChat: (User) -> Unit = {},
@@ -218,24 +209,11 @@ class UserAdapter(
         h.binding.btnMore.setOnClickListener { anchor ->
             PopupMenu(anchor.context, anchor).apply {
                 menuInflater.inflate(R.menu.menu_user, menu)
-                for (id in listOf(R.id.action_user_emergency_call, R.id.action_user_emergency_location)) {
-                    menu.findItem(id)?.let { item ->
-                        val s = SpannableString(item.title)
-                        s.setSpan(ForegroundColorSpan(Color.parseColor("#E53935")), 0, s.length, 0)
-                        item.title = s
-                    }
-                }
                 menu.findItem(R.id.action_user_mute)?.title =
                     if (user.isMuted) anchor.context.getString(R.string.action_unmute)
                     else anchor.context.getString(R.string.action_mute)
                 setOnMenuItemClickListener { item ->
                     when (item.itemId) {
-                        R.id.action_user_call -> { onCall(user); true }
-                        R.id.action_user_video_call -> { onVideoCall(user); true }
-                        R.id.action_user_test_connection -> { onTestConnection(user); true }
-                        R.id.action_user_emergency_call -> { onEmergencyCall(user); true }
-                        R.id.action_user_emergency_location -> { onEmergencyWithLocation(user); true }
-                        R.id.action_user_set_nickname -> { onSetNickname(user); true }
                         R.id.action_user_mute -> { onMuteToggle(user); true }
                         R.id.action_mark_read -> { onMarkRead(user); true }
                         R.id.action_delete_chat -> { onDeleteChat(user); true }
