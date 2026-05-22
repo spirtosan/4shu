@@ -20,7 +20,7 @@
             app:title="@string/nav_contacts"
             app:titleTextColor="?attr/colorTextPrimary"/>
 
-        <!-- Pending requests row (gone when count = 0) -->
+        <!-- Requests row — always visible; badge shown only when count > 0 -->
         <LinearLayout
             android:id="@+id/ll_requests_section"
             android:layout_width="match_parent"
@@ -32,7 +32,7 @@
             android:clickable="true"
             android:focusable="true"
             android:background="?attr/selectableItemBackground"
-            android:visibility="gone">
+            android:visibility="visible">
 
             <ImageView
                 android:layout_width="22dp"
@@ -58,7 +58,8 @@
                 android:background="@drawable/bg_badge"
                 android:textColor="#FFFFFF"
                 android:textSize="11sp"
-                android:textStyle="bold"/>
+                android:textStyle="bold"
+                android:visibility="gone"/>
 
         </LinearLayout>
 
@@ -67,7 +68,7 @@
             android:layout_width="match_parent"
             android:layout_height="1dp"
             android:background="@color/bg_tertiary"
-            android:visibility="gone"/>
+            android:visibility="visible"/>
 
         <!-- Contacts label -->
         <TextView

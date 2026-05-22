@@ -107,9 +107,8 @@ class ContactsFragment : Fragment() {
 
     private fun updateRequestsRow(count: Int) {
         val b = _binding ?: return
-        b.llRequestsSection.visibility = if (count > 0) View.VISIBLE else View.GONE
-        b.dividerRequests.visibility = if (count > 0) View.VISIBLE else View.GONE
-        b.tvRequestsCount.text = if (count > 9) "9+" else count.toString()
+        b.tvRequestsCount.visibility = if (count > 0) View.VISIBLE else View.GONE
+        if (count > 0) b.tvRequestsCount.text = if (count > 9) "9+" else count.toString()
     }
 
     override fun onDestroyView() {
