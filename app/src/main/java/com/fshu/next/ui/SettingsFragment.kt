@@ -488,7 +488,25 @@ class SettingsFragment : Fragment() {
                 .setNegativeButton(getString(R.string.btn_cancel), null)
                 .show()
         }
+        binding.rowLogout.setOnClickListener { showLogoutDialog() }
         binding.btnDeleteAccount.setOnClickListener { showDeleteAccountDialog() }
+    }
+
+    private fun showLogoutDialog() {
+        val ctx = requireContext()
+        MaterialAlertDialogBuilder(ctx)
+            .setTitle(getString(R.string.dialog_logout_title))
+            .setMessage(getString(R.string.dialog_logout_message))
+            .setNegativeButton(getString(R.string.btn_cancel), null)
+            .setPositiveButton(getString(R.string.btn_logout)) { _, _ ->
+                WebSocketClient.disconnect()
+                ctx.stopService(Intent(ctx, FshuService::class.java))
+                ctx.deleteSharedPreferences("fshu_secure_prefs")
+                val intent = Intent(ctx, LoginActivity::class.java)
+                intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                startActivity(intent)
+            }
+            .show()
     }
 
     private fun showDeleteAccountDialog() {
