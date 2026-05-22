@@ -791,7 +791,7 @@ class FshuService : Service() {
             val rawContent = json.get("content").safeString() ?: run {
                 return
             }
-            val ts = json.get("timestamp").safeLong() ?: 0L
+            val ts = json.get("timestamp").safeLong()?.takeIf { it > 0L } ?: System.currentTimeMillis()
             val remoteId = json.get("messageId").safeLong() ?: 0L
             val existingCheck = if (remoteId > 0) db.messageDao().getByRemoteId(remoteId, from) else null
             if (existingCheck != null) {
@@ -848,11 +848,13 @@ class FshuService : Service() {
             }
             if (!com.fshu.next.ui.chat.ChatActivity.isActive ||
                 com.fshu.next.ui.chat.ChatActivity.currentPeer != from) {
-                startActivity(
-                    com.fshu.next.ui.MessagePopupActivity.createIntent(
-                        this, from, getDisplayName(from), content
+                if (!db.muteDao().isMuted(me, from)) {
+                    startActivity(
+                        com.fshu.next.ui.MessagePopupActivity.createIntent(
+                            this, from, getDisplayName(from), content
+                        )
                     )
-                )
+                }
             }
             notifyMessage(from, content)
             MessageBus.tryEmit(json)
