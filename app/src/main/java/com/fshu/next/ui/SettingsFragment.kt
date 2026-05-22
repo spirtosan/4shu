@@ -47,6 +47,7 @@ import com.fshu.next.ui.settings.PrivacySettingsActivity
 import com.fshu.next.util.CryptoHelper
 import com.fshu.next.util.MessageBus
 import com.fshu.next.util.Prefs
+import com.fshu.next.ui.ConnectionTestSheet
 import com.fshu.next.ui.ThemeManager
 import com.google.gson.JsonObject
 import kotlinx.coroutines.Dispatchers
@@ -370,6 +371,11 @@ class SettingsFragment : Fragment() {
                 }
                 .setNegativeButton(getString(R.string.btn_cancel), null)
                 .show()
+        }
+
+        b.rowSystemDiagnostics.setOnClickListener {
+            ConnectionTestSheet.newInstanceDiagnostics()
+                .show(childFragmentManager, "sys_diagnostics")
         }
 
         b.switchFcm.isChecked = Prefs.getFcmEnabled(ctx)

@@ -52,6 +52,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import com.fshu.next.R
 import com.fshu.next.databinding.ActivityChatBinding
 import com.fshu.next.ui.BackgroundBottomSheet
+import com.fshu.next.ui.ConnectionTestSheet
 import com.fshu.next.ui.search.UserProfileActivity
 import com.fshu.next.ui.BackgroundHelper
 import com.fshu.next.ui.call.CallActivity
@@ -937,6 +938,12 @@ class ChatActivity : AppCompatActivity() {
                 if (isDmMuted) R.string.action_unmute else R.string.action_mute
             )
         }
+        menu.findItem(R.id.action_test_connection)?.isVisible = !isGroupChat
+        if (!isGroupChat) {
+            val displayName = getNickname(peer) ?: peer
+            menu.findItem(R.id.action_test_connection)?.title =
+                getString(R.string.menu_check_connection_to, displayName)
+        }
         return super.onPrepareOptionsMenu(menu)
     }
 
@@ -999,6 +1006,11 @@ class ChatActivity : AppCompatActivity() {
             }
             R.id.action_export -> {
                 exportConversation()
+                return true
+            }
+            R.id.action_test_connection -> {
+                ConnectionTestSheet.newInstance(peer, true)
+                    .show(supportFragmentManager, "conn_test")
                 return true
             }
             R.id.action_change_background -> {

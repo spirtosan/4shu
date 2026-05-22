@@ -356,6 +356,9 @@
     <string name="btn_logout">Log out</string>
     <string name="dialog_logout_title">Log out?</string>
     <string name="dialog_logout_message">You will be logged out and need to enter your password again to log in.</string>
+    <string name="menu_check_connection_to">Check connection to %s</string>
+    <string name="label_system_diagnostics">System diagnostics</string>
+    <string name="desc_system_diagnostics">Test WebSocket, DNS, and TURN relay</string>
 
     <string name="settings_sos_message_default">Emergency! Please contact authorities and send help to my location.</string>
     <string name="allow_emergency_location">Allow Emergency Location</string>

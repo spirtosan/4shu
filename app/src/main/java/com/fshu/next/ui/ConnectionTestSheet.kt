@@ -43,9 +43,14 @@ class ConnectionTestSheet : BottomSheetDialogFragment() {
 
     companion object {
         private const val ARG_PEER = "peer"
+        private const val ARG_DIAGNOSTICS_ONLY = "diagnostics_only"
 
         fun newInstance(peer: String, @Suppress("UNUSED_PARAMETER") online: Boolean) = ConnectionTestSheet().apply {
-            arguments = bundleOf(ARG_PEER to peer)
+            arguments = bundleOf(ARG_PEER to peer, ARG_DIAGNOSTICS_ONLY to false)
+        }
+
+        fun newInstanceDiagnostics() = ConnectionTestSheet().apply {
+            arguments = bundleOf(ARG_PEER to "", ARG_DIAGNOSTICS_ONLY to true)
         }
 
         private const val TURN_USER        = "fshu"
@@ -59,6 +64,7 @@ class ConnectionTestSheet : BottomSheetDialogFragment() {
     }
 
     private val peer get() = arguments?.getString(ARG_PEER) ?: ""
+    private val diagnosticsOnly get() = arguments?.getBoolean(ARG_DIAGNOSTICS_ONLY) ?: false
 
     private fun serverHost(): String =
         try { java.net.URI(Prefs.getServerUrl(requireContext())).host ?: "localhost" }
@@ -84,7 +90,13 @@ class ConnectionTestSheet : BottomSheetDialogFragment() {
     ): View = inflater.inflate(R.layout.fragment_connection_test, container, false)
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        view.findViewById<TextView>(R.id.tvCtSubtitle).text = getString(R.string.connection_test_testing_with, peer)
+        if (diagnosticsOnly) {
+            view.findViewById<TextView>(R.id.tvCtSubtitle).text = getString(R.string.label_system_diagnostics)
+            view.findViewById<View>(R.id.row_peer).visibility = View.GONE
+        } else {
+            view.findViewById<TextView>(R.id.tvCtSubtitle).text = getString(R.string.connection_test_testing_with, peer)
+            view.findViewById<TextView>(R.id.tvPeerLabel).text = getString(R.string.connection_test_peer_label, peer)
+        }
 
         dotWs      = view.findViewById(R.id.dotWs)
         tvWs       = view.findViewById(R.id.tvWs)
@@ -94,7 +106,6 @@ class ConnectionTestSheet : BottomSheetDialogFragment() {
         tvTurn     = view.findViewById(R.id.tvTurn)
         dotPeer    = view.findViewById(R.id.dotPeer)
         tvPeer     = view.findViewById(R.id.tvPeer)
-        view.findViewById<TextView>(R.id.tvPeerLabel).text = getString(R.string.connection_test_peer_label, peer)
         btnRunTest = view.findViewById(R.id.btnRunTest)
         tvOverall  = view.findViewById(R.id.tvOverall)
 
@@ -112,8 +123,10 @@ class ConnectionTestSheet : BottomSheetDialogFragment() {
     }
 
     private fun resetUi() {
-        listOf(dotWs, dotDns, dotTurn, dotPeer).forEach { setDot(it, COLOR_GRAY) }
-        listOf(tvWs, tvDns, tvTurn, tvPeer).forEach { it.text = "…" }
+        val dots = if (diagnosticsOnly) listOf(dotWs, dotDns, dotTurn) else listOf(dotWs, dotDns, dotTurn, dotPeer)
+        val labels = if (diagnosticsOnly) listOf(tvWs, tvDns, tvTurn) else listOf(tvWs, tvDns, tvTurn, tvPeer)
+        dots.forEach { setDot(it, COLOR_GRAY) }
+        labels.forEach { it.text = "…" }
     }
 
     private suspend fun runTests() {
@@ -159,54 +172,56 @@ class ConnectionTestSheet : BottomSheetDialogFragment() {
             }
         }
 
-        // ── Test 4: Peer reachability ──
-        setRow(dotPeer, tvPeer, "Testing…", COLOR_GRAY)
-        if (peer.isNotEmpty() && WebSocketClient.isConnected) {
-            val testId = UUID.randomUUID().toString()
-            val me = Prefs.getUsername(requireContext())
-            WebSocketClient.send(mapOf("type" to "peer-test-request", "from" to me, "to" to peer, "testId" to testId))
-            val result: JsonObject? = withTimeoutOrNull(15_000L) {
-                MessageBus.events
-                    .filter { it.get("type")?.asString == "peer-test-result" && it.get("testId")?.asString == testId }
-                    .first()
-            }
-            when {
-                result == null ->
-                    setRow(dotPeer, tvPeer, "✗ No response", COLOR_GRAY)
-                result.get("success")?.asBoolean == true -> {
-                    val ms = result.get("latencyMs")?.asInt ?: 0
-                    setRow(dotPeer, tvPeer, "✓ ${ms}ms", COLOR_GREEN); greenCount++
+        // ── Test 4: Peer reachability (skipped in diagnostics-only mode) ──
+        if (!diagnosticsOnly) {
+            setRow(dotPeer, tvPeer, "Testing…", COLOR_GRAY)
+            if (peer.isNotEmpty() && WebSocketClient.isConnected) {
+                val testId = UUID.randomUUID().toString()
+                val me = Prefs.getUsername(requireContext())
+                WebSocketClient.send(mapOf("type" to "peer-test-request", "from" to me, "to" to peer, "testId" to testId))
+                val result: JsonObject? = withTimeoutOrNull(15_000L) {
+                    MessageBus.events
+                        .filter { it.get("type")?.asString == "peer-test-result" && it.get("testId")?.asString == testId }
+                        .first()
                 }
-                result.get("reason")?.asString == "offline" -> {
-                    val lastSeen = result.get("lastSeen")?.takeIf { !it.isJsonNull }?.asLong
-                    val label = if (lastSeen != null) {
-                        val diff = System.currentTimeMillis() - lastSeen
-                        val minutes = diff / 60_000
-                        val hours   = diff / 3_600_000
-                        val days    = diff / 86_400_000
-                        val ago = when {
-                            minutes < 1  -> "just now"
-                            minutes < 60 -> "${minutes}m ago"
-                            hours < 24   -> "${hours}h ago"
-                            else         -> "${days}d ago"
-                        }
-                        "✗ Offline · last seen $ago"
-                    } else "✗ Offline"
-                    setRow(dotPeer, tvPeer, label, COLOR_GRAY)
+                when {
+                    result == null ->
+                        setRow(dotPeer, tvPeer, "✗ No response", COLOR_GRAY)
+                    result.get("success")?.asBoolean == true -> {
+                        val ms = result.get("latencyMs")?.asInt ?: 0
+                        setRow(dotPeer, tvPeer, "✓ ${ms}ms", COLOR_GREEN); greenCount++
+                    }
+                    result.get("reason")?.asString == "offline" -> {
+                        val lastSeen = result.get("lastSeen")?.takeIf { !it.isJsonNull }?.asLong
+                        val label = if (lastSeen != null) {
+                            val diff = System.currentTimeMillis() - lastSeen
+                            val minutes = diff / 60_000
+                            val hours   = diff / 3_600_000
+                            val days    = diff / 86_400_000
+                            val ago = when {
+                                minutes < 1  -> "just now"
+                                minutes < 60 -> "${minutes}m ago"
+                                hours < 24   -> "${hours}h ago"
+                                else         -> "${days}d ago"
+                            }
+                            "✗ Offline · last seen $ago"
+                        } else "✗ Offline"
+                        setRow(dotPeer, tvPeer, label, COLOR_GRAY)
+                    }
+                    else ->
+                        setRow(dotPeer, tvPeer, "✗ Timeout", COLOR_RED)
                 }
-                else ->
-                    setRow(dotPeer, tvPeer, "✗ Timeout", COLOR_RED)
+            } else {
+                setRow(dotPeer, tvPeer, "✗ Not connected", COLOR_GRAY)
             }
-        } else {
-            setRow(dotPeer, tvPeer, "✗ Not connected", COLOR_GRAY)
         }
 
         // ── Summary ──
-        tvOverall.text = when (greenCount) {
-            4    -> "✓ All tests passed"
-            3    -> "⚠ $greenCount/4 passed"
-            2    -> "⚠ $greenCount/4 passed"
-            else -> "✗ $greenCount/4 passed — check connection"
+        val total = if (diagnosticsOnly) 3 else 4
+        tvOverall.text = when {
+            greenCount == total -> "✓ All tests passed"
+            greenCount >= total - 1 -> "⚠ $greenCount/$total passed"
+            else -> "✗ $greenCount/$total passed — check connection"
         }
         btnRunTest.isEnabled = true
         running.set(false)

@@ -75,4 +75,9 @@
         android:title="@string/action_mute"
         app:showAsAction="never" />
 
+    <item
+        android:id="@+id/action_test_connection"
+        android:title="@string/menu_test_connection"
+        app:showAsAction="never" />
+
 </menu>
