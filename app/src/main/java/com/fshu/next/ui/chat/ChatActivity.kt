@@ -87,6 +87,7 @@ class ChatActivity : AppCompatActivity() {
 
     private var myGroupRole = "member"
     private var isGroupMuted = false
+    private var isDmMuted = false
 
     private var lastTypingSent = 0L
     private val typingHideHandler = Handler(Looper.getMainLooper())
@@ -879,6 +880,16 @@ class ChatActivity : AppCompatActivity() {
                     invalidateOptionsMenu()
                 }
             }
+        } else {
+            val me = com.fshu.next.util.Prefs.getUsername(this)
+            lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                val db = com.fshu.next.data.local.AppDatabase.getInstance(this@ChatActivity)
+                val muted = db.muteDao().isMuted(me, peer)
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                    isDmMuted = muted
+                    invalidateOptionsMenu()
+                }
+            }
         }
         registerReceiver(screenOnReceiver, IntentFilter(Intent.ACTION_SCREEN_ON))
         val draft = Prefs.getDraft(this, peer)
@@ -918,6 +929,12 @@ class ChatActivity : AppCompatActivity() {
         if (isGroupChat) {
             menu.findItem(R.id.action_mute_group)?.title = getString(
                 if (isGroupMuted) R.string.menu_unmute_group else R.string.menu_mute_group
+            )
+        }
+        menu.findItem(R.id.action_mute_dm)?.isVisible = !isGroupChat
+        if (!isGroupChat) {
+            menu.findItem(R.id.action_mute_dm)?.title = getString(
+                if (isDmMuted) R.string.action_unmute else R.string.action_mute
             )
         }
         return super.onPrepareOptionsMenu(menu)
@@ -992,6 +1009,57 @@ class ChatActivity : AppCompatActivity() {
             R.id.action_new_todo -> {
                 showTodoDialog(emptyList(), getString(R.string.dialog_new_todo_title)) { items, _ ->
                     vm.createList(peer, items.map { (id, text, _) -> Pair(id, text) })
+                }
+                return true
+            }
+            R.id.action_mute_dm -> {
+                val me = com.fshu.next.util.Prefs.getUsername(this)
+                if (isDmMuted) {
+                    lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                        val db = com.fshu.next.data.local.AppDatabase.getInstance(this@ChatActivity)
+                        db.muteDao().delete(me, peer)
+                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                            isDmMuted = false
+                            invalidateOptionsMenu()
+                            Toast.makeText(this@ChatActivity, getString(R.string.toast_unmuted), Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                } else {
+                    val options = arrayOf(
+                        getString(R.string.mute_1h),
+                        getString(R.string.mute_8h),
+                        getString(R.string.mute_24h),
+                        getString(R.string.mute_forever)
+                    )
+                    val durations = longArrayOf(
+                        System.currentTimeMillis() + 60 * 60_000L,
+                        System.currentTimeMillis() + 8 * 60 * 60_000L,
+                        System.currentTimeMillis() + 24 * 60 * 60_000L,
+                        -1L
+                    )
+                    MaterialAlertDialogBuilder(this)
+                        .setTitle(getString(R.string.dialog_mute_title))
+                        .setItems(options) { _, which ->
+                            val until = durations[which]
+                            val mute = com.fshu.next.data.local.Mute(
+                                owner = me,
+                                target = peer,
+                                targetType = "contact",
+                                createdAt = System.currentTimeMillis(),
+                                muteUntil = if (until == -1L) null else until
+                            )
+                            lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                val db = com.fshu.next.data.local.AppDatabase.getInstance(this@ChatActivity)
+                                db.muteDao().insert(mute)
+                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                    isDmMuted = true
+                                    invalidateOptionsMenu()
+                                    Toast.makeText(this@ChatActivity, getString(R.string.toast_muted), Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        }
+                        .setNegativeButton(getString(R.string.btn_cancel), null)
+                        .show()
                 }
                 return true
             }
