@@ -1538,7 +1538,9 @@ class FshuService : Service() {
     private fun notifyCall(from: String, sdp: String, isVideo: Boolean = false, isEmergency: Boolean = false) {
         cancelCallNotif(this)
         val me = Prefs.getUsername(this)
-        if (!isEmergency && db.muteDao().isMuted(me, from)) return
+        // Muted contacts: show call screen silently (no ring/vibration), but never block the call.
+        // Emergency calls always bypass mute entirely.
+        val isMuted = !isEmergency && db.muteDao().isMuted(me, from)
 
         val intent = Intent(this, CallActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
@@ -1589,44 +1591,46 @@ class FshuService : Service() {
         }
         // Screen on + locked: fullScreenIntent handles it, setShowWhenLocked covers the rest.
 
-        val ringtoneUri = if (isEmergency)
-            RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
-        else
-            RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
-        val ringtone = RingtoneManager.getRingtone(this, ringtoneUri)
-        if (isEmergency) {
-            ringtone.audioAttributes = AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_ALARM)
-                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                .build()
-        }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            ringtone.isLooping = true
-        }
-        ringtone.play()
-        activeRingtone = ringtone
-
-        val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val vm = getSystemService(VibratorManager::class.java)
-            vm.defaultVibrator
-        } else {
-            @Suppress("DEPRECATION")
-            getSystemService(android.os.Vibrator::class.java)
-        }
-        val pattern = longArrayOf(0, 1000, 1000, 1000, 1000, 1000, 1000)
-        val amplitudes = intArrayOf(0, 255, 0, 255, 0, 255, 0)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val effect = VibrationEffect.createWaveform(pattern, amplitudes, 0)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                val attrs = android.os.VibrationAttributes.Builder()
-                    .setUsage(android.os.VibrationAttributes.USAGE_RINGTONE)
+        if (!isMuted) {
+            val ringtoneUri = if (isEmergency)
+                RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+            else
+                RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
+            val ringtone = RingtoneManager.getRingtone(this, ringtoneUri)
+            if (isEmergency) {
+                ringtone.audioAttributes = AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_ALARM)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                     .build()
-                vibrator.vibrate(effect, attrs)
-            } else {
-                vibrator.vibrate(effect)
             }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                ringtone.isLooping = true
+            }
+            ringtone.play()
+            activeRingtone = ringtone
+
+            val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                val vm = getSystemService(VibratorManager::class.java)
+                vm.defaultVibrator
+            } else {
+                @Suppress("DEPRECATION")
+                getSystemService(android.os.Vibrator::class.java)
+            }
+            val pattern = longArrayOf(0, 1000, 1000, 1000, 1000, 1000, 1000)
+            val amplitudes = intArrayOf(0, 255, 0, 255, 0, 255, 0)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val effect = VibrationEffect.createWaveform(pattern, amplitudes, 0)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    val attrs = android.os.VibrationAttributes.Builder()
+                        .setUsage(android.os.VibrationAttributes.USAGE_RINGTONE)
+                        .build()
+                    vibrator.vibrate(effect, attrs)
+                } else {
+                    vibrator.vibrate(effect)
+                }
+            }
+            activeVibrator = vibrator
         }
-        activeVibrator = vibrator
 
         if (isEmergency) startVolumeRamp()
 
