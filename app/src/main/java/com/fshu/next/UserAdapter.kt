@@ -115,6 +115,10 @@ class UserAdapter(
             if (user.unreadCount > 0) {
                 h.binding.tvUnreadBadge.visibility = android.view.View.VISIBLE
                 h.binding.tvUnreadBadge.text = if (user.unreadCount > 99) "99+" else user.unreadCount.toString()
+                h.binding.tvUnreadBadge.backgroundTintList = android.content.res.ColorStateList.valueOf(
+                    if (user.isMuted) android.graphics.Color.parseColor("#9E9E9E")
+                    else android.graphics.Color.parseColor("#E53935")
+                )
             } else {
                 h.binding.tvUnreadBadge.visibility = android.view.View.GONE
             }
@@ -201,6 +205,10 @@ class UserAdapter(
         if (user.unreadCount > 0) {
             h.binding.tvUnreadBadge.visibility = android.view.View.VISIBLE
             h.binding.tvUnreadBadge.text = if (user.unreadCount > 99) "99+" else user.unreadCount.toString()
+            h.binding.tvUnreadBadge.backgroundTintList = android.content.res.ColorStateList.valueOf(
+                if (user.isMuted) android.graphics.Color.parseColor("#9E9E9E")
+                else android.graphics.Color.parseColor("#E53935")
+            )
         } else {
             h.binding.tvUnreadBadge.visibility = android.view.View.GONE
         }
