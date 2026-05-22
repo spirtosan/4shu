@@ -101,6 +101,48 @@
                 android:textSize="13sp"
                 android:visibility="gone" />
 
+            <!-- Set nickname for this contact -->
+            <LinearLayout
+                android:id="@+id/rowSetNickname"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:paddingTop="14dp"
+                android:paddingBottom="14dp"
+                android:layout_marginTop="8dp"
+                android:background="?attr/selectableItemBackground"
+                android:clickable="true"
+                android:focusable="true">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/menu_set_nickname"
+                        android:textSize="16sp"
+                        android:textColor="?attr/colorTextPrimary" />
+
+                    <TextView
+                        android:id="@+id/tvCurrentNickname"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:textSize="13sp"
+                        android:textColor="?attr/colorTextSecondary"
+                        android:visibility="gone" />
+
+                </LinearLayout>
+
+            </LinearLayout>
+
             <!-- Mute notifications -->
             <LinearLayout
                 android:id="@+id/rowMute"

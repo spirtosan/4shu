@@ -75,6 +75,13 @@ class UserProfileActivity : AppCompatActivity() {
 
         binding.rowMute.setOnClickListener { onMuteRowClick() }
 
+        val savedNick = Prefs.getContactNickname(this, targetUsername)
+        if (savedNick.isNotEmpty()) {
+            binding.tvCurrentNickname.text = savedNick
+            binding.tvCurrentNickname.visibility = View.VISIBLE
+        }
+        binding.rowSetNickname.setOnClickListener { showSetNicknameDialog() }
+
         binding.rowEmergencyAllow.setOnClickListener {
             binding.switchEmergencyAllow.toggle()
         }
@@ -382,6 +389,42 @@ class UserProfileActivity : AppCompatActivity() {
                 .setNegativeButton(getString(R.string.btn_cancel), null)
                 .show()
         }
+    }
+
+    private fun showSetNicknameDialog() {
+        val et = EditText(this).apply {
+            inputType = android.text.InputType.TYPE_CLASS_TEXT
+            hint = getString(R.string.hint_nickname_for_contact, targetUsername)
+            setText(Prefs.getContactNickname(this@UserProfileActivity, targetUsername))
+            filters = arrayOf(android.text.InputFilter.LengthFilter(20))
+        }
+        val pad = (16 * resources.displayMetrics.density).toInt()
+        val wrap = android.widget.FrameLayout(this).apply {
+            setPadding(pad, pad / 2, pad, 0)
+            addView(et)
+        }
+        MaterialAlertDialogBuilder(this)
+            .setTitle(getString(R.string.dialog_nickname_for_title, targetUsername))
+            .setView(wrap)
+            .setPositiveButton(android.R.string.ok) { _, _ ->
+                val nick = et.text.toString().trim()
+                Prefs.setContactNickname(this, targetUsername, nick)
+                WebSocketClient.send(mapOf(
+                    "type"     to "set-contact-nickname",
+                    "contact"  to targetUsername,
+                    "nickname" to nick
+                ))
+                if (nick.isEmpty()) {
+                    binding.tvCurrentNickname.visibility = View.GONE
+                    Toast.makeText(this, getString(R.string.toast_nickname_cleared), Toast.LENGTH_SHORT).show()
+                } else {
+                    binding.tvCurrentNickname.text = nick
+                    binding.tvCurrentNickname.visibility = View.VISIBLE
+                    Toast.makeText(this, getString(R.string.toast_nickname_set, nick), Toast.LENGTH_SHORT).show()
+                }
+            }
+            .setNegativeButton(getString(R.string.btn_cancel), null)
+            .show()
     }
 
     private fun updateEmergencySwitch() {
