@@ -36,6 +36,13 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     fun getMessages(peer: String): LiveData<List<Message>> =
         db.messageDao().getConversation(me, peer)
 
+    fun redeliverMessages(peer: String, callback: (List<Message>) -> Unit) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val msgs = db.messageDao().getConversationOnce(me, peer)
+            withContext(Dispatchers.Main) { callback(msgs) }
+        }
+    }
+
     fun getGroupMessages(groupId: String): LiveData<List<Message>> =
         db.messageDao().getGroupMessages(groupId)
 

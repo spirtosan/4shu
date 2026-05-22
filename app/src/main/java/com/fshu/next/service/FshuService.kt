@@ -1034,6 +1034,7 @@ class FshuService : Service() {
         val messageId = json.get("messageId")?.asDouble?.toLong() ?: return
         db.messageDao().upgradeStatus(messageId, "READ")
         propagateLocationStatus(messageId, "READ")
+        MessageBus.emit(json)
     }
 
     /** If [messageId] is an auto-respond location message with a linkedReqId, propagate status to the RECV_LOC_REQ bubble. */

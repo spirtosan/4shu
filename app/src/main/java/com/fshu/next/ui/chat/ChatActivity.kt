@@ -722,6 +722,12 @@ class ChatActivity : AppCompatActivity() {
                             }
                         }
                     }
+                    "read" -> {
+                        val from = json.get("from")?.asString ?: return@collect
+                        if (!isGroupChat && from == peer) {
+                            vm.redeliverMessages(peer) { msgs -> adapter.submitList(msgs.toList()) }
+                        }
+                    }
                     "contact-accepted-refresh",
                     "messages-updated"         -> { /* Room LiveData re-delivers the updated list automatically */ }
                 }
