@@ -14,11 +14,6 @@
         app:showAsAction="never" />
 
     <item
-        android:id="@+id/action_change_background"
-        android:title="@string/menu_change_background"
-        app:showAsAction="never" />
-
-    <item
         android:id="@+id/action_admin_panel"
         android:title="@string/menu_admin_panel"
         app:showAsAction="never" />

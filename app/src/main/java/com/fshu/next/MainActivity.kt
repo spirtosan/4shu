@@ -263,11 +263,6 @@ R.id.action_admin_panel -> {
                 }
                 true
             }
-            R.id.action_change_background -> {
-                BackgroundBottomSheet.newInstance(BackgroundBottomSheet.SCREEN_MAIN)
-                    .show(supportFragmentManager, "bg_main")
-                true
-            }
             R.id.action_set_nickname -> {
                 val current = Prefs.getMyNickname(this)
                 val et = android.widget.EditText(this).apply {

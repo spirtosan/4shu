@@ -840,8 +840,8 @@ class ChatActivity : AppCompatActivity() {
         BackgroundHelper.apply(
             rootView     = binding.root,
             bgImageView  = binding.ivBg,
-            bgIndex      = Prefs.getChatBgIndex(this, peer),
-            bgUri        = Prefs.getChatBgUri(this, peer),
+            bgIndex      = Prefs.getMainBgIndex(this),
+            bgUri        = Prefs.getMainBgUri(this),
             defaultColor = tv.data
         )
     }
@@ -1011,11 +1011,6 @@ class ChatActivity : AppCompatActivity() {
             R.id.action_test_connection -> {
                 ConnectionTestSheet.newInstance(peer, true)
                     .show(supportFragmentManager, "conn_test")
-                return true
-            }
-            R.id.action_change_background -> {
-                BackgroundBottomSheet.newInstance(BackgroundBottomSheet.SCREEN_CHAT, peer)
-                    .show(supportFragmentManager, "bg_chat")
                 return true
             }
             R.id.action_new_todo -> {

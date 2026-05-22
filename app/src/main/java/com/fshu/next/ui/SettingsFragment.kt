@@ -47,6 +47,7 @@ import com.fshu.next.ui.settings.PrivacySettingsActivity
 import com.fshu.next.util.CryptoHelper
 import com.fshu.next.util.MessageBus
 import com.fshu.next.util.Prefs
+import com.fshu.next.ui.BackgroundBottomSheet
 import com.fshu.next.ui.ConnectionTestSheet
 import com.fshu.next.ui.ThemeManager
 import com.google.gson.JsonObject
@@ -142,6 +143,10 @@ class SettingsFragment : Fragment() {
         refreshLanguageValue()
         binding.rowTheme.setOnClickListener { showThemeDialog() }
         binding.rowLanguage.setOnClickListener { showLanguageDialog() }
+        binding.rowChatBackground.setOnClickListener {
+            BackgroundBottomSheet.newInstance(BackgroundBottomSheet.SCREEN_MAIN)
+                .show(parentFragmentManager, "bg_global")
+        }
     }
 
     private fun refreshThemeValue() {
