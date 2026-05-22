@@ -859,6 +859,8 @@ R.id.action_admin_panel -> {
                 val me = Prefs.getUsername(this@MainActivity)
                 AppDatabase.getInstance(this@MainActivity).muteDao().delete(me, user.username)
                 com.fshu.next.data.remote.WebSocketClient.send(mapOf("type" to "remove-mute", "target" to user.username, "targetType" to targetType))
+                getSystemService(android.app.NotificationManager::class.java)
+                    .deleteNotificationChannel("calls_muted_${user.username}")
                 withContext(Dispatchers.Main) {
                     mutedTargets.remove(user.username)
                     scheduleListRefresh()

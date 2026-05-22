@@ -1565,7 +1565,21 @@ class FshuService : Service() {
             isVideo     -> "Incoming video call"
             else        -> "Incoming call"
         }
-        val notif = NotificationCompat.Builder(this, if (isMuted) CHANNEL_CALLS_MUTED else CHANNEL_CALLS)
+        val notifChannelId = if (isMuted) {
+            val mutedChanId = "calls_muted_$from"
+            val nm = getSystemService(NotificationManager::class.java)
+            if (nm.getNotificationChannel(mutedChanId) == null) {
+                nm.createNotificationChannel(
+                    NotificationChannel(mutedChanId, getString(R.string.notif_channel_calls), NotificationManager.IMPORTANCE_HIGH).apply {
+                        setSound(null, null)
+                        enableVibration(false)
+                        lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
+                    }
+                )
+            }
+            mutedChanId
+        } else CHANNEL_CALLS
+        val notif = NotificationCompat.Builder(this, notifChannelId)
             .setContentTitle(notifTitle)
             .setContentText(from)
             .setSmallIcon(R.drawable.ic_notification)
@@ -1996,6 +2010,8 @@ class FshuService : Service() {
             db.muteDao().insert(Mute(owner = me, target = target, targetType = json.get("targetType")?.asString ?: "contact", createdAt = System.currentTimeMillis()))
         } else {
             db.muteDao().delete(me, target)
+            getSystemService(NotificationManager::class.java)
+                .deleteNotificationChannel("calls_muted_$target")
         }
     }
 
@@ -2293,13 +2309,8 @@ class FshuService : Service() {
                 lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
             }
         )
-        nm.createNotificationChannel(
-            NotificationChannel(CHANNEL_CALLS_MUTED, getString(R.string.notif_channel_calls), NotificationManager.IMPORTANCE_HIGH).apply {
-                setSound(null, null)
-                enableVibration(false)
-                lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
-            }
-        )
+        // Delete old single global muted-calls channel (replaced by per-contact channels).
+        nm.deleteNotificationChannel(CHANNEL_CALLS_MUTED)
         nm.createNotificationChannel(
             NotificationChannel(CHANNEL_GROUPS, getString(R.string.notif_channel_groups), NotificationManager.IMPORTANCE_DEFAULT).apply {
                 setSound(null, null)
