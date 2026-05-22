@@ -715,11 +715,14 @@ R.id.action_admin_panel -> {
                         "$senderName: $decrypted"
                     }
                 }
-                runOnUiThread {
-                    val idx = users.indexOfFirst { it.username == peer }
-                    if (idx >= 0) {
-                        users[idx] = users[idx].copy(lastMessage = preview, lastMessageTime = ts)
-                        adapter.notifyItemChanged(idx, "message_update")
+                lifecycleScope.launch(Dispatchers.IO) {
+                    val unread = AppDatabase.getInstance(this@MainActivity).messageDao().countUnread(me, peer)
+                    withContext(Dispatchers.Main) {
+                        val idx = users.indexOfFirst { it.username == peer }
+                        if (idx >= 0) {
+                            users[idx] = users[idx].copy(lastMessage = preview, lastMessageTime = ts, unreadCount = unread)
+                            adapter.notifyItemChanged(idx, "message_update")
+                        }
                     }
                 }
             }

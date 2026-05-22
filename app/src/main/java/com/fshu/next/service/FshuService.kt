@@ -1568,15 +1568,16 @@ class FshuService : Service() {
         val notifChannelId = if (isMuted) {
             val mutedChanId = "calls_muted_$from"
             val nm = getSystemService(NotificationManager::class.java)
-            if (nm.getNotificationChannel(mutedChanId) == null) {
-                nm.createNotificationChannel(
-                    NotificationChannel(mutedChanId, getString(R.string.notif_channel_calls), NotificationManager.IMPORTANCE_HIGH).apply {
-                        setSound(null, null)
-                        enableVibration(false)
-                        lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
-                    }
-                )
-            }
+            // Always delete and recreate — channel settings are immutable after first creation,
+            // so stale vibration settings from a previous install would otherwise persist forever.
+            nm.deleteNotificationChannel(mutedChanId)
+            nm.createNotificationChannel(
+                NotificationChannel(mutedChanId, getString(R.string.notif_channel_calls), NotificationManager.IMPORTANCE_HIGH).apply {
+                    setSound(null, null)
+                    enableVibration(false)
+                    lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
+                }
+            )
             mutedChanId
         } else CHANNEL_CALLS
         val notif = NotificationCompat.Builder(this, notifChannelId)
@@ -1584,7 +1585,7 @@ class FshuService : Service() {
             .setContentText(from)
             .setSmallIcon(R.drawable.ic_notification)
             .setPriority(if (isMuted) NotificationCompat.PRIORITY_HIGH else NotificationCompat.PRIORITY_MAX)
-            .setCategory(NotificationCompat.CATEGORY_CALL)
+            .apply { if (!isMuted) setCategory(NotificationCompat.CATEGORY_CALL) }
             .setFullScreenIntent(pi, true)
             .setContentIntent(pi)
             .setOngoing(true)
