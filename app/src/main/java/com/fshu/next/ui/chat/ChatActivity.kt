@@ -1320,8 +1320,10 @@ class ChatActivity : AppCompatActivity() {
         binding.toolbar.visibility = View.GONE
         binding.searchBar.visibility = View.VISIBLE
         binding.etSearch.requestFocus()
-        val imm = getSystemService(android.view.inputmethod.InputMethodManager::class.java)
-        imm.showSoftInput(binding.etSearch, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
+        binding.etSearch.postDelayed({
+            val imm = getSystemService(android.view.inputmethod.InputMethodManager::class.java)
+            imm.showSoftInput(binding.etSearch, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
+        }, 150)
     }
 
     private fun closeSearch() {
