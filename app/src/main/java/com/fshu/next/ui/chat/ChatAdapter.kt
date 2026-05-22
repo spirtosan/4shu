@@ -68,6 +68,9 @@ class ChatAdapter : ListAdapter<Message, RecyclerView.ViewHolder>(DIFF) {
     /** Invoked when a reaction chip is tapped: (message, emoji). Activity decides add/remove. */
     var onReactionTap: ((Message, String) -> Unit)? = null
 
+    /** Current search query — non-empty triggers orange highlight on matching text in bubbles. */
+    var searchQuery: String = ""
+
     private fun getNickname(username: String): String? = nicknameMap[username]
 
     fun isInSelectionMode() = selectedIds.isNotEmpty()
@@ -484,7 +487,27 @@ class ChatAdapter : ListAdapter<Message, RecyclerView.ViewHolder>(DIFF) {
                     start, full.length, android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
                 tv.text = full
             }
+            if (searchQuery.isNotEmpty()) {
+                applySearchHighlight(tv, msg.content, searchQuery)
+            }
         }
+    }
+
+    private fun applySearchHighlight(tv: TextView, content: String, query: String) {
+        val queryLower = query.lowercase()
+        val contentLower = content.lowercase()
+        var idx = contentLower.indexOf(queryLower)
+        if (idx < 0) return
+        val spannable = android.text.SpannableStringBuilder(tv.text)
+        while (idx >= 0) {
+            spannable.setSpan(
+                android.text.style.BackgroundColorSpan(0x55E8711A.toInt()),
+                idx, idx + query.length,
+                android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
+            idx = contentLower.indexOf(queryLower, idx + queryLower.length)
+        }
+        tv.text = spannable
     }
 
     private fun bindReactions(container: LinearLayout, msg: Message) {

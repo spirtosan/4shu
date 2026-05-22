@@ -102,6 +102,15 @@ class ChatActivity : AppCompatActivity() {
     private lateinit var voiceRecorder: VoiceRecorder
     private var pendingGroupAvatarGroupId: String? = null
 
+    // Search state
+    private var isSearchActive = false
+    private var searchResults = listOf<Int>()
+    private var searchResultIndex = -1
+    private var preSearchScrollPosition = -1
+    private var searchMatchIds: Set<Long> = emptySet()
+    private val searchDebounceHandler = Handler(Looper.getMainLooper())
+    private var searchDebounceRunnable: Runnable? = null
+
     private val pickGroupAvatarLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         uri ?: return@registerForActivityResult
         val gid = pendingGroupAvatarGroupId ?: return@registerForActivityResult
@@ -468,17 +477,45 @@ class ChatActivity : AppCompatActivity() {
 
         binding.btnCancelReply.setOnClickListener { clearReply() }
 
+        // Search bar wiring
+        binding.btnSearchClose.setOnClickListener { closeSearch() }
+        binding.btnSearchNext.setOnClickListener {
+            if (searchResults.isEmpty()) return@setOnClickListener
+            searchResultIndex = (searchResultIndex + 1) % searchResults.size
+            binding.rvMessages.scrollToPosition(searchResults[searchResultIndex])
+            updateSearchCounter()
+        }
+        binding.btnSearchPrev.setOnClickListener {
+            if (searchResults.isEmpty()) return@setOnClickListener
+            searchResultIndex = (searchResultIndex - 1 + searchResults.size) % searchResults.size
+            binding.rvMessages.scrollToPosition(searchResults[searchResultIndex])
+            updateSearchCounter()
+        }
+        binding.etSearch.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun afterTextChanged(s: Editable?) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                val q = s?.toString() ?: ""
+                searchDebounceRunnable?.let { searchDebounceHandler.removeCallbacks(it) }
+                val r = Runnable { onSearchQuery(q) }
+                searchDebounceRunnable = r
+                searchDebounceHandler.postDelayed(r, 300)
+            }
+        })
+
         // Room LiveData updates the list whenever FshuService persists an incoming message/file
         if (isGroupChat) {
             vm.getGroupMessages(peer).observe(this) { msgs ->
                 adapter.submitList(msgs) {
-                    if (msgs.isNotEmpty()) binding.rvMessages.scrollToPosition(msgs.size - 1)
+                    if (isSearchActive) recomputeSearchPositions()
+                    else if (msgs.isNotEmpty()) binding.rvMessages.scrollToPosition(msgs.size - 1)
                 }
             }
         } else {
             vm.getMessages(peer).observe(this) { msgs ->
                 adapter.submitList(msgs) {
-                    if (msgs.isNotEmpty()) binding.rvMessages.scrollToPosition(msgs.size - 1)
+                    if (isSearchActive) recomputeSearchPositions()
+                    else if (msgs.isNotEmpty()) binding.rvMessages.scrollToPosition(msgs.size - 1)
                 }
             }
         }
@@ -784,6 +821,7 @@ class ChatActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         typingHideHandler.removeCallbacks(typingHideRunnable)
+        searchDebounceRunnable?.let { searchDebounceHandler.removeCallbacks(it) }
         ChatAdapter.stopAll()
         voiceRecorder.release()
     }
@@ -1013,6 +1051,8 @@ class ChatActivity : AppCompatActivity() {
                     .show(supportFragmentManager, "conn_test")
                 return true
             }
+            R.id.action_search_conversation,
+            R.id.action_search_group -> { openSearch(); return true }
             R.id.action_new_todo -> {
                 showTodoDialog(emptyList(), getString(R.string.dialog_new_todo_title)) { items, _ ->
                     vm.createList(peer, items.map { (id, text, _) -> Pair(id, text) })
@@ -1266,12 +1306,88 @@ class ChatActivity : AppCompatActivity() {
 
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
-        if (adapter.isInSelectionMode()) {
-            adapter.clearSelection()
-        } else {
-            @Suppress("DEPRECATION")
-            super.onBackPressed()
+        when {
+            isSearchActive -> closeSearch()
+            adapter.isInSelectionMode() -> adapter.clearSelection()
+            else -> @Suppress("DEPRECATION") super.onBackPressed()
         }
+    }
+
+    private fun openSearch() {
+        isSearchActive = true
+        preSearchScrollPosition =
+            (binding.rvMessages.layoutManager as? LinearLayoutManager)?.findLastVisibleItemPosition() ?: -1
+        binding.toolbar.visibility = View.GONE
+        binding.searchBar.visibility = View.VISIBLE
+        binding.etSearch.requestFocus()
+        val imm = getSystemService(android.view.inputmethod.InputMethodManager::class.java)
+        imm.showSoftInput(binding.etSearch, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
+    }
+
+    private fun closeSearch() {
+        isSearchActive = false
+        searchDebounceRunnable?.let { searchDebounceHandler.removeCallbacks(it) }
+        adapter.searchQuery = ""
+        adapter.notifyDataSetChanged()
+        searchMatchIds = emptySet()
+        searchResults = listOf()
+        searchResultIndex = -1
+        binding.etSearch.text?.clear()
+        binding.tvSearchCounter.text = ""
+        binding.btnSearchPrev.isEnabled = false
+        binding.btnSearchNext.isEnabled = false
+        binding.searchBar.visibility = View.GONE
+        binding.toolbar.visibility = View.VISIBLE
+        val imm = getSystemService(android.view.inputmethod.InputMethodManager::class.java)
+        imm.hideSoftInputFromWindow(binding.etSearch.windowToken, 0)
+        if (preSearchScrollPosition >= 0) {
+            binding.rvMessages.scrollToPosition(preSearchScrollPosition)
+        }
+    }
+
+    private fun onSearchQuery(query: String) {
+        if (query.isEmpty()) {
+            searchMatchIds = emptySet()
+            searchResults = listOf()
+            searchResultIndex = -1
+            adapter.searchQuery = ""
+            adapter.notifyDataSetChanged()
+            binding.tvSearchCounter.text = ""
+            binding.btnSearchPrev.isEnabled = false
+            binding.btnSearchNext.isEnabled = false
+            return
+        }
+        lifecycleScope.launch {
+            val matches = vm.searchMessages(peer, query, if (isGroupChat) groupId else null)
+            searchMatchIds = matches.map { it.id }.toSet()
+            adapter.searchQuery = query
+            adapter.notifyDataSetChanged()
+            recomputeSearchPositions()
+            if (searchResults.isNotEmpty()) {
+                binding.rvMessages.scrollToPosition(searchResults[0])
+            }
+        }
+    }
+
+    private fun recomputeSearchPositions() {
+        searchResults = adapter.currentList.mapIndexedNotNull { idx, msg ->
+            if (msg.id in searchMatchIds) idx else null
+        }
+        if (searchResultIndex >= searchResults.size) searchResultIndex = searchResults.size - 1
+        if (searchResultIndex < 0 && searchResults.isNotEmpty()) searchResultIndex = 0
+        updateSearchCounter()
+    }
+
+    private fun updateSearchCounter() {
+        if (searchMatchIds.isEmpty() && adapter.searchQuery.isNotEmpty()) {
+            binding.tvSearchCounter.text = "0 / 0"
+        } else if (searchResults.isNotEmpty()) {
+            binding.tvSearchCounter.text = "${searchResultIndex + 1} / ${searchResults.size}"
+        } else {
+            binding.tvSearchCounter.text = ""
+        }
+        binding.btnSearchPrev.isEnabled = searchResults.size > 1
+        binding.btnSearchNext.isEnabled = searchResults.size > 1
     }
 
     private fun refreshNicknameMap() {

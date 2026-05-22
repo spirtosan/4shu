@@ -45,13 +45,11 @@
     <item
         android:id="@+id/action_search_conversation"
         android:title="@string/menu_search_conversation"
-        android:enabled="false"
         app:showAsAction="never" />
 
     <item
         android:id="@+id/action_search_group"
         android:title="@string/menu_search_group"
-        android:enabled="false"
         app:showAsAction="never" />
 
     <item

@@ -52,6 +52,82 @@
 
         </androidx.appcompat.widget.Toolbar>
 
+        <!-- Search bar — replaces toolbar when search is active -->
+        <LinearLayout
+            android:id="@+id/searchBar"
+            android:layout_width="match_parent"
+            android:layout_height="?attr/actionBarSize"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:background="?attr/colorSurface"
+            android:visibility="gone"
+            android:paddingStart="4dp"
+            android:paddingEnd="4dp">
+
+            <ImageButton
+                android:id="@+id/btnSearchClose"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:src="@drawable/ic_close"
+                app:tint="?attr/colorTextPrimary"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Close search"
+                android:padding="8dp" />
+
+            <EditText
+                android:id="@+id/etSearch"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:hint="@string/hint_search_conversation"
+                android:inputType="text"
+                android:maxLines="1"
+                android:singleLine="true"
+                android:textSize="15sp"
+                android:background="@null"
+                android:textColor="?attr/colorTextPrimary"
+                android:textColorHint="?attr/colorTextTertiary"
+                android:paddingHorizontal="8dp"
+                android:paddingVertical="10dp"
+                android:imeOptions="actionSearch" />
+
+            <TextView
+                android:id="@+id/tvSearchCounter"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="13sp"
+                android:textColor="?attr/colorTextSecondary"
+                android:paddingHorizontal="4dp"
+                android:minWidth="52dp"
+                android:gravity="center"
+                android:text="" />
+
+            <ImageButton
+                android:id="@+id/btnSearchPrev"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:src="@drawable/ic_chevron_right"
+                android:rotation="270"
+                app:tint="?attr/colorTextPrimary"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Previous result"
+                android:padding="8dp"
+                android:enabled="false" />
+
+            <ImageButton
+                android:id="@+id/btnSearchNext"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:src="@drawable/ic_chevron_right"
+                android:rotation="90"
+                app:tint="?attr/colorTextPrimary"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Next result"
+                android:padding="8dp"
+                android:enabled="false" />
+
+        </LinearLayout>
+
         <!-- Selection mode action bar -->
         <LinearLayout
             android:id="@+id/selectionBar"

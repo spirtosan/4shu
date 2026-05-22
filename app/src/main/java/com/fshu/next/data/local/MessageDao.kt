@@ -202,6 +202,26 @@ interface MessageDao {
     @Query("DELETE FROM messages WHERE `from` = :peer AND isSent = 0")
     suspend fun deleteReceivedFrom(peer: String)
 
+    @Query("""
+        SELECT * FROM messages
+        WHERE ((`from` = :a AND `to` = :b) OR (`from` = :b AND `to` = :a))
+        AND type NOT IN ('deleted','file','list','voice','location','emergency-location','location-request','sos-message')
+        AND encryptedBlob = 0
+        AND LOWER(content) LIKE '%' || LOWER(:query) || '%'
+        ORDER BY timestamp ASC
+    """)
+    suspend fun searchDmMessages(a: String, b: String, query: String): List<Message>
+
+    @Query("""
+        SELECT * FROM messages
+        WHERE groupId = :groupId
+        AND type NOT IN ('deleted','file','list','voice','location','emergency-location','location-request','sos-message')
+        AND encryptedBlob = 0
+        AND LOWER(content) LIKE '%' || LOWER(:query) || '%'
+        ORDER BY timestamp ASC
+    """)
+    suspend fun searchGroupMessages(groupId: String, query: String): List<Message>
+
     @Query("UPDATE messages SET isRead = 1 WHERE `from` = :peer AND `to` = :me AND isRead = 0")
     suspend fun markConversationRead(me: String, peer: String)
 

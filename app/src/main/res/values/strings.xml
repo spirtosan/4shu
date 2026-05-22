@@ -63,6 +63,7 @@
     <string name="toast_select_at_least_one_member">Select at least one member</string>
     <string name="toast_group_created">Group \"%s\" created</string>
     <string name="hint_message">Message</string>
+    <string name="hint_search_conversation">Search…</string>
     <string name="label_0_selected">0 selected</string>
     <string name="label_n_selected">%d selected</string>
     <string name="label_voice_recording">🎤 0:00</string>

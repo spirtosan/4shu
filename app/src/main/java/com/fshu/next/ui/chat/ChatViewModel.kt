@@ -64,6 +64,12 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
 
     fun getMe(): String = me
 
+    suspend fun searchMessages(peer: String, query: String, groupId: String?): List<Message> =
+        withContext(Dispatchers.IO) {
+            if (groupId != null) db.messageDao().searchGroupMessages(groupId, query)
+            else db.messageDao().searchDmMessages(me, peer, query)
+        }
+
     fun sendText(
         peer: String,
         content: String,
