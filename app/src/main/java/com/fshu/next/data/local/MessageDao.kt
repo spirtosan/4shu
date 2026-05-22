@@ -13,8 +13,8 @@ interface MessageDao {
     """)
     fun getConversation(a: String, b: String): LiveData<List<Message>>
 
-    /** Returns unread messages received FROM [peer] that carry a valid remoteId. */
-    @Query("SELECT * FROM messages WHERE `from` = :peer AND `to` = :me AND remoteId > 0 AND isRead = 0")
+    /** Returns received messages FROM [peer] that carry a valid remoteId (used to send read receipts). */
+    @Query("SELECT * FROM messages WHERE `from` = :peer AND `to` = :me AND remoteId > 0")
     suspend fun getReceivedFrom(peer: String, me: String): List<Message>
 
     /** Returns the auto-generated row ID. */
