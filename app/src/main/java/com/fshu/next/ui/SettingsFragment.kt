@@ -295,7 +295,7 @@ class SettingsFragment : Fragment() {
 
     private fun refreshSecretQuestionStatus() {
         if (!WebSocketClient.isConnected) return
-        val b = _binding ?: return
+        _binding ?: return
         lifecycleScope.launch {
             val ch = Channel<JsonObject>(1)
             val job = launch {

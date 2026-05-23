@@ -167,36 +167,36 @@ abstract class AppDatabase : RoomDatabase() {
         }
 
         private val MIGRATION_18_19 = object : Migration(18, 19) {
-            override fun migrate(database: SupportSQLiteDatabase) {
-                database.execSQL("DROP TABLE IF EXISTS mutes")
-                database.execSQL(
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("DROP TABLE IF EXISTS mutes")
+                db.execSQL(
                     "CREATE TABLE IF NOT EXISTS `mutes` (`target` TEXT NOT NULL, `target_type` TEXT NOT NULL, PRIMARY KEY(`target`))"
                 )
             }
         }
 
         private val MIGRATION_19_20 = object : Migration(19, 20) {
-            override fun migrate(database: SupportSQLiteDatabase) {
-                database.execSQL("ALTER TABLE contacts ADD COLUMN allow_emergency_call INTEGER")
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE contacts ADD COLUMN allow_emergency_call INTEGER")
             }
         }
 
         private val MIGRATION_20_21 = object : Migration(20, 21) {
-            override fun migrate(database: SupportSQLiteDatabase) {
-                database.execSQL("ALTER TABLE contacts ADD COLUMN allow_emergency_location INTEGER")
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE contacts ADD COLUMN allow_emergency_location INTEGER")
             }
         }
 
         private val MIGRATION_21_22 = object : Migration(21, 22) {
-            override fun migrate(database: SupportSQLiteDatabase) {
-                database.execSQL("ALTER TABLE messages ADD COLUMN encryptedBlob INTEGER NOT NULL DEFAULT 0")
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE messages ADD COLUMN encryptedBlob INTEGER NOT NULL DEFAULT 0")
             }
         }
 
         private val MIGRATION_22_23 = object : Migration(22, 23) {
-            override fun migrate(database: SupportSQLiteDatabase) {
-                database.execSQL("DROP TABLE IF EXISTS mutes")
-                database.execSQL("""
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("DROP TABLE IF EXISTS mutes")
+                db.execSQL("""
                     CREATE TABLE IF NOT EXISTS mutes (
                         owner TEXT NOT NULL,
                         target TEXT NOT NULL,
@@ -210,14 +210,14 @@ abstract class AppDatabase : RoomDatabase() {
         }
 
         private val MIGRATION_24_25 = object : Migration(24, 25) {
-            override fun migrate(database: SupportSQLiteDatabase) {
-                database.execSQL("ALTER TABLE messages ADD COLUMN isRead INTEGER NOT NULL DEFAULT 1")
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE messages ADD COLUMN isRead INTEGER NOT NULL DEFAULT 1")
             }
         }
 
         private val MIGRATION_23_24 = object : Migration(23, 24) {
-            override fun migrate(database: SupportSQLiteDatabase) {
-                database.execSQL("""
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
                     CREATE TABLE IF NOT EXISTS contacts_new (
                         id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
                         owner TEXT NOT NULL,
@@ -230,13 +230,13 @@ abstract class AppDatabase : RoomDatabase() {
                         allow_emergency_location INTEGER
                     )
                 """.trimIndent())
-                database.execSQL("""
+                db.execSQL("""
                     INSERT INTO contacts_new (id, owner, contact, status, createdAt, updatedAt, expiresAt, allow_emergency_call, allow_emergency_location)
                     SELECT id, owner, contact, status, createdAt, updatedAt, expiresAt, allow_emergency_call, allow_emergency_location
                     FROM contacts
                 """.trimIndent())
-                database.execSQL("DROP TABLE contacts")
-                database.execSQL("ALTER TABLE contacts_new RENAME TO contacts")
+                db.execSQL("DROP TABLE contacts")
+                db.execSQL("ALTER TABLE contacts_new RENAME TO contacts")
             }
         }
 

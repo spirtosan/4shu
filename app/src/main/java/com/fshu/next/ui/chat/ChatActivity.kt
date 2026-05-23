@@ -817,11 +817,11 @@ class ChatActivity : AppCompatActivity() {
         }
     }
 
-    private fun sendContactMessage(username: String, displayName: String) {
+    private fun sendContactMessage(_username: String, displayName: String) {
         Toast.makeText(this, "Send contact: $displayName — coming soon", Toast.LENGTH_SHORT).show()
     }
 
-    private fun sendPhoneContactMessage(name: String, phone: String) {
+    private fun sendPhoneContactMessage(name: String, _phone: String) {
         Toast.makeText(this, "Send contact: $name — coming soon", Toast.LENGTH_SHORT).show()
     }
 

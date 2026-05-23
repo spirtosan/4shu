@@ -169,7 +169,7 @@ object WebSocketClient {
             }
 
             override fun onMessage(webSocket: WebSocket, text: String) {
-                val frame = wsFrameCount.incrementAndGet()
+                wsFrameCount.incrementAndGet()
                 try {
                     val json = gson.fromJson(text, JsonObject::class.java)
                     when (json.get("type")?.asString) {
