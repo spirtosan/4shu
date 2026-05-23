@@ -90,7 +90,7 @@ Android client (Kotlin, MVVM)
 - Ubuntu 22.04 or 24.04 LTS
 - Root access
 - A domain name with DNS pointing to your server (for TLS)
-- Open ports: `443/tcp`, `80/tcp`, `3478/tcp+udp`, `49152–49200/udp`
+- Open ports: `443/tcp`, `80/tcp`, `3478/tcp+udp`, `49152–49999/udp`
 
 ### Android App
 - Android 8.0 (API 26) or newer
