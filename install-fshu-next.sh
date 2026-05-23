@@ -71,8 +71,8 @@ TURN_PORT=${TURN_PORT:-3478}
 read -p "TURN relay port range start [49152]: " TURN_MIN_PORT
 TURN_MIN_PORT=${TURN_MIN_PORT:-49152}
 
-read -p "TURN relay port range end [49200]: " TURN_MAX_PORT
-TURN_MAX_PORT=${TURN_MAX_PORT:-49200}
+read -p "TURN relay port range end [49999]: " TURN_MAX_PORT
+TURN_MAX_PORT=${TURN_MAX_PORT:-49999}
 
 read -p "TURN username (leave blank to auto-generate): " TURN_USER
 if [ -z "$TURN_USER" ]; then
