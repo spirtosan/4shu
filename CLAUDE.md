@@ -115,9 +115,9 @@ On first launch, `LoginActivity` collects username and server URL (`wss://…`),
   Command: `./gradlew assembleDebug` then adb uninstall com.fshu && adb install
 
 ### Server deploy
-  ssh root@89.25.108.245
-  cp /opt/fshu/server.js /opt/fshu/server.js.bak && nano /opt/fshu/server.js
-  systemctl restart fshu && journalctl -u fshu -f
+  ssh root@<your-server-ip>
+  cp /opt/fshu5/server.js /opt/fshu5/server.js.bak && nano /opt/fshu5/server.js
+  systemctl restart fshu5 && journalctl -u fshu5 -f
 
 ### DB migration rule
 - Every Room schema change MUST bump DATABASE_VERSION and add a Migration object.

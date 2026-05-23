@@ -14,6 +14,22 @@ local.properties
 *.jks
 google-services.json
 *firebase-adminsdk*.json
+secret.key
+data/
+*.db
+*.db-shm
+*.db-wal
+avatars/
+files/
+*.bak
+*.bak*
+
+# Internal planning docs (Claude Code session files)
+BRIEFING.md
+4shu_master_plan.md
+chat2_pre_ui_fixes.md
+chat3_ui_rework.md
+chat4_verify_and_polish.md
 
 # Node
 node_modules/
