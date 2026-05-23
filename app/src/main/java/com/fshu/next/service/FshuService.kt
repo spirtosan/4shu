@@ -1545,6 +1545,7 @@ class FshuService : Service() {
         // Muted contacts: show call screen silently (no ring/vibration), but never block the call.
         // Emergency calls always bypass mute entirely.
         val isMuted = !isEmergency && db.muteDao().isMuted(me, from)
+        Log.d("FshuService", "notifyCall: from=$from isMuted=$isMuted isEmergency=$isEmergency")
 
         val intent = Intent(this, CallActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
@@ -1553,7 +1554,24 @@ class FshuService : Service() {
             putExtra(CallActivity.EXTRA_OFFER_SDP, sdp)
             putExtra(CallActivity.EXTRA_IS_VIDEO_CALL, isVideo)
             putExtra(CallActivity.EXTRA_IS_EMERGENCY, isEmergency)
+            putExtra(CallActivity.EXTRA_IS_MUTED, isMuted)
         }
+        // Muted + non-emergency: skip the notification entirely and go straight to the call screen.
+        if (isMuted && !isEmergency) {
+            Log.d("FshuService", "notifyCall: MUTED BYPASS — skipping notification, starting activity directly")
+            val pm2 = getSystemService(PowerManager::class.java)
+            if (!pm2.isInteractive) {
+                @Suppress("DEPRECATION")
+                pm2.newWakeLock(
+                    PowerManager.SCREEN_BRIGHT_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP,
+                    "fshu:call_wakeup"
+                ).acquire(10_000L)
+            }
+            startActivity(intent)
+            WebSocketClient.send(mapOf("type" to "call-ringing", "from" to me, "to" to from))
+            return
+        }
+
         val id = notifCounter.getAndIncrement()
         activeCallNotifId = id
         val pi = PendingIntent.getActivity(

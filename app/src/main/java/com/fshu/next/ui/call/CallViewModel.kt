@@ -257,11 +257,11 @@ class CallViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** Called when an incoming offer arrives — does NOT start WebRTC yet. */
-    fun prepareIncoming(fromUser: String, sdpStr: String, isEmergency: Boolean = false) {
+    fun prepareIncoming(fromUser: String, sdpStr: String, isEmergency: Boolean = false, contactMuted: Boolean = false) {
         _isEmergency = isEmergency
         peer = fromUser
         pendingOfferSdp = sdpStr
-        startIncomingVibration()
+        if (!contactMuted || isEmergency) startIncomingVibration()
         state.value = State.INCOMING
         if (_isEmergency) return   // emergency calls ring until manually dismissed
         incomingTimeoutJob?.cancel()
@@ -384,6 +384,7 @@ class CallViewModel(app: Application) : AndroidViewModel(app) {
         cancelIncomingTimeout()
         stopTimer()
         stopRingback()
+        stopIncomingVibration()
         ringingTimeoutJob?.cancel(); ringingTimeoutJob = null
         callEndSent = true   // suppress any ICE-disconnect echo
         webRTC.endCall()

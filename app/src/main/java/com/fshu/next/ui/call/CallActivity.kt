@@ -35,6 +35,7 @@ class CallActivity : AppCompatActivity() {
         const val EXTRA_OFFER_SDP = "offer_sdp"
         const val EXTRA_IS_VIDEO_CALL = "is_video_call"
         const val EXTRA_IS_EMERGENCY = "is_emergency"
+        const val EXTRA_IS_MUTED = "is_muted"
         private const val RC_PERMISSIONS = 1
 
         /** True while the activity is in the foreground — used to gate end-call vibration. */
@@ -261,7 +262,8 @@ class CallActivity : AppCompatActivity() {
             if (isEmergency) vm.setEmergency(true)
             requestPermissionsForCall(onGranted = { vm.startCall(peer) })
         } else {
-            offerSdp?.let { vm.prepareIncoming(peer, it, isEmergency) } ?: finish()
+            val contactMuted = intent.getBooleanExtra(EXTRA_IS_MUTED, false)
+        offerSdp?.let { vm.prepareIncoming(peer, it, isEmergency, contactMuted) } ?: finish()
         }
 
         lifecycleScope.launch {
