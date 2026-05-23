@@ -513,9 +513,12 @@ class ChatActivity : AppCompatActivity() {
             }
         } else {
             vm.getMessages(peer).observe(this) { msgs ->
+                val lm = binding.rvMessages.layoutManager as? LinearLayoutManager
+                val wasAtBottom = lm == null || lm.findLastVisibleItemPosition() >= (adapter.itemCount - 2)
                 adapter.submitList(msgs) {
                     if (isSearchActive) recomputeSearchPositions()
                     else if (msgs.isNotEmpty()) binding.rvMessages.scrollToPosition(msgs.size - 1)
+                    if (wasAtBottom) vm.sendReadReceipts(peer)
                 }
             }
         }
