@@ -157,7 +157,6 @@ wss://yourdomain.com/fshu/
 1. Install the APK on your device (sideload or build from source)
 2. On first launch, enter your server URL: `wss://yourdomain.com/fshu/`
 3. Enter the username and password created by the admin
-4. Set your encryption passphrase — everyone in the same conversation must use the same passphrase
 
 ---
 
@@ -276,12 +275,9 @@ sudo bash install-fshu-next.sh   # instance: family2, port: 8084, path: /family2
 ## Encryption Details
 
 - **Key exchange:** X25519 ECDH — each device generates a keypair; public keys are exchanged via the server
-- **Message key derivation:** HKDF-SHA256 over the shared secret + server-issued `appSecret`
+- **Message key derivation:** HKDF-SHA256 over the shared ECDH secret
 - **Message encryption:** AES-256-GCM with a unique nonce per message
-- **Passphrase:** entered locally on each device, never transmitted — used as an additional HKDF input
 - **Server role:** stores and forwards only ciphertext — plaintext is never visible to the server
-
-> All participants in a conversation must enter the same passphrase on their devices.
 
 ---
 
@@ -289,7 +285,7 @@ sudo bash install-fshu-next.sh   # instance: family2, port: 8084, path: /family2
 
 - The server never sees message plaintext
 - `secret.key` is auto-generated at install time — keep it private and back it up
-- Passphrase is stored in Android Keystore-backed `EncryptedSharedPreferences`
+- EC private keys are stored in Android Keystore-backed `EncryptedSharedPreferences`
 - All traffic is TLS-encrypted in transit (WSS over nginx)
 - Login brute-force protection built in
 - Session tokens expire after 24 hours
