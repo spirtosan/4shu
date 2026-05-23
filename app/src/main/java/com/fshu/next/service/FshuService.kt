@@ -1545,7 +1545,6 @@ class FshuService : Service() {
         // Muted contacts: show call screen silently (no ring/vibration), but never block the call.
         // Emergency calls always bypass mute entirely.
         val isMuted = !isEmergency && db.muteDao().isMuted(me, from)
-        Log.d("FshuService", "notifyCall: from=$from isMuted=$isMuted isEmergency=$isEmergency")
 
         val intent = Intent(this, CallActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
@@ -1558,7 +1557,6 @@ class FshuService : Service() {
         }
         // Muted + non-emergency: skip the notification entirely and go straight to the call screen.
         if (isMuted && !isEmergency) {
-            Log.d("FshuService", "notifyCall: MUTED BYPASS — skipping notification, starting activity directly")
             val pm2 = getSystemService(PowerManager::class.java)
             if (!pm2.isInteractive) {
                 @Suppress("DEPRECATION")
