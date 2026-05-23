@@ -20,9 +20,22 @@
 
 ## Screenshots
 
-| Chats | Chat | Call | Settings |
-|-------|------|------|----------|
-| *(coming soon)* | *(coming soon)* | *(coming soon)* | *(coming soon)* |
+<table>
+  <tr>
+    <td align="center"><img src="screenshots/chats.jpg" width="160"><br><sub>Chats</sub></td>
+    <td align="center"><img src="screenshots/privacy_settings.jpg" width="160"><br><sub>Privacy Settings</sub></td>
+    <td align="center"><img src="screenshots/emergency_actions.jpg" width="160"><br><sub>Emergency Actions</sub></td>
+    <td align="center"><img src="screenshots/user_profile.jpg" width="160"><br><sub>Contact Profile</sub></td>
+    <td align="center"><img src="screenshots/chat_todo.jpg" width="160"><br><sub>Chat &amp; Todo Lists</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="screenshots/location_sharing.jpg" width="160"><br><sub>Location Sharing</sub></td>
+    <td align="center"><img src="screenshots/video_call.jpg" width="160"><br><sub>Video Call</sub></td>
+    <td align="center"><img src="screenshots/settings_1.jpg" width="160"><br><sub>Settings</sub></td>
+    <td align="center"><img src="screenshots/settings_2.jpg" width="160"><br><sub>Settings (cont.)</sub></td>
+    <td align="center"><img src="screenshots/settings_3.jpg" width="160"><br><sub>Settings (cont.)</sub></td>
+  </tr>
+</table>
 
 ---
 
