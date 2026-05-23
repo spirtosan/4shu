@@ -1,253 +1,302 @@
-# 4shu
+<div align="center">
 
-A private, self-hosted family messaging app for Android. Built to avoid dependency on commercial messengers that can be blocked or monitored. Traffic looks like regular HTTPS — hard to fingerprint or block.
+<h1>4shu</h1>
+
+<p><strong>Private, self-hosted encrypted messenger for families and small groups</strong></p>
+
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![Android](https://img.shields.io/badge/Android-8.0%2B-green.svg?logo=android)](https://developer.android.com)
+[![Node.js](https://img.shields.io/badge/Node.js-20%20LTS-brightgreen.svg?logo=node.js)](https://nodejs.org)
+[![WebRTC](https://img.shields.io/badge/WebRTC-audio%2Fvideo-orange.svg)](https://webrtc.org)
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-support-yellow.svg?logo=buy-me-a-coffee)](https://buymeacoffee.com/spirtosan)
+
+</div>
+
+---
+
+4shu is a fully self-hosted messaging app that puts your family's communication on your own server — no third-party services, no data collection, no subscriptions. Traffic is indistinguishable from regular HTTPS, making it resistant to fingerprinting and blocking.
+
+---
+
+## Screenshots
+
+| Chats | Chat | Call | Settings |
+|-------|------|------|----------|
+| *(coming soon)* | *(coming soon)* | *(coming soon)* | *(coming soon)* |
 
 ---
 
 ## Features
 
-- **Instant messaging** — text messages with delivery and read receipts
-- **Voice & video calls** — WebRTC peer-to-peer, low latency
-- **Emergency calls** — override silent mode, bypass lock screen
-- **Todo lists** — shared, real-time synchronized between all users
+### Messaging
+- **Text messages** — delivery and read receipts, typing indicators
+- **Voice messages** — record and send audio clips with waveform display
+- **File sharing** — photos, documents, and any file type (up to 50 MB)
+- **Message reactions** — emoji reactions on any message
+- **Edit & delete** — edit sent messages or delete for everyone
+- **Shared todo lists** — real-time synchronized checklists between users
+
+### Calls
+- **Audio & video calls** — WebRTC peer-to-peer, low latency
+- **Emergency calls** — override silent mode and bypass the lock screen
+- **TURN relay** — automatic fallback when direct P2P is blocked
+
+### Privacy & Security
+- **End-to-end encryption** — X25519 ECDH key exchange + AES-256-GCM per message
+- **App lock** — biometric or PIN protection
+- **Self-hosted** — your server, your data, zero third parties
+- **Encrypted transport** — WSS (WebSocket over TLS) — looks like HTTPS to any observer
+
+### Groups & Organization
+- **Group chats** — multiple participants, group avatars, admin roles
+- **Invite links** — share a link to register on your server
+- **Contact nicknames** — set your own display names per contact
 - **Location sharing** — on-demand and emergency GPS sharing
-- **End-to-end encryption** — AES-256-GCM, passphrase-based, server never sees plaintext
-- **Push notifications** — FCM wake-up for offline devices (optional)
-- **App lock** — biometric/PIN protection
-- **Avatars & nicknames** — per-user photos and display names
-- **Self-hosted** — your server, your data, no third parties
-- **Dark theme** — forced dark UI, navy + orange accent
+
+### Platform
+- **Push notifications** — optional Firebase FCM wake-up for Doze mode
+- **Multi-device** — connect multiple Android devices per account
+- **Admin panel** — in-app user management for admins
+- **Dark & light themes** — with customizable chat backgrounds
+- **Android 8.0+** — minimum SDK 26, no Google Play required
 
 ---
 
 ## Architecture
 
-- **Server:** Node.js + WebSocket (ws library), runs on Ubuntu
-- **Transport:** WSS (WebSocket over TLS) — looks like regular HTTPS
-- **Signaling:** central server relays messages and WebRTC signaling
-- **Calls:** WebRTC peer-to-peer after signaling, TURN relay fallback
-- **Database:** none — flat JSON files on server, Room (SQLite) on Android
-- **Encryption:** HKDF-derived AES-256-GCM key from passphrase + server secret
-- **Android:** Kotlin, MVVM, min SDK 26 (Android 8)
+```
+Android client (Kotlin, MVVM)
+        │  WSS (looks like HTTPS)
+        ▼
+   nginx (TLS termination)
+        │
+        ▼
+  Node.js server (ws library)
+   ├── SQLite database (better-sqlite3)
+   ├── coturn (TURN/STUN for WebRTC relay)
+   └── Firebase Admin SDK (optional, for FCM)
+```
+
+- **Transport:** WebSocket over TLS — HTTPS port 443
+- **Encryption:** X25519 ECDH → HKDF → AES-256-GCM, keys derived client-side
+- **Server storage:** SQLite (messages, users, files metadata)
+- **Android:** Kotlin, MVVM, Room (SQLite), OkHttp WebSocket, Stream WebRTC
 
 ---
 
 ## Requirements
 
 ### Server
-- Ubuntu 24.04 LTS
+- Ubuntu 22.04 or 24.04 LTS
 - Root access
-- Open ports: 443/tcp, 80/tcp, 3478/tcp+udp, 49152-49200/udp
-- Domain name with DNS pointing to your server (optional but recommended for TLS)
+- A domain name with DNS pointing to your server (for TLS)
+- Open ports: `443/tcp`, `80/tcp`, `3478/tcp+udp`, `49152–49200/udp`
 
 ### Android App
-- Android 8.0 (API 26) or higher
-- Connection to your 4shu server
+- Android 8.0 (API 26) or newer
+- Network access to your 4shu server
 
 ---
 
-## Server Installation
+## Self-Hosting Setup
 
-### 1. Download the installer
-
-Clone the repository or download the release files to your server:
+### 1. Clone the repository onto your server
 
 ```bash
-git clone https://github.com/yourusername/fshu.git
-cd fshu
+git clone https://github.com/spirtosan/4shu.git
+cd 4shu
 ```
 
-### 2. Run the installation script
+### 2. Run the installer
 
 ```bash
-sudo bash install.sh
+sudo bash install-fshu-next.sh
 ```
 
-The script will prompt you for:
-- **Instance name** — identifier for this installation (e.g. `fshu`)
-- **Install directory** — where server files are stored (default: `/opt/fshu`)
-- **Node.js port** — internal port for the Node.js server (default: `8080`)
-- **Domain name** — your server's domain (leave blank to skip TLS)
-- **WebSocket path** — URL path for WebSocket endpoint (default: `/fshu/`)
-- **TURN credentials** — username and auto-generated password for TURN server
-- **Admin account** — first admin username and password
-- **Firebase** — optional push notification support
+The interactive script will prompt you for:
 
-### 3. What the script installs
-- Node.js 20 LTS
-- nginx (TLS termination + reverse proxy)
-- coturn (TURN/STUN server for WebRTC relay)
-- certbot (Let's Encrypt TLS certificate, if domain provided)
-- 4shu Node.js server as a systemd service
+| Prompt | Description |
+|--------|-------------|
+| Instance name | Identifier for this install (e.g. `fshu`) |
+| Install directory | Where server files go (default: `/opt/fshu`) |
+| Port | Internal Node.js port (default: `8083`) |
+| Domain | Your domain name — enables automatic TLS via Let's Encrypt |
+| WebSocket path | URL path for the WebSocket endpoint (default: `/fshu/`) |
+| TURN credentials | Username and password for the TURN relay server |
+| Admin account | First admin username and password |
+| Firebase | Optional — enable FCM push notifications |
 
-### 4. After installation
+### 3. What gets installed
 
-Your server will be available at: wss://yourdomain.com/fshu/
+- **Node.js 20** — server runtime
+- **nginx** — TLS termination and reverse proxy
+- **coturn** — TURN/STUN server for WebRTC relay behind NAT
+- **certbot** — automatic Let's Encrypt TLS certificate
+- **4shu server** — running as a systemd service
 
-Manage users:
+After installation your server is live at:
+```
+wss://yourdomain.com/fshu/
+```
+
+### 4. Connect the Android app
+
+1. Install the APK on your device (sideload or build from source)
+2. On first launch, enter your server URL: `wss://yourdomain.com/fshu/`
+3. Enter the username and password created by the admin
+4. Set your encryption passphrase — everyone in the same conversation must use the same passphrase
+
+---
+
+## Managing Users
+
 ```bash
-node /opt/fshu/admin.js list
-node /opt/fshu/admin.js add <username> <password>
-node /opt/fshu/admin.js remove <username>
-node /opt/fshu/admin.js setadmin <username>
+INSTANCE=/opt/fshu   # adjust to your install directory
+
+node $INSTANCE/admin.js list
+node $INSTANCE/admin.js add <username> <password>
+node $INSTANCE/admin.js remove <username>
+node $INSTANCE/admin.js reset <username> <newpassword>
+node $INSTANCE/admin.js setadmin <username>
+node $INSTANCE/admin.js removeadmin <username>
+```
+
+### Service management
+
+```bash
+systemctl status fshu
+systemctl restart fshu
+journalctl -u fshu -f
+```
+
+---
+
+## Server Configuration
+
+Edit `$INSTALL_DIR/data/config.json` to tune behaviour:
+
+```json
+{
+  "turnUsername": "fshu",
+  "turnPassword": "your-turn-password",
+  "historyRetentionDays": 90,
+  "fileRetentionDays": 90,
+  "maxFileSizeMB": 50,
+  "maxGroupSize": 500,
+  "publicUrl": "https://yourdomain.com",
+  "apkUrl": "https://yourdomain.com/download/app.apk"
+}
+```
+
+Restart after changes: `systemctl restart fshu`
+
+### Directory layout
+
+```
+/opt/fshu/
+├── server.js               # WebSocket server
+├── admin.js                # User management CLI
+├── package.json
+├── firebase-adminsdk.json  # Firebase credentials (optional)
+├── secret.key              # Auto-generated — never share or commit
+├── data/
+│   ├── fshu.db             # SQLite database (messages, users, sessions)
+│   └── config.json         # Runtime configuration
+├── files/                  # Uploaded files (auto-deleted after fileRetentionDays)
+└── avatars/                # User and group avatars
 ```
 
 ---
 
 ## Firebase Push Notifications (Optional)
 
-Push notifications allow the server to wake the Android app when it receives a message while in the background (Doze mode). Without Firebase, the app uses an 8-layer connection stability system that works well in most cases.
+Without Firebase the app maintains its own persistent WebSocket connection and works reliably in most conditions. Firebase is only needed to wake the app under aggressive Doze mode.
 
-To enable Firebase:
-
-1. Create a Firebase project at [console.firebase.google.com](https://console.firebase.google.com)
-2. Add an Android app with package name `com.fshu`
-3. Download `google-services.json` and place it in `app/`
-4. Download the Firebase Admin SDK service account key
-5. Place it at your install directory as `firebase-adminsdk.json`
-6. Restart the server: `systemctl restart fshu`
+1. Create a project at [console.firebase.google.com](https://console.firebase.google.com)
+2. Add an Android app with package name `com.fshu.next`
+3. Download `google-services.json` → place in `app/` before building
+4. Download the service account key → save as `$INSTALL_DIR/firebase-adminsdk.json`
+5. Restart: `systemctl restart fshu`
 
 ---
 
-## Android App
+## Building from Source
 
-### Building from source
+```bash
+# Clone
+git clone https://github.com/spirtosan/4shu.git
+cd 4shu
 
-1. Clone the repository
-2. Open in Android Studio
-3. Add your `google-services.json` to `app/` (or use the dummy one for builds without FCM)
-4. Add signing config to `local.properties`:
+# Open in Android Studio (requires Android SDK 34)
+# or build from CLI:
+./gradlew assembleDebug
+adb install app/build/outputs/apk/debug/app-debug.apk
+```
 
-storeFile=path/to/your.jks
+For a release build, create `local.properties` with your signing config:
+
+```properties
+storeFile=/path/to/your.jks
 storePassword=yourpassword
 keyAlias=youralias
 keyPassword=yourpassword
+```
 
-5. Build → Generate Signed APK
-
-### First run
-
-1. Install the APK on your Android device
-2. Grant required permissions (notifications, microphone, camera)
-3. Enter your server URL: `wss://yourdomain.com/fshu/`
-4. Enter your username and password (created by admin on the server)
-5. Set your encryption passphrase — **all family members must use the same passphrase**
-
----
-
-## Encryption
-
-Messages are encrypted end-to-end using AES-256-GCM.
-
-- The server generates a unique `appSecret` per user on first login
-- The encryption key is derived as: `HKDF(pepper + appSecret + passphrase, salt=SHA256(userPair))`
-- The passphrase is entered locally and never transmitted to the server
-- The server stores and forwards only ciphertext — it cannot read messages
-- Nonce is derived deterministically from `messageId` and `timestamp`
-
-**Note:** All users sharing a conversation must enter the same passphrase on their devices.
+Then: `./gradlew assembleRelease`
 
 ---
 
 ## Multiple Instances
 
-The installation script supports multiple 4shu instances on the same server:
+Run `install-fshu-next.sh` again on the same server to add a second independent instance with its own users and data — the script detects the existing coturn installation and adds the new TURN credentials automatically.
 
 ```bash
-# First instance
-sudo bash install.sh  # instance: fshu, port: 8080, path: /fshu/
+# First family
+sudo bash install-fshu-next.sh   # instance: family1, port: 8083, path: /family1/
 
-# Second instance
-sudo bash install.sh  # instance: fshu2, port: 8081, path: /fshu2/
-```
-
-Each instance has its own users, data, and configuration. TURN credentials are automatically added to the shared coturn instance.
-
----
-
-## File Structure
-
-/opt/fshu/
-├── server.js          # Main WebSocket server
-├── admin.js           # User management CLI
-├── package.json       # Node.js dependencies
-├── firebase-adminsdk.json  # Firebase credentials (optional)
-├── data/
-│   ├── users.json     # User accounts and hashed passwords
-│   ├── queue.json     # Offline message queue
-│   ├── lists.json     # Shared todo lists
-│   └── config.json    # Server configuration
-├── history/           # Chat history per user pair
-├── files/             # Shared files (deleted after 90 days)
-└── avatars/           # User avatar photos (permanent)
-
----
-
-## Configuration
-
-Edit `/opt/fshu/data/config.json`:
-
-```json
-{
-  "turnUsername": "fshu",
-  "turnPassword": "your-turn-password",
-  "historyRetentionDays": 365,
-  "fileRetentionDays": 90,
-  "maxHistoryRequestDays": 30
-}
-```
-
-Restart after changes: `systemctl restart fshu`
-
----
-
-## Managing the Server
-
-```bash
-# Service status
-systemctl status fshu
-
-# View logs
-journalctl -u fshu -f
-
-# Restart
-systemctl restart fshu
-
-# User management
-node /opt/fshu/admin.js list
-node /opt/fshu/admin.js add <username> <password>
-node /opt/fshu/admin.js remove <username>
-node /opt/fshu/admin.js reset <username> <newpassword>
-node /opt/fshu/admin.js setadmin <username>
-node /opt/fshu/admin.js removeadmin <username>
+# Second group
+sudo bash install-fshu-next.sh   # instance: family2, port: 8084, path: /family2/
 ```
 
 ---
 
-## Planned Features
+## Encryption Details
 
-- Multiple device support per user
-- Windows/Electron desktop client
-- Server installation documentation improvements
+- **Key exchange:** X25519 ECDH — each device generates a keypair; public keys are exchanged via the server
+- **Message key derivation:** HKDF-SHA256 over the shared secret + server-issued `appSecret`
+- **Message encryption:** AES-256-GCM with a unique nonce per message
+- **Passphrase:** entered locally on each device, never transmitted — used as an additional HKDF input
+- **Server role:** stores and forwards only ciphertext — plaintext is never visible to the server
 
----
-
-## License
-
-MIT License — free to use, modify, and distribute.
+> All participants in a conversation must enter the same passphrase on their devices.
 
 ---
 
 ## Security Notes
 
 - The server never sees message plaintext
-- Passphrase is stored only on the device in Android Keystore-backed encrypted storage
-- All traffic is TLS-encrypted in transit
-- TURN credentials are rotated per installation
-- Brute-force protection on login attempts
-- Session tokens with 24-hour TTL
+- `secret.key` is auto-generated at install time — keep it private and back it up
+- Passphrase is stored in Android Keystore-backed `EncryptedSharedPreferences`
+- All traffic is TLS-encrypted in transit (WSS over nginx)
+- Login brute-force protection built in
+- Session tokens expire after 24 hours
 
 ---
 
-*4shu is designed for private family use on a trusted self-hosted server. It is not intended as an anonymous communication tool.*
+## Support the Project
 
+If 4shu is useful to you, consider buying me a coffee:
+
+[![Buy Me a Coffee](https://img.buymeacoffee.com/button-api/?text=Buy%20me%20a%20coffee&emoji=&slug=spirtosan&button_colour=FFDD00&font_colour=000000&font_family=Cookie&outline_colour=000000&coffee_colour=ffffff)](https://buymeacoffee.com/spirtosan)
+
+---
+
+## License
+
+4shu is free software, released under the [GNU General Public License v3.0](https://www.gnu.org/licenses/gpl-3.0).
+
+You are free to use, modify, and distribute it under the same terms.
+
+---
+
+*4shu is designed for private use on a trusted self-hosted server. It is not intended as an anonymous communication tool.*
