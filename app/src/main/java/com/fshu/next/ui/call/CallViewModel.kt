@@ -17,6 +17,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
 import com.fshu.next.data.remote.WebSocketClient
+import com.fshu.next.service.FshuService
 import com.fshu.next.service.WebRTCManager
 import com.fshu.next.util.Prefs
 import kotlinx.coroutines.Job
@@ -50,6 +51,7 @@ class CallViewModel(app: Application) : AndroidViewModel(app) {
     private var audioTrack: AudioTrack? = null
     private var ringbackThread: Thread? = null
     private var incomingVibrator: Vibrator? = null
+    @Volatile private var callFinished = false
 
     private var _isVideoCall = false
     val isVideoCall: Boolean get() = _isVideoCall
@@ -228,6 +230,7 @@ class CallViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun startIncomingVibration() {
+        if (callFinished) return
         try {
             val context = getApplication<Application>()
             val vib = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -256,6 +259,13 @@ class CallViewModel(app: Application) : AndroidViewModel(app) {
         incomingVibrator = null
     }
 
+    /** Stops all incoming-call alerting: vibration, ringtone, volume ramp. Idempotent. */
+    private fun stopAlerting() {
+        callFinished = true
+        stopIncomingVibration()
+        FshuService.cancelCallNotif(getApplication())
+    }
+
     /** Called when an incoming offer arrives — does NOT start WebRTC yet. */
     fun prepareIncoming(fromUser: String, sdpStr: String, isEmergency: Boolean = false, contactMuted: Boolean = false) {
         _isEmergency = isEmergency
@@ -273,7 +283,7 @@ class CallViewModel(app: Application) : AndroidViewModel(app) {
                     "type" to "call-end", "from" to me, "to" to peer, "reason" to "no_answer"
                 ))
                 endReason.postValue("no_answer")
-                stopIncomingVibration()
+                stopAlerting()
                 state.postValue(State.ENDED)
             }
         }
@@ -286,7 +296,7 @@ class CallViewModel(app: Application) : AndroidViewModel(app) {
 
     /** User tapped Accept — now start WebRTC and send the answer. */
     fun acceptCall() {
-        stopIncomingVibration()
+        stopAlerting()
         cancelIncomingTimeout()
         if (!WebSocketClient.isConnected) {
             endReason.postValue("disconnected")
@@ -307,7 +317,7 @@ class CallViewModel(app: Application) : AndroidViewModel(app) {
 
     /** User tapped Reject. */
     fun rejectCall() {
-        stopIncomingVibration()
+        stopAlerting()
         cancelIncomingTimeout()
         WebSocketClient.send(mapOf("type" to "call-reject", "from" to me, "to" to peer, "reason" to "rejected"))
         endReason.value = "rejected"
@@ -330,6 +340,7 @@ class CallViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun handleBusy() {
+        stopAlerting()
         cancelNoAnswerTimeout()
         stopTimer()
         stopRingback()
@@ -380,11 +391,11 @@ class CallViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Remote side ended the call — tear down without sending another WS message. */
     fun remoteEndCall(reason: String = "ended") {
+        stopAlerting()
         cancelNoAnswerTimeout()
         cancelIncomingTimeout()
         stopTimer()
         stopRingback()
-        stopIncomingVibration()
         ringingTimeoutJob?.cancel(); ringingTimeoutJob = null
         callEndSent = true   // suppress any ICE-disconnect echo
         webRTC.endCall()
@@ -561,6 +572,7 @@ class CallViewModel(app: Application) : AndroidViewModel(app) {
 
     override fun onCleared() {
         super.onCleared()
+        stopAlerting()
         cancelNoAnswerTimeout()
         cancelIncomingTimeout()
         stopTimer()

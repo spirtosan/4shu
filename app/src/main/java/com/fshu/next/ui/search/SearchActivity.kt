@@ -15,11 +15,14 @@ import android.view.LayoutInflater
 import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
+import android.view.inputmethod.InputMethodManager
 import android.widget.Button
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -152,6 +155,17 @@ class SearchActivity : AppCompatActivity() {
         binding.btnLoadMore.setOnClickListener {
             currentOffset += 10
             performSearch(append = true)
+        }
+
+        // T4: focus search field and show keyboard immediately on open (Motorola OEM reliability)
+        binding.etSearch.post {
+            if (binding.etSearch.text.isNullOrEmpty()) {
+                binding.etSearch.requestFocus()
+                WindowInsetsControllerCompat(window, binding.etSearch)
+                    .show(WindowInsetsCompat.Type.ime())
+                getSystemService(InputMethodManager::class.java)
+                    .showSoftInput(binding.etSearch, InputMethodManager.SHOW_IMPLICIT)
+            }
         }
     }
 
