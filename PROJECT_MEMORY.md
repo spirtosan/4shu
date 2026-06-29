@@ -23,7 +23,6 @@ Priority: **P0** blocking users · **P1** important · **P2** normal · **P3** l
 | TS | SDK bump: `minSdk 26→31`, `compileSdk 34→35` | Config | **P1** | Part of platform policy; compileSdk bump also feeds T2 fix. Keep `targetSdk 34` until call testing on G60. Ivan edits in Android Studio. |
 | T10 | Rename groups | Feature | **P2** | Groups currently cannot be renamed. Add rename (admin/owner role). |
 | T8 | Chat/channel media gallery | Feature | **P2** | List all media sent in a chat/channel. |
-| T9 | Slide-to-accept / slide-to-reject call UI | Feature | **P2** | New incoming-call screen interaction. |
 | T5 | Polls in groups (reuse todo-list infra) | Feature | **P2** | Build on existing `lists`/`list_items` tables. |
 | T7 | Screen share | Feature | **P3** | Large. WebRTC screen capture. Interacts with foreground-service rules. |
 | T11 | Shared todo list with "who did the task" | Feature | **P3** | Tentative, not confirmed. |
@@ -36,6 +35,7 @@ _(none yet)_
 
 | ID | Item | Notes |
 |----|------|-------|
+| T9 | Slide-to-accept / slide-to-reject incoming-call UI | Single horizontal slide track replaces tap buttons. Right ≥80% → `acceptCall()`, left ≥80% → `rejectCall()`. Spring-back, haptic tick at threshold, commit-once guard, TalkBack accessibility actions. No protocol/DB/permission changes. UPDATE build. |
 | T6 | Build flavors: `personal` (server URL pre-filled) vs `distribution` (blank) | `flavorDimensions "serverType"` + two `productFlavors` in `build.gradle`; `LoginActivity` fills from `BuildConfig.DEFAULT_SERVER_URL` when no saved URL. UPDATE build. |
 | T4 | Add-contact: auto-focus search field + open keyboard | `SearchActivity`: `view.post` + `WindowInsetsControllerCompat` + `InputMethodManager` fallback; manifest `stateVisible\|adjustResize`. UPDATE build. |
 | T3 | Vibration doesn't stop after emergency call | Added `stopAlerting()` to `CallViewModel` — calls both `stopIncomingVibration()` and `FshuService.cancelCallNotif()`. Wired to all terminal paths: `acceptCall`, `rejectCall`, `remoteEndCall`, `incomingTimeoutJob`, `handleBusy`, `onCleared`. Guard added: `callFinished` flag prevents re-entry after stop. UPDATE build. |

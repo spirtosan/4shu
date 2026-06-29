@@ -129,6 +129,9 @@
     <string name="btn_silence">Заглуши</string>
     <string name="btn_decline">Откажи</string>
     <string name="btn_accept">Приеми</string>
+    <string name="call_slide_to_answer">Плъзнете за отговор</string>
+    <string name="call_slide_to_decline">Плъзнете за отказ</string>
+    <string name="call_slide_track_desc">Входящо повикване. Плъзнете надясно за отговор, наляво за отказ.</string>
     <string name="label_server_url">URL на сървъра</string>
     <string name="label_device_name">Име на устройството</string>
     <string name="label_location_sharing">📍 Споделяне на местоположение</string>

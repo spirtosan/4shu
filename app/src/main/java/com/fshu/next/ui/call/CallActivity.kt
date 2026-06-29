@@ -10,6 +10,7 @@ import android.media.MediaPlayer
 import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
+import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
@@ -17,6 +18,7 @@ import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
 import androidx.lifecycle.lifecycleScope
 import com.google.gson.JsonObject
 import com.fshu.next.R
@@ -248,15 +250,7 @@ class CallActivity : AppCompatActivity() {
             binding.llSilenceBtn.visibility = View.GONE
         }
 
-        binding.btnReject.setOnClickListener {
-            FshuService.cancelCallNotif(this)
-            vm.rejectCall()
-        }
-
-        binding.btnAccept.setOnClickListener {
-            FshuService.cancelCallNotif(this)
-            requestPermissionsThenAccept()
-        }
+        setupIncomingSlider()
 
         if (isCaller) {
             if (isEmergency) vm.setEmergency(true)
@@ -285,6 +279,88 @@ class CallActivity : AppCompatActivity() {
                 }
                 else -> Unit
             }
+        }
+    }
+
+    private fun setupIncomingSlider() {
+        val track = binding.slideTrack
+        val handle = binding.slideHandle
+        val iconDecline = binding.icSlideDecline
+        val iconAccept = binding.icSlideAccept
+        var committed = false
+        var halfTravel = 0f
+        var pastThreshold = false
+        var downRawX = 0f
+        var initTx = 0f
+
+        handle.setOnTouchListener { v, event ->
+            if (committed) return@setOnTouchListener true
+            when (event.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    halfTravel = (track.width - v.width) / 2f
+                    downRawX = event.rawX
+                    initTx = v.translationX
+                    pastThreshold = false
+                    true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    if (halfTravel <= 0f) return@setOnTouchListener true
+                    val newTx = (initTx + event.rawX - downRawX).coerceIn(-halfTravel, halfTravel)
+                    v.translationX = newTx
+                    val frac = kotlin.math.abs(newTx) / halfTravel
+                    if (newTx >= 0f) {
+                        iconAccept.alpha = 0.5f + 0.5f * frac
+                        iconDecline.alpha = 0.5f
+                    } else {
+                        iconDecline.alpha = 0.5f + 0.5f * frac
+                        iconAccept.alpha = 0.5f
+                    }
+                    if (!pastThreshold && kotlin.math.abs(newTx) >= halfTravel * 0.8f) {
+                        pastThreshold = true
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                            v.performHapticFeedback(HapticFeedbackConstants.CONFIRM)
+                        } else {
+                            v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                        }
+                    } else if (pastThreshold && kotlin.math.abs(newTx) < halfTravel * 0.8f) {
+                        pastThreshold = false
+                    }
+                    true
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    if (halfTravel <= 0f) return@setOnTouchListener true
+                    val tx = v.translationX
+                    if (!committed && kotlin.math.abs(tx) >= halfTravel * 0.8f) {
+                        committed = true
+                        FshuService.cancelCallNotif(this)
+                        if (tx > 0f) requestPermissionsThenAccept() else vm.rejectCall()
+                    } else {
+                        v.animate().translationX(0f).setDuration(150).start()
+                        iconAccept.animate().alpha(0.5f).setDuration(150).start()
+                        iconDecline.animate().alpha(0.5f).setDuration(150).start()
+                        pastThreshold = false
+                    }
+                    true
+                }
+                else -> false
+            }
+        }
+
+        ViewCompat.addAccessibilityAction(track, getString(R.string.btn_accept)) { _, _ ->
+            if (!committed) {
+                committed = true
+                FshuService.cancelCallNotif(this)
+                requestPermissionsThenAccept()
+            }
+            true
+        }
+        ViewCompat.addAccessibilityAction(track, getString(R.string.btn_decline)) { _, _ ->
+            if (!committed) {
+                committed = true
+                FshuService.cancelCallNotif(this)
+                vm.rejectCall()
+            }
+            true
         }
     }
 

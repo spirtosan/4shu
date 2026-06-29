@@ -73,13 +73,13 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
-    <!-- Incoming call: Decline + Accept — shown only when INCOMING -->
+    <!-- Incoming call: slide track — shown only when INCOMING -->
     <LinearLayout
         android:id="@+id/panel_incoming"
-        android:layout_width="wrap_content"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center"
+        android:orientation="vertical"
+        android:gravity="center_horizontal"
         android:visibility="gone"
         android:layout_marginBottom="72dp"
         app:layout_constraintBottom_toBottomOf="parent"
@@ -93,7 +93,7 @@
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:gravity="center"
-            android:layout_marginEnd="40dp"
+            android:layout_marginBottom="24dp"
             android:visibility="gone">
 
             <ImageButton
@@ -114,54 +114,79 @@
                 android:layout_marginTop="8dp" />
         </LinearLayout>
 
-        <LinearLayout
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:gravity="center"
-            android:layout_marginEnd="56dp">
+        <!-- Slide track -->
+        <FrameLayout
+            android:id="@+id/slide_track"
+            android:layout_width="match_parent"
+            android:layout_height="64dp"
+            android:layout_marginStart="32dp"
+            android:layout_marginEnd="32dp"
+            android:background="@drawable/bg_slide_track"
+            android:contentDescription="@string/call_slide_track_desc">
 
-            <ImageButton
-                android:id="@+id/btn_reject"
-                android:layout_width="72dp"
-                android:layout_height="72dp"
-                android:background="@drawable/bg_call_decline"
+            <!-- Decline icon at left end -->
+            <ImageView
+                android:id="@+id/ic_slide_decline"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:layout_gravity="center_vertical|start"
+                android:layout_marginStart="12dp"
                 android:src="@drawable/ic_call_end"
-                android:padding="20dp"
-                android:contentDescription="Decline" />
+                android:tint="#E53935"
+                android:alpha="0.5"
+                android:importantForAccessibility="no"
+                android:contentDescription="" />
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/btn_decline"
-                android:textColor="#9090B0"
-                android:textSize="12sp"
-                android:layout_marginTop="8dp" />
-        </LinearLayout>
-
-        <LinearLayout
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:gravity="center">
-
-            <ImageButton
-                android:id="@+id/btn_accept"
-                android:layout_width="72dp"
-                android:layout_height="72dp"
-                android:background="@drawable/bg_call_accept"
+            <!-- Accept icon at right end -->
+            <ImageView
+                android:id="@+id/ic_slide_accept"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:layout_gravity="center_vertical|end"
+                android:layout_marginEnd="12dp"
                 android:src="@drawable/ic_call_white"
-                android:padding="20dp"
-                android:contentDescription="Accept" />
+                android:tint="#43A047"
+                android:alpha="0.5"
+                android:importantForAccessibility="no"
+                android:contentDescription="" />
+
+            <!-- Draggable handle -->
+            <View
+                android:id="@+id/slide_handle"
+                android:layout_width="56dp"
+                android:layout_height="56dp"
+                android:layout_gravity="center"
+                android:background="@drawable/bg_slide_handle" />
+        </FrameLayout>
+
+        <!-- Hint text row -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="32dp"
+            android:layout_marginEnd="32dp"
+            android:layout_marginTop="8dp"
+            android:orientation="horizontal">
 
             <TextView
-                android:layout_width="wrap_content"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:text="@string/btn_accept"
+                android:layout_weight="1"
+                android:text="@string/call_slide_to_decline"
                 android:textColor="#9090B0"
                 android:textSize="12sp"
-                android:layout_marginTop="8dp" />
+                android:gravity="start" />
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/call_slide_to_answer"
+                android:textColor="#9090B0"
+                android:textSize="12sp"
+                android:gravity="end" />
         </LinearLayout>
+
     </LinearLayout>
 
     <!--

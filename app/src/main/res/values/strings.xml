@@ -131,6 +131,9 @@
     <string name="btn_silence">Silence</string>
     <string name="btn_decline">Decline</string>
     <string name="btn_accept">Accept</string>
+    <string name="call_slide_to_answer">Slide to answer</string>
+    <string name="call_slide_to_decline">Slide to decline</string>
+    <string name="call_slide_track_desc">Incoming call. Slide right to answer, left to decline.</string>
     <string name="label_server_url">Server URL</string>
     <string name="label_device_name">Device name</string>
     <string name="label_location_sharing">📍 Location sharing</string>
