@@ -27,6 +27,9 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
+private const val TYPE_HEADER = 0
+private const val TYPE_IMAGE = 1
+
 class MediaGalleryActivity : AppCompatActivity() {
 
     companion object {
@@ -88,7 +91,7 @@ class MediaGalleryActivity : AppCompatActivity() {
 
             gridLM.spanSizeLookup = object : GridLayoutManager.SpanSizeLookup() {
                 override fun getSpanSize(position: Int) =
-                    if (adapter.getItemViewType(position) == GalleryAdapter.TYPE_HEADER) spanCount else 1
+                    if (adapter.getItemViewType(position) == TYPE_HEADER) spanCount else 1
             }
 
             binding.rvGallery.adapter = adapter
@@ -140,11 +143,6 @@ class MediaGalleryActivity : AppCompatActivity() {
         private val items: List<GalleryItem>,
         private val imageSize: Int
     ) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
-
-        companion object {
-            const val TYPE_HEADER = 0
-            const val TYPE_IMAGE = 1
-        }
 
         val imageMessages: List<Message> =
             items.filterIsInstance<GalleryItem.Image>().map { it.message }
