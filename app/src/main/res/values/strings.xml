@@ -420,4 +420,13 @@
     <string name="menu_media_files_links">Media, Files &amp; Links</string>
     <string name="menu_mute_group">Mute group</string>
     <string name="menu_unmute_group">Unmute group</string>
+    <string name="menu_media">Media</string>
+    <string name="media_gallery_title">Media</string>
+    <string name="media_gallery_empty">No media yet</string>
+    <string name="action_save_to_device">Save to device</string>
+    <string name="action_share">Share</string>
+    <string name="date_today">Today</string>
+    <string name="date_yesterday">Yesterday</string>
+    <string name="toast_image_saved">Saved to gallery</string>
+    <string name="toast_image_save_failed">Couldn\'t save image</string>
 </resources>

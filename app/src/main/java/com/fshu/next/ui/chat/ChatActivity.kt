@@ -53,6 +53,7 @@ import com.fshu.next.R
 import com.fshu.next.databinding.ActivityChatBinding
 import com.fshu.next.ui.BackgroundBottomSheet
 import com.fshu.next.ui.ConnectionTestSheet
+import com.fshu.next.ui.gallery.MediaGalleryActivity
 import com.fshu.next.ui.search.UserProfileActivity
 import com.fshu.next.ui.BackgroundHelper
 import com.fshu.next.ui.call.CallActivity
@@ -975,7 +976,7 @@ class ChatActivity : AppCompatActivity() {
         menu.findItem(R.id.action_new_todo)?.isVisible = !isGroupChat
         menu.findItem(R.id.action_search_conversation)?.isVisible = !isGroupChat
         menu.findItem(R.id.action_search_group)?.isVisible = isGroupChat
-        menu.findItem(R.id.action_media_files_links)?.isVisible = !isGroupChat
+        menu.findItem(R.id.action_media_files_links)?.isVisible = true
         menu.findItem(R.id.action_mute_group)?.isVisible = isGroupChat
         if (isGroupChat) {
             menu.findItem(R.id.action_mute_group)?.title = getString(
@@ -1119,6 +1120,14 @@ class ChatActivity : AppCompatActivity() {
                         }
                         .setNegativeButton(getString(R.string.btn_cancel), null)
                         .show()
+                }
+                return true
+            }
+            R.id.action_media_files_links -> {
+                if (isGroupChat) {
+                    MediaGalleryActivity.startForGroup(this, groupId ?: return true)
+                } else {
+                    MediaGalleryActivity.startForDm(this, peer)
                 }
                 return true
             }
@@ -1592,6 +1601,17 @@ class ChatActivity : AppCompatActivity() {
                         setOnClickListener {
                             pendingGroupAvatarGroupId = gid
                             pickPersonalAvatarLauncher.launch("image/*")
+                        }
+                    })
+                    addView(TextView(this@ChatActivity).apply {
+                        text = getString(R.string.menu_media)
+                        textSize = 13f
+                        setTextColor(0xFF2196F3.toInt())
+                        gravity = android.view.Gravity.CENTER
+                        setPadding(0, (2 * dp).toInt(), 0, 0)
+                        setOnClickListener {
+                            groupInfoDialog?.dismiss()
+                            MediaGalleryActivity.startForGroup(this@ChatActivity, gid)
                         }
                     })
                 }

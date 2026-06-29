@@ -54,8 +54,7 @@
 
     <item
         android:id="@+id/action_media_files_links"
-        android:title="@string/menu_media_files_links"
-        android:enabled="false"
+        android:title="@string/menu_media"
         app:showAsAction="never" />
 
     <item

@@ -240,4 +240,25 @@ interface MessageDao {
 
     @Query("SELECT COUNT(*) FROM messages WHERE groupId = :groupId AND isSent = 0 AND isRead = 0")
     suspend fun countUnreadGroup(groupId: String): Int
+
+    @Query("""
+        SELECT * FROM messages
+        WHERE ((`from` = :a AND `to` = :b) OR (`from` = :b AND `to` = :a))
+        AND groupId IS NULL
+        AND type = 'file'
+        AND mimeType LIKE 'image/%'
+        AND localUri IS NOT NULL
+        ORDER BY timestamp DESC
+    """)
+    suspend fun getDmImages(a: String, b: String): List<Message>
+
+    @Query("""
+        SELECT * FROM messages
+        WHERE groupId = :groupId
+        AND type = 'file'
+        AND mimeType LIKE 'image/%'
+        AND localUri IS NOT NULL
+        ORDER BY timestamp DESC
+    """)
+    suspend fun getGroupImages(groupId: String): List<Message>
 }

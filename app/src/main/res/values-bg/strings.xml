@@ -373,4 +373,13 @@
     <string name="menu_media_files_links">Медия, файлове и линкове</string>
     <string name="menu_mute_group">Заглуши група</string>
     <string name="menu_unmute_group">Включи звука на групата</string>
+    <string name="menu_media">Медия</string>
+    <string name="media_gallery_title">Медия</string>
+    <string name="media_gallery_empty">Все още няма медия</string>
+    <string name="action_save_to_device">Запази в устройството</string>
+    <string name="action_share">Сподели</string>
+    <string name="date_today">Днес</string>
+    <string name="date_yesterday">Вчера</string>
+    <string name="toast_image_saved">Запазено в галерията</string>
+    <string name="toast_image_save_failed">Неуспешно запазване</string>
 </resources>
