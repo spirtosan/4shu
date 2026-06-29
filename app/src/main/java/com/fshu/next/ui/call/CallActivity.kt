@@ -56,6 +56,12 @@ class CallActivity : AppCompatActivity() {
     private var finishJob: Job? = null
     private var busyPlayer: MediaPlayer? = null
 
+    // Slider state — class-level so onRequestPermissionsResult can reset on mic denial
+    private var sliderCommitted = false
+    private var sliderSpringBack: (() -> Unit)? = null
+    private var pendingGranted: (() -> Unit)? = null
+    private var pendingDenied: (() -> Unit)? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -287,14 +293,20 @@ class CallActivity : AppCompatActivity() {
         val handle = binding.slideHandle
         val iconDecline = binding.icSlideDecline
         val iconAccept = binding.icSlideAccept
-        var committed = false
         var halfTravel = 0f
         var pastThreshold = false
         var downRawX = 0f
         var initTx = 0f
 
+        sliderSpringBack = {
+            sliderCommitted = false
+            handle.animate().translationX(0f).setDuration(150).start()
+            iconAccept.animate().alpha(0.5f).setDuration(150).start()
+            iconDecline.animate().alpha(0.5f).setDuration(150).start()
+        }
+
         handle.setOnTouchListener { v, event ->
-            if (committed) return@setOnTouchListener true
+            if (sliderCommitted) return@setOnTouchListener true
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
                     halfTravel = (track.width - v.width) / 2f
@@ -330,10 +342,17 @@ class CallActivity : AppCompatActivity() {
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                     if (halfTravel <= 0f) return@setOnTouchListener true
                     val tx = v.translationX
-                    if (!committed && kotlin.math.abs(tx) >= halfTravel * 0.8f) {
-                        committed = true
+                    if (!sliderCommitted && kotlin.math.abs(tx) >= halfTravel * 0.8f) {
                         FshuService.cancelCallNotif(this)
-                        if (tx > 0f) requestPermissionsThenAccept() else vm.rejectCall()
+                        if (tx > 0f) {
+                            // Accept: lock slider during the permission dialog.
+                            // sliderSpringBack resets sliderCommitted=false if mic is denied.
+                            sliderCommitted = true
+                            requestPermissionsThenAccept()
+                        } else {
+                            sliderCommitted = true  // decline is terminal
+                            vm.rejectCall()
+                        }
                     } else {
                         v.animate().translationX(0f).setDuration(150).start()
                         iconAccept.animate().alpha(0.5f).setDuration(150).start()
@@ -347,16 +366,17 @@ class CallActivity : AppCompatActivity() {
         }
 
         ViewCompat.addAccessibilityAction(track, getString(R.string.btn_accept)) { _, _ ->
-            if (!committed) {
-                committed = true
+            if (!sliderCommitted) {
+                // Lock slider during permission dialog; sliderSpringBack resets on denial.
+                sliderCommitted = true
                 FshuService.cancelCallNotif(this)
                 requestPermissionsThenAccept()
             }
             true
         }
         ViewCompat.addAccessibilityAction(track, getString(R.string.btn_decline)) { _, _ ->
-            if (!committed) {
-                committed = true
+            if (!sliderCommitted) {
+                sliderCommitted = true  // terminal
                 FshuService.cancelCallNotif(this)
                 vm.rejectCall()
             }
@@ -422,12 +442,13 @@ class CallActivity : AppCompatActivity() {
     }
 
     private fun requestPermissionsThenAccept() {
-        requestPermissionsForCall(onGranted = { vm.acceptCall() })
+        requestPermissionsForCall(
+            onGranted = { vm.acceptCall() },
+            onDenied = { sliderSpringBack?.invoke() }
+        )
     }
 
-    private var pendingCallback: (() -> Unit)? = null
-
-    private fun requestPermissionsForCall(onGranted: () -> Unit) {
+    private fun requestPermissionsForCall(onGranted: () -> Unit, onDenied: (() -> Unit)? = null) {
         val needed = buildList {
             if (ContextCompat.checkSelfPermission(this@CallActivity, android.Manifest.permission.RECORD_AUDIO)
                 != PackageManager.PERMISSION_GRANTED) add(android.Manifest.permission.RECORD_AUDIO)
@@ -437,7 +458,8 @@ class CallActivity : AppCompatActivity() {
         if (needed.isEmpty()) {
             onGranted()
         } else {
-            pendingCallback = onGranted
+            pendingGranted = onGranted
+            pendingDenied = onDenied
             ActivityCompat.requestPermissions(this, needed.toTypedArray(), RC_PERMISSIONS)
         }
     }
@@ -450,12 +472,15 @@ class CallActivity : AppCompatActivity() {
                 it.second == Manifest.permission.RECORD_AUDIO
             }?.first == PackageManager.PERMISSION_GRANTED
             if (audioGranted) {
-                pendingCallback?.invoke()
+                pendingGranted?.invoke()
             } else {
-                finish()
+                // Accept path: spring the slider back so the user can retry or decline.
+                // Caller path: pendingDenied is null, so finish() is called instead.
+                pendingDenied?.invoke() ?: finish()
             }
         }
-        pendingCallback = null
+        pendingGranted = null
+        pendingDenied = null
     }
 
     override fun onResume() {
@@ -508,7 +533,7 @@ class CallActivity : AppCompatActivity() {
             val caller = json.get("caller")?.asString ?: return
             val callee = json.get("callee")?.asString ?: return
             when (vm.handleMutualResolve(caller, callee)) {
-                true  -> requestPermissionsThenAccept()   // I am callee, was INCOMING
+                true  -> { sliderCommitted = true; requestPermissionsThenAccept() }  // I am callee, was INCOMING
                 false -> { vm.endCall(); finish() }       // I am callee, was CALLING — drop redundant leg
                 null  -> { /* I am caller — wait for callee's answer */ }
             }
