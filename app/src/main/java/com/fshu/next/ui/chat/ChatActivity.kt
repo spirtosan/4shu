@@ -101,6 +101,7 @@ class ChatActivity : AppCompatActivity() {
 
     private lateinit var voiceRecorder: VoiceRecorder
     private var pendingGroupAvatarGroupId: String? = null
+    private var groupInfoDialog: AlertDialog? = null
 
     // Search state
     private var isSearchActive = false
@@ -1570,6 +1571,17 @@ class ChatActivity : AppCompatActivity() {
                                 pickGroupAvatarLauncher.launch("image/*")
                             }
                         })
+                        addView(TextView(this@ChatActivity).apply {
+                            text = getString(R.string.group_info_rename)
+                            textSize = 13f
+                            setTextColor(0xFFE8711A.toInt())
+                            gravity = android.view.Gravity.CENTER
+                            setPadding(0, 0, 0, (2 * dp).toInt())
+                            setOnClickListener {
+                                groupInfoDialog?.dismiss()
+                                showGroupRenameDialog(gid, group.name)
+                            }
+                        })
                     }
                     addView(TextView(this@ChatActivity).apply {
                         text = getString(R.string.group_info_set_personal_photo)
@@ -1679,6 +1691,7 @@ class ChatActivity : AppCompatActivity() {
                     .setView(root)
                     .setNegativeButton(getString(R.string.btn_close), null)
                     .create()
+                groupInfoDialog = dialog
 
                 if (isOwnerOrAdmin) {
                     dialog.setButton(DialogInterface.BUTTON_NEUTRAL, getString(R.string.btn_add_member)) { _, _ ->
@@ -1715,11 +1728,44 @@ class ChatActivity : AppCompatActivity() {
                     }
                 }
 
+                dialog.setOnDismissListener { groupInfoDialog = null }
                 dialog.show()
                 dialog.getButton(DialogInterface.BUTTON_POSITIVE)
                     ?.setTextColor(Color.parseColor("#E53935"))
             }
         }
+    }
+
+    private fun showGroupRenameDialog(groupId: String, currentName: String) {
+        val et = EditText(this).apply {
+            setText(currentName)
+            inputType = InputType.TYPE_CLASS_TEXT
+            setSelection(currentName.length)
+            filters = arrayOf(android.text.InputFilter.LengthFilter(64))
+        }
+        val pad = (16 * resources.displayMetrics.density).toInt()
+        val wrap = FrameLayout(this).apply {
+            setPadding(pad, pad / 2, pad, 0)
+            addView(et)
+        }
+        MaterialAlertDialogBuilder(this)
+            .setTitle(getString(R.string.dialog_rename_group_title))
+            .setView(wrap)
+            .setPositiveButton(getString(R.string.btn_save)) { _, _ ->
+                val newName = et.text.toString().trim()
+                when {
+                    newName.isEmpty() -> Toast.makeText(this, getString(R.string.toast_group_name_required), Toast.LENGTH_SHORT).show()
+                    newName.length > 64 -> Toast.makeText(this, getString(R.string.error_name_too_long), Toast.LENGTH_SHORT).show()
+                    newName == currentName -> Toast.makeText(this, getString(R.string.error_name_unchanged), Toast.LENGTH_SHORT).show()
+                    else -> com.fshu.next.data.remote.WebSocketClient.send(mapOf(
+                        "type"    to "group-rename",
+                        "groupId" to groupId,
+                        "name"    to newName
+                    ))
+                }
+            }
+            .setNegativeButton(getString(R.string.btn_cancel), null)
+            .show()
     }
 
     private fun showAddMemberDialog(groupId: String, existingMembers: List<String>) {

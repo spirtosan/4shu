@@ -227,7 +227,11 @@
     <string name="menu_emergency_call_location">🆘 Спешно повикване + местоположение</string>
     <string name="menu_set_nickname">Задай псевдоним</string>
     <string name="group_info_change_photo">Промени снимката на групата</string>
+    <string name="group_info_rename">Преименувай групата</string>
     <string name="group_info_set_personal_photo">Задай личната ми снимка за тази група</string>
+    <string name="dialog_rename_group_title">Преименувай групата</string>
+    <string name="error_name_too_long">Името е твърде дълго (макс. 64 знака)</string>
+    <string name="error_name_unchanged">Името не е сменено</string>
     <string name="notif_group_update">Обновяване на група</string>
     <string name="notif_connected">Свързан</string>
     <string name="notif_channel_service">4shu</string>

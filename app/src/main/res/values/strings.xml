@@ -241,7 +241,11 @@
     <string name="menu_emergency_call_location">🆘 Emergency call + location</string>
     <string name="menu_set_nickname">Set nickname</string>
     <string name="group_info_change_photo">Change group photo</string>
+    <string name="group_info_rename">Rename group</string>
     <string name="group_info_set_personal_photo">Set my photo for this group</string>
+    <string name="dialog_rename_group_title">Rename group</string>
+    <string name="error_name_too_long">Name too long (max 64 characters)</string>
+    <string name="error_name_unchanged">Name hasn\'t changed</string>
     <string name="notif_group_update">Group update</string>
     <string name="notif_connected">Connected</string>
     <string name="notif_channel_service">4shu</string>

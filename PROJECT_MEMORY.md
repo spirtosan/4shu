@@ -21,7 +21,6 @@ Priority: **P0** blocking users · **P1** important · **P2** normal · **P3** l
 |----|------|------|-----|-------|
 | T2  | Newer-device launch crash ("4shu keeps stopping") | Bug | **P0** | Installs, crash-loops at launch on newer Android only; fine on G60/A12. Need: crash dump from device Downloads + device model/OS version. Audit native `.so`/WebRTC + 16 KB alignment + AGP/compileSdk. minSdk change is NOT the fix. |
 | TS | SDK bump: `minSdk 26→31`, `compileSdk 34→35` | Config | **P1** | Part of platform policy; compileSdk bump also feeds T2 fix. Keep `targetSdk 34` until call testing on G60. Ivan edits in Android Studio. |
-| T10 | Rename groups | Feature | **P2** | Groups currently cannot be renamed. Add rename (admin/owner role). |
 | T8 | Chat/channel media gallery | Feature | **P2** | List all media sent in a chat/channel. |
 | T5 | Polls in groups (reuse todo-list infra) | Feature | **P2** | Build on existing `lists`/`list_items` tables. |
 | T7 | Screen share | Feature | **P3** | Large. WebRTC screen capture. Interacts with foreground-service rules. |
@@ -35,10 +34,11 @@ _(none yet)_
 
 | ID | Item | Notes |
 |----|------|-------|
-| T9 | Slide-to-accept / slide-to-reject incoming-call UI | Single horizontal slide track replaces tap buttons. Right ≥80% → `acceptCall()`, left ≥80% → `rejectCall()`. Spring-back, haptic tick at threshold, commit-once guard, TalkBack accessibility actions. No protocol/DB/permission changes. UPDATE build. |
-| T6 | Build flavors: `personal` (server URL pre-filled) vs `distribution` (blank) | `flavorDimensions "serverType"` + two `productFlavors` in `build.gradle`; `LoginActivity` fills from `BuildConfig.DEFAULT_SERVER_URL` when no saved URL. UPDATE build. |
-| T4 | Add-contact: auto-focus search field + open keyboard | `SearchActivity`: `view.post` + `WindowInsetsControllerCompat` + `InputMethodManager` fallback; manifest `stateVisible\|adjustResize`. UPDATE build. |
-| T3 | Vibration doesn't stop after emergency call | Added `stopAlerting()` to `CallViewModel` — calls both `stopIncomingVibration()` and `FshuService.cancelCallNotif()`. Wired to all terminal paths: `acceptCall`, `rejectCall`, `remoteEndCall`, `incomingTimeoutJob`, `handleBusy`, `onCleared`. Guard added: `callFinished` flag prevents re-entry after stop. UPDATE build. |
+| T10 | Rename groups | ✓ verified on G60. Client sends `group-rename`; server (already handled) validates owner/admin, updates name, broadcasts `group-state`; FshuService upserts Room, ChatActivity re-reads title. UI: "Rename group" link (owner/admin only) in group-info dialog. Validation: trim, 1–64 chars, reject empty/unchanged. No schema/protocol/DB changes. No system message (type doesn't exist). UPDATE build. |
+| T9 | Slide-to-accept / slide-to-reject incoming-call UI | ✓ verified on G60. Single horizontal slide track replaces tap buttons. Right ≥80% → `acceptCall()`, left ≥80% → `rejectCall()`. Spring-back, haptic tick at threshold, commit-once guard, TalkBack accessibility actions. No protocol/DB/permission changes. UPDATE build. |
+| T6 | Build flavors: `personal` (server URL pre-filled) vs `distribution` (blank) | ✓ verified on G60. `flavorDimensions "serverType"` + two `productFlavors` in `build.gradle`; `LoginActivity` fills from `BuildConfig.DEFAULT_SERVER_URL` when no saved URL. UPDATE build. |
+| T4 | Add-contact: auto-focus search field + open keyboard | ✓ verified on G60. `SearchActivity`: `view.post` + `WindowInsetsControllerCompat` + `InputMethodManager` fallback; manifest `stateVisible\|adjustResize`. UPDATE build. |
+| T3 | Vibration doesn't stop after emergency call | ✓ verified on G60. Added `stopAlerting()` to `CallViewModel` — calls both `stopIncomingVibration()` and `FshuService.cancelCallNotif()`. Wired to all terminal paths: `acceptCall`, `rejectCall`, `remoteEndCall`, `incomingTimeoutJob`, `handleBusy`, `onCleared`. Guard added: `callFinished` flag prevents re-entry after stop. UPDATE build. |
 
 ### Parked / Deferred
 - Per-contact **trust-level UI** (currently admin-panel only).
@@ -74,4 +74,5 @@ _(none yet)_
 | 2026-06-29 | T6: build flavors `personal`/`distribution` — server URL pre-filled vs blank. `buildConfig true` was already on; no DB/protocol/permission changes. | `app/build.gradle`, `…/ui/login/LoginActivity.kt` | 1255376 |
 | 2026-06-29 | T4: auto-focus search field + show keyboard in SearchActivity on open. Manifest: `stateVisible\|adjustResize`. | `app/src/main/AndroidManifest.xml`, `…/ui/search/SearchActivity.kt` | 5a107ca |
 | 2026-06-29 | T3: add `stopAlerting()` to CallViewModel; wired to all terminal paths + `onCleared()` safety net; `callFinished` guard against restart. Root cause: `remoteEndCall()` stopped `incomingVibrator` but not `FshuService.activeRingtone`/`activeVibrator`. | `…/ui/call/CallViewModel.kt` | 5a107ca |
+| 2026-06-29 | T10: group rename. "Rename group" link in group-info dialog (owner/admin only); dismisses info dialog, opens rename dialog pre-filled with current name; validates trim/1–64 chars/unchanged; sends `group-rename` to server. Server already handled this: validates role, updates name, broadcasts `group-state`. Client update flows through existing `handleGroupState` → Room upsert → `loadGroupInfo()` → toolbar title. No schema/DB/permission changes. EN+BG strings. | `ChatActivity.kt`, `values/strings.xml`, `values-bg/strings.xml`, `PROJECT_MEMORY.md` | _pending_ |
 | 2026-06-29 | T9 follow-up: fix slider permanently locking when mic permission is denied on accept path. `committed` lifted to class field `sliderCommitted`; `sliderSpringBack` lambda resets it + animates handle to center on denial. `requestPermissionsForCall` gains `onDenied` param; on denial — accept path springs back (user can retry or decline), caller path still calls `finish()`. Same fix applied to TalkBack accept action and mutual-resolve path. | `…/ui/call/CallActivity.kt`, `PROJECT_MEMORY.md` | 9370661 |
