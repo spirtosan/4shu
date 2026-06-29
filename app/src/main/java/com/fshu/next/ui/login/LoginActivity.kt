@@ -9,6 +9,7 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.snackbar.Snackbar
+import com.fshu.next.BuildConfig
 import com.fshu.next.R
 import com.fshu.next.MainActivity
 import com.fshu.next.databinding.ActivityLoginBinding
@@ -66,7 +67,8 @@ class LoginActivity : AppCompatActivity() {
             Snackbar.make(binding.root, "Invalid credentials. Please log in again.", Snackbar.LENGTH_LONG).show()
         }
 
-        binding.etServerUrl.setText(Prefs.getServerUrl(this))
+        val savedUrl = Prefs.getServerUrl(this)
+        binding.etServerUrl.setText(savedUrl.ifEmpty { BuildConfig.DEFAULT_SERVER_URL })
 
         binding.tvForgotPassword.setOnClickListener {
             val serverUrl = binding.etServerUrl.text.toString().trim()

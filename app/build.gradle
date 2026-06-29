@@ -46,6 +46,20 @@ android {
         }
     }
 
+    flavorDimensions "serverType"
+    productFlavors {
+        personal {
+            dimension "serverType"
+            buildConfigField "String", "DEFAULT_SERVER_URL", "\"wss://shumkov.eu/fshu5/\""
+            versionNameSuffix "-personal"
+        }
+        distribution {
+            dimension "serverType"
+            buildConfigField "String", "DEFAULT_SERVER_URL", "\"\""
+            versionNameSuffix "-dist"
+        }
+    }
+
     buildTypes {
         release {
             signingConfig signingConfigs.release

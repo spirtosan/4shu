@@ -21,7 +21,6 @@ Priority: **P0** blocking users · **P1** important · **P2** normal · **P3** l
 |----|------|------|-----|-------|
 | T2  | Newer-device launch crash ("4shu keeps stopping") | Bug | **P0** | Installs, crash-loops at launch on newer Android only; fine on G60/A12. Need: crash dump from device Downloads + device model/OS version. Audit native `.so`/WebRTC + 16 KB alignment + AGP/compileSdk. minSdk change is NOT the fix. |
 | TS | SDK bump: `minSdk 26→31`, `compileSdk 34→35` | Config | **P1** | Part of platform policy; compileSdk bump also feeds T2 fix. Keep `targetSdk 34` until call testing on G60. Ivan edits in Android Studio. |
-| T6 | Build variants: server URL pre-filled (personal) vs blank (distribution) | Config | **P1** | Personal flavor pre-fills `wss://shumkov.eu/fshu5/`; distribution build leaves server field blank. |
 | T10 | Rename groups | Feature | **P2** | Groups currently cannot be renamed. Add rename (admin/owner role). |
 | T8 | Chat/channel media gallery | Feature | **P2** | List all media sent in a chat/channel. |
 | T9 | Slide-to-accept / slide-to-reject call UI | Feature | **P2** | New incoming-call screen interaction. |
@@ -37,6 +36,7 @@ _(none yet)_
 
 | ID | Item | Notes |
 |----|------|-------|
+| T6 | Build flavors: `personal` (server URL pre-filled) vs `distribution` (blank) | `flavorDimensions "serverType"` + two `productFlavors` in `build.gradle`; `LoginActivity` fills from `BuildConfig.DEFAULT_SERVER_URL` when no saved URL. UPDATE build. |
 | T4 | Add-contact: auto-focus search field + open keyboard | `SearchActivity`: `view.post` + `WindowInsetsControllerCompat` + `InputMethodManager` fallback; manifest `stateVisible\|adjustResize`. UPDATE build. |
 | T3 | Vibration doesn't stop after emergency call | Added `stopAlerting()` to `CallViewModel` — calls both `stopIncomingVibration()` and `FshuService.cancelCallNotif()`. Wired to all terminal paths: `acceptCall`, `rejectCall`, `remoteEndCall`, `incomingTimeoutJob`, `handleBusy`, `onCleared`. Guard added: `callFinished` flag prevents re-entry after stop. UPDATE build. |
 
@@ -50,8 +50,6 @@ _(none yet)_
 - **T2:** Is there a crash dump in the newer device's Downloads folder? (Presence →
   Java exception we can read; absence → likely native crash / 16 KB-alignment.)
 - **T2:** Exact crashing device model + Android version?
-- **T6:** Implement as Gradle product flavors (`personal` / `distribution`), or a
-  single build with a build-config flag? (Leaning flavors.)
 
 ---
 
