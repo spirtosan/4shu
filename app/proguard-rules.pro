@@ -17,6 +17,7 @@
 
 # Keep WebRTC
 -keep class org.webrtc.** { *; }
+-keep class org.jni_zero.** { *; }
 
 # Keep Firebase
 -keep class com.google.firebase.** { *; }

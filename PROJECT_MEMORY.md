@@ -27,16 +27,15 @@ Priority: **P0** blocking users · **P1** important · **P2** normal · **P3** l
 
 ### In Progress
 
-| ID | Item | Type | Pri | Notes |
-|----|------|------|-----|-------|
-| T2 | Newer-device launch crash ("4shu keeps stopping") | Bug | **P0** | **CONFIRMED 16 KB page-size alignment** (`libjingle_peerconnection_so.so` + `libfshu_native.so` unaligned on arm64-v8a). Fix applied: WebRTC bumped to `io.github.webrtc-sdk:android:144.7559.09` (M144, 16 KB-aligned); AGP `8.2.2→8.6.1`; Gradle wrapper `8.4→8.7`; ndkVersion `28.0.12433566`; `-Wl,-z,max-page-size=16384` linker flag via CMakeLists.txt `target_link_options` only (invalid `ldFlags` line removed from `app/build.gradle` cmake block — `ldFlags` is ndkBuild-only DSL, not valid for cmake). Android Studio + Gradle updated; project syncs clean on AGP 8.6.1. **Three gates before Done:** (a) `ndkVersion` must match the installed r28+ build ID exactly; (b) APK Analyzer: all arm64-v8a `.so` must show 16 KB aligned (no warning); (c) voice + video calls must pass on G60 — WebRTC M92→M144 jump may shift PeerConnectionFactory init or codec behavior. **Awaiting Ivan rebuild + verification.** |
+_Nothing in progress._
 
 ### Done
 
 | ID | Item | Notes |
 |----|------|-------|
+| T2 | Newer-device launch crash ("4shu keeps stopping") | ✓ verified on G60 — APK Analyzer shows all arm64-v8a `.so` 16 KB-aligned, calls pass. Fix: WebRTC `io.getstream:stream-webrtc-android:1.1.1` → `io.github.webrtc-sdk:android:144.7559.09` (M144, 16 KB-aligned); AGP `8.2.2→8.6.1`; Gradle wrapper `8.4→8.7`; ndkVersion `28.0.12433566`; `-Wl,-z,max-page-size=16384` via CMakeLists.txt; invalid `ldFlags` cmake line removed. R8/minify regression: M144 AAR ships `org.jni_zero.**` classes used by JniInit — added `-keep class org.jni_zero.** { *; }` to `proguard-rules.pro`. REINSTALL build. |
 | T10 | Rename groups | ✓ verified on G60. Client sends `group-rename`; server (already handled) validates owner/admin, updates name, broadcasts `group-state`; FshuService upserts Room, ChatActivity re-reads title. UI: "Rename group" link (owner/admin only) in group-info dialog. Validation: trim, 1–64 chars, reject empty/unchanged. No schema/protocol/DB changes. No system message (type doesn't exist). UPDATE build. |
-| T8 | Chat/group media gallery | ⏳ BUILT, NOT YET G60-VERIFIED (test pending next session). Images-only v1. 3-col grid (date headers), in-app PhotoView+ViewPager2 viewer, Save-to-device + Share. Entry: chat overflow "Media" (DM+group) + group-info dialog link. No schema/DB/server/protocol change. UPDATE build. |
+| T8 | Chat/group media gallery | ✓ verified on G60. Images-only v1. 3-col grid (date headers), in-app PhotoView+ViewPager2 viewer, Save-to-device + Share. Entry: chat overflow "Media" (DM+group) + group-info dialog link. No schema/DB/server/protocol change. UPDATE build. |
 | T9 | Slide-to-accept / slide-to-reject incoming-call UI | ✓ verified on G60. Single horizontal slide track replaces tap buttons. Right ≥80% → `acceptCall()`, left ≥80% → `rejectCall()`. Spring-back, haptic tick at threshold, commit-once guard, TalkBack accessibility actions. No protocol/DB/permission changes. UPDATE build. |
 | T6 | Build flavors: `personal` (server URL pre-filled) vs `distribution` (blank) | ✓ verified on G60. `flavorDimensions "serverType"` + two `productFlavors` in `build.gradle`; `LoginActivity` fills from `BuildConfig.DEFAULT_SERVER_URL` when no saved URL. UPDATE build. |
 | T4 | Add-contact: auto-focus search field + open keyboard | ✓ verified on G60. `SearchActivity`: `view.post` + `WindowInsetsControllerCompat` + `InputMethodManager` fallback; manifest `stateVisible\|adjustResize`. UPDATE build. |
@@ -49,8 +48,7 @@ Priority: **P0** blocking users · **P1** important · **P2** normal · **P3** l
 
 ## Open Questions
 
-- **T2:** Config confirmed clean — invalid `ldFlags` cmake line removed, Android Studio + Gradle updated, project syncs on AGP 8.6.1. Blocker is now Ivan's rebuild + verification. Three gates: (a) `ndkVersion` must match installed r28+ build ID exactly; (b) APK Analyzer must show all arm64-v8a `.so` at 16 KB aligned, no warning; (c) voice + video calls must pass on G60 — WebRTC M92→M144 jump may shift PeerConnectionFactory init or codec behavior.
-- **T8:** Awaiting G60 test pass — watch: (1) MediaStore Pictures save path (saved image must appear in device gallery); (2) grid layout + date headers render correctly; (3) viewer swipe + pinch-zoom; (4) both entry points (chat overflow "Media" and group-info dialog link); (5) empty-state message; (6) deleted-image exclusion (soft-deleted images must not appear).
+_None._
 
 ---
 
@@ -83,3 +81,4 @@ Priority: **P0** blocking users · **P1** important · **P2** normal · **P3** l
 | 2026-06-30 | T2 (16 KB fix — In Progress): WebRTC `io.getstream:stream-webrtc-android:1.1.1` → `io.github.webrtc-sdk:android:144.7559.09` (M144, 16 KB-aligned, same `org.webrtc.*` imports); AGP `8.2.2→8.6.1`; Gradle wrapper `8.4→8.7`; ndkVersion `"28.0.12433566"` (r28); `-Wl,-z,max-page-size=16384` added to CMakeLists.txt `target_link_options`. `libfshu_native.so` is in-project (JNI pepper, `fshu_native.cpp`), not vendored. jniLibs packaging already uncompressed — no `useLegacyPackaging` change needed. **REINSTALL build required** (AGP+NDK change). Awaiting Ivan rebuild + APK Analyzer + call re-test. | `app/build.gradle`, `build.gradle`, `gradle/wrapper/gradle-wrapper.properties`, `app/src/main/cpp/CMakeLists.txt`, `PROJECT_MEMORY.md` | 9c3db20 |
 | 2026-06-30 | T2 hotfix: removed invalid `ldFlags "-Wl,-z,max-page-size=16384"` from `app/build.gradle` `externalNativeBuild { cmake { } }` block — `ldFlags` is an ndkBuild-only DSL key, not valid for cmake; Gradle evaluation fails with "Could not find method ldFlags()". Flag is correctly applied once via CMakeLists.txt `target_link_options`; no functional change. Amended into commit 9c3db20 (was 9914bc9). | `app/build.gradle`, `PROJECT_MEMORY.md` | 9c3db20 |
 | 2026-06-30 | T2 session close: `ldFlags` removal confirmed; Android Studio + Gradle updated; project syncs clean on AGP 8.6.1. T2 commit re-amended to 66d4817. Fix NOT yet verified — awaiting Ivan rebuild + APK Analyzer + call re-test on G60. | `PROJECT_MEMORY.md` | 66d4817 |
+| 2026-06-30 | T2 VERIFIED + CLOSED: APK Analyzer gate (b) green — all arm64-v8a `.so` 16 KB-aligned. Call gate (c) green — voice + video calls pass on G60. R8/minify regression found + fixed: WebRTC M144 AAR ships `org.jni_zero.**` (JniInit binding classes); R8 was stripping them → crash on startup with minify enabled. Fix: `-keep class org.jni_zero.** { *; }` added to `proguard-rules.pro`. T8 media gallery also confirmed G60-verified this session. | `app/proguard-rules.pro`, `PROJECT_MEMORY.md` | _this commit_ |
