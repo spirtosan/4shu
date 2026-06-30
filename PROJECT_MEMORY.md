@@ -19,7 +19,6 @@ Priority: **P0** blocking users · **P1** important · **P2** normal · **P3** l
 
 | ID | Item | Type | Pri | Notes |
 |----|------|------|-----|-------|
-| T2  | Newer-device launch crash ("4shu keeps stopping") | Bug | **P0** | Installs, crash-loops at launch on newer Android only; fine on G60/A12. Need: crash dump from device Downloads + device model/OS version. Audit native `.so`/WebRTC + 16 KB alignment + AGP/compileSdk. minSdk change is NOT the fix. |
 | TS | SDK bump: `minSdk 26→31`, `compileSdk 34→35` | Config | **P1** | Part of platform policy; compileSdk bump also feeds T2 fix. Keep `targetSdk 34` until call testing on G60. Ivan edits in Android Studio. |
 | T5 | Polls in groups (reuse todo-list infra) | Feature | **P2** | Build on existing `lists`/`list_items` tables. |
 | T7 | Screen share | Feature | **P3** | Large. WebRTC screen capture. Interacts with foreground-service rules. |
@@ -27,7 +26,10 @@ Priority: **P0** blocking users · **P1** important · **P2** normal · **P3** l
 | T1 | Reset-link page shows "???" symbols | Bug | **P3 / parked** | Charset/encoding on reset page. Secret-question is the only active reset path, so low impact for now. |
 
 ### In Progress
-_(none yet)_
+
+| ID | Item | Type | Pri | Notes |
+|----|------|------|-----|-------|
+| T2 | Newer-device launch crash ("4shu keeps stopping") | Bug | **P0** | **CONFIRMED 16 KB page-size alignment** (`libjingle_peerconnection_so.so` + `libfshu_native.so` unaligned on arm64-v8a). Fix applied: WebRTC bumped to `io.github.webrtc-sdk:android:144.7559.09` (M144, 16 KB-aligned); AGP `8.2.2→8.6.1`; Gradle wrapper `8.4→8.7`; ndkVersion `28.0.12433566`; `-Wl,-z,max-page-size=16384` linker flag via CMakeLists.txt `target_link_options` only (invalid `ldFlags` line removed from `app/build.gradle` cmake block). **Awaiting Ivan rebuild + APK Analyzer confirmation.** |
 
 ### Done
 
@@ -47,9 +49,7 @@ _(none yet)_
 
 ## Open Questions
 
-- **T2:** Is there a crash dump in the newer device's Downloads folder? (Presence →
-  Java exception we can read; absence → likely native crash / 16 KB-alignment.)
-- **T2:** Exact crashing device model + Android version?
+- **T2:** Awaiting Ivan rebuild + APK Analyzer confirmation (all arm64-v8a `.so` must show 16 KB, no warning). Re-test voice + video calls on G60 after rebuild — WebRTC M92→M144 jump may shift PeerConnectionFactory init or codec behaviour.
 - **T8:** Awaiting G60 test pass — watch: (1) MediaStore Pictures save path (saved image must appear in device gallery); (2) grid layout + date headers render correctly; (3) viewer swipe + pinch-zoom; (4) both entry points (chat overflow "Media" and group-info dialog link); (5) empty-state message; (6) deleted-image exclusion (soft-deleted images must not appear).
 
 ---
@@ -80,3 +80,5 @@ _(none yet)_
 | 2026-06-29 | T8: chat/group media gallery. New `MediaGalleryActivity` (3-col grid, date headers Today/Yesterday/month-year), `MediaViewerActivity` (ViewPager2+PhotoView, immersive, Save+Share). DAO: `getDmImages`/`getGroupImages`. Entry: overflow "Media" (DM+group) + group-info dialog link. PhotoView via JitPack (`maven { url 'https://jitpack.io' }` added to settings.gradle). Save reuses MediaStore Pictures path from export. `date_today`/`date_yesterday` strings new (did not exist). No schema/DB/server/protocol change. UPDATE build. | `settings.gradle`, `app/build.gradle`, `MessageDao.kt`, `MediaGalleryActivity.kt`, `MediaViewerActivity.kt`, `activity_media_gallery.xml`, `activity_media_viewer.xml`, `item_media_grid.xml`, `item_media_header.xml`, `menu_media_viewer.xml`, `menu_chat.xml`, `ChatActivity.kt`, `AndroidManifest.xml`, `values/strings.xml`, `values-bg/strings.xml`, `PROJECT_MEMORY.md` | a63acb6 |
 | 2026-06-29 | T8 compile fix: `companion object` is illegal inside `inner class`; moved `TYPE_HEADER`/`TYPE_IMAGE` to file-level `private const val`; updated one qualified reference (`GalleryAdapter.TYPE_HEADER` → `TYPE_HEADER`) in `spanSizeLookup`. | `MediaGalleryActivity.kt` | ac3f283 |
 | 2026-06-29 | Session close — T8 built + compile-fixed (ac3f283), pending G60 verification; tree pushed. | `PROJECT_MEMORY.md` | 4176944 |
+| 2026-06-30 | T2 (16 KB fix — In Progress): WebRTC `io.getstream:stream-webrtc-android:1.1.1` → `io.github.webrtc-sdk:android:144.7559.09` (M144, 16 KB-aligned, same `org.webrtc.*` imports); AGP `8.2.2→8.6.1`; Gradle wrapper `8.4→8.7`; ndkVersion `"28.0.12433566"` (r28); `-Wl,-z,max-page-size=16384` added to CMakeLists.txt `target_link_options`. `libfshu_native.so` is in-project (JNI pepper, `fshu_native.cpp`), not vendored. jniLibs packaging already uncompressed — no `useLegacyPackaging` change needed. **REINSTALL build required** (AGP+NDK change). Awaiting Ivan rebuild + APK Analyzer + call re-test. | `app/build.gradle`, `build.gradle`, `gradle/wrapper/gradle-wrapper.properties`, `app/src/main/cpp/CMakeLists.txt`, `PROJECT_MEMORY.md` | 9c3db20 |
+| 2026-06-30 | T2 hotfix: removed invalid `ldFlags "-Wl,-z,max-page-size=16384"` from `app/build.gradle` `externalNativeBuild { cmake { } }` block — `ldFlags` is an ndkBuild-only DSL key, not valid for cmake; Gradle evaluation fails with "Could not find method ldFlags()". Flag is correctly applied once via CMakeLists.txt `target_link_options`; no functional change. Amended into commit 9c3db20 (was 9914bc9). | `app/build.gradle`, `PROJECT_MEMORY.md` | 9c3db20 |
