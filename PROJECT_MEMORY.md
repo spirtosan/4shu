@@ -48,7 +48,16 @@ _Nothing in progress._
 
 ## Open Questions
 
-_None._
+- **T5 — design (UNRESOLVED, settle before code):**
+  Polls in groups reuse the existing todo-list transport (`list-create` / `list-edit` / `list-check` / `list-state`) and the `list_items` Room table. The core constraint: **the server cannot tally votes** — all group messages are E2E-encrypted with the group ECDH key, so the server never sees poll content. Tallying must be client-side: each vote is relayed as an encrypted item (same key), and every member counts locally from the `list-state` they receive.
+
+  Decisions still open — **do not invent answers; resolve in planning chat before writing any code:**
+  1. **Single-select vs multi-select** — does the poll type need to be declared at creation, or is it always one of each?
+  2. **Anonymous vs named votes** — does a voter's identity appear in results? (Affects the item payload schema.)
+  3. **Close / expiry** — can the poll owner close it early? Is there a time-based expiry? Who can see results before close?
+  4. **Vote change** — can a participant change their vote after casting? If so, how is the previous vote revoked in the encrypted item stream?
+  5. **Live result updates** — results update via the normal `list-state` push; is that acceptable latency, or is a dedicated push needed?
+  6. **Offline catch-up** — the server queues `list-state` for offline members already (same as todo lists); confirm this is sufficient for polls or whether a closed-poll summary needs separate storage.
 
 ---
 
@@ -61,6 +70,7 @@ _None._
 | 2026-06-28 | Drop Android < 12. Target `minSdk 31 / compileSdk 35 / targetSdk 34` (test 35 later). |
 | 2026-06-28 | Not distributing via Play Store → Play targetSdk deadlines do not apply. |
 | 2026-06-28 | Separate `PROJECT_MEMORY.md` (this file), maintained by Claude Code. |
+| 2026-06-30 | Session close — T2 verified + closed (calls + 16 KB both green); jni_zero R8 keep-rule fix pushed (56c1668). T8 media gallery also confirmed G60-verified. Next session: T5 polls in groups — design unresolved, tally-under-E2E is the open constraint. |
 
 ---
 
@@ -81,4 +91,5 @@ _None._
 | 2026-06-30 | T2 (16 KB fix — In Progress): WebRTC `io.getstream:stream-webrtc-android:1.1.1` → `io.github.webrtc-sdk:android:144.7559.09` (M144, 16 KB-aligned, same `org.webrtc.*` imports); AGP `8.2.2→8.6.1`; Gradle wrapper `8.4→8.7`; ndkVersion `"28.0.12433566"` (r28); `-Wl,-z,max-page-size=16384` added to CMakeLists.txt `target_link_options`. `libfshu_native.so` is in-project (JNI pepper, `fshu_native.cpp`), not vendored. jniLibs packaging already uncompressed — no `useLegacyPackaging` change needed. **REINSTALL build required** (AGP+NDK change). Awaiting Ivan rebuild + APK Analyzer + call re-test. | `app/build.gradle`, `build.gradle`, `gradle/wrapper/gradle-wrapper.properties`, `app/src/main/cpp/CMakeLists.txt`, `PROJECT_MEMORY.md` | 9c3db20 |
 | 2026-06-30 | T2 hotfix: removed invalid `ldFlags "-Wl,-z,max-page-size=16384"` from `app/build.gradle` `externalNativeBuild { cmake { } }` block — `ldFlags` is an ndkBuild-only DSL key, not valid for cmake; Gradle evaluation fails with "Could not find method ldFlags()". Flag is correctly applied once via CMakeLists.txt `target_link_options`; no functional change. Amended into commit 9c3db20 (was 9914bc9). | `app/build.gradle`, `PROJECT_MEMORY.md` | 9c3db20 |
 | 2026-06-30 | T2 session close: `ldFlags` removal confirmed; Android Studio + Gradle updated; project syncs clean on AGP 8.6.1. T2 commit re-amended to 66d4817. Fix NOT yet verified — awaiting Ivan rebuild + APK Analyzer + call re-test on G60. | `PROJECT_MEMORY.md` | 66d4817 |
-| 2026-06-30 | T2 VERIFIED + CLOSED: APK Analyzer gate (b) green — all arm64-v8a `.so` 16 KB-aligned. Call gate (c) green — voice + video calls pass on G60. R8/minify regression found + fixed: WebRTC M144 AAR ships `org.jni_zero.**` (JniInit binding classes); R8 was stripping them → crash on startup with minify enabled. Fix: `-keep class org.jni_zero.** { *; }` added to `proguard-rules.pro`. T8 media gallery also confirmed G60-verified this session. | `app/proguard-rules.pro`, `PROJECT_MEMORY.md` | _this commit_ |
+| 2026-06-30 | T2 VERIFIED + CLOSED: APK Analyzer gate (b) green — all arm64-v8a `.so` 16 KB-aligned. Call gate (c) green — voice + video calls pass on G60. R8/minify regression found + fixed: WebRTC M144 AAR ships `org.jni_zero.**` (JniInit binding classes); R8 was stripping them → crash on startup with minify enabled. Fix: `-keep class org.jni_zero.** { *; }` added to `proguard-rules.pro`. T8 media gallery also confirmed G60-verified this session. | `app/proguard-rules.pro`, `PROJECT_MEMORY.md` | 56c1668 |
+| 2026-06-30 | Session close — T5 design questions recorded in Open Questions; Decisions Log session-close note added. No feature code. | `PROJECT_MEMORY.md` | _this commit_ |
