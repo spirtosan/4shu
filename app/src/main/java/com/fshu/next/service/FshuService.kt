@@ -1264,7 +1264,9 @@ class FshuService : Service() {
         val itemsEl   = json.get("items") ?: return
         val ts        = json.get("timestamp")?.takeIf { it.isJsonPrimitive }?.asDouble?.toLong() ?: System.currentTimeMillis()
         val me        = Prefs.getUsername(this)
-        val otherUser = json.get("to")?.takeIf { it.isJsonPrimitive }?.asString ?: return
+        val groupId   = json.get("groupId")?.takeIf { it.isJsonPrimitive }?.asString
+        val otherUser = json.get("to")?.takeIf { it.isJsonPrimitive }?.asString
+        if (groupId == null && otherUser == null) return
         val content = itemsEl.toString()
         val msgId = json.get("messageId")?.takeIf { !it.isJsonNull }?.asDouble?.toLong()
         val existing = db.messageDao().getByListId(listId)
@@ -1272,34 +1274,45 @@ class FshuService : Service() {
             // Ignore stale pushes — only apply if server version is strictly newer.
             if (version <= (existing.listVersion ?: 0)) return
             db.messageDao().updateListState(listId, content, version)
-            if (msgId != null && msgId > 0 && owner != me) {
+            if (groupId == null && msgId != null && msgId > 0 && owner != me) {
                 WebSocketClient.send(mapOf(
                     "type" to "delivered", "messageId" to msgId, "from" to me, "to" to owner
                 ))
             }
         } else {
             val isSent = owner == me
-            val (from, to) = if (isSent) Pair(me, otherUser) else Pair(owner, me)
+            val (from, to) = if (groupId != null) Pair(owner, "")
+                else Pair(if (isSent) me else owner, if (isSent) (otherUser ?: return) else me)
             db.messageDao().insert(
                 Message(from = from, to = to, content = content, type = "list",
                     listId = listId, timestamp = ts, isSent = isSent,
-                    listVersion = version, listOwner = owner)
+                    listVersion = version, listOwner = owner, groupId = groupId)
             )
             if (!isSent) {
-                Log.d("FshuService", "persistListState: notifying owner=$owner isSent=$isSent existing=$existing")
-                if (!com.fshu.next.ui.chat.ChatActivity.isActive ||
-                    com.fshu.next.ui.chat.ChatActivity.currentPeer != owner) {
-                    startActivity(
-                        com.fshu.next.ui.MessagePopupActivity.createIntent(
-                            this, owner, getDisplayName(owner), "📝 Todo list"
+                Log.d("FshuService", "persistListState: notifying owner=$owner groupId=$groupId isSent=$isSent existing=$existing")
+                if (groupId != null) {
+                    if (!com.fshu.next.ui.chat.ChatActivity.isActive ||
+                        com.fshu.next.ui.chat.ChatActivity.currentPeer != groupId) {
+                        if (!db.muteDao().isMuted(me, groupId)) {
+                            val groupName = db.groupDao().getById(groupId)?.name ?: groupId
+                            notifyGroupMessage(groupId, groupName, owner, "📝 List")
+                        }
+                    }
+                } else {
+                    if (!com.fshu.next.ui.chat.ChatActivity.isActive ||
+                        com.fshu.next.ui.chat.ChatActivity.currentPeer != owner) {
+                        startActivity(
+                            com.fshu.next.ui.MessagePopupActivity.createIntent(
+                                this, owner, getDisplayName(owner), "📝 Todo list"
+                            )
                         )
-                    )
-                }
-                notifyMessage(owner, "\uD83D\uDCDD Todo list")
-                if (msgId != null && msgId > 0) {
-                    WebSocketClient.send(mapOf(
-                        "type" to "delivered", "messageId" to msgId, "from" to me, "to" to owner
-                    ))
+                    }
+                    notifyMessage(owner, "📝 Todo list")
+                    if (msgId != null && msgId > 0) {
+                        WebSocketClient.send(mapOf(
+                            "type" to "delivered", "messageId" to msgId, "from" to me, "to" to owner
+                        ))
+                    }
                 }
             }
         }

@@ -103,6 +103,13 @@
     <string name="poll_status_open">Open</string>
     <string name="poll_status_closed">Closed</string>
     <string name="poll_unavailable">Poll unavailable</string>
+    <string name="dialog_new_poll_title">New poll</string>
+    <string name="hint_poll_question">Question</string>
+    <string name="hint_poll_option">Option</string>
+    <string name="error_poll_question_required">Question can\'t be empty</string>
+    <string name="error_poll_min_options">Add at least 2 options</string>
+    <string name="error_poll_max_options">Maximum %d options</string>
+    <string name="error_poll_duplicate_options">Options must be unique</string>
     <string name="dialog_new_todo_title">New todo list</string>
     <string name="dialog_edit_todo_title">Edit todo list</string>
     <string name="dialog_removed_from_group_title">Removed from group</string>
@@ -233,7 +240,7 @@
     <string name="menu_export_conversation">Export conversation</string>
     <string name="menu_change_background">Change background</string>
     <string name="menu_new_todo_list">New todo list</string>
-    <string name="menu_seed_debug_poll">🧪 Seed test poll (DEBUG)</string>
+    <string name="menu_new_poll">New poll</string>
     <string name="menu_share_location">📍 Share my location</string>
     <string name="menu_request_location">📍 Request location</string>
     <string name="menu_new_group">New group</string>

@@ -101,6 +101,13 @@
     <string name="poll_status_open">Отворена</string>
     <string name="poll_status_closed">Затворена</string>
     <string name="poll_unavailable">Анкетата не е налична</string>
+    <string name="dialog_new_poll_title">Нова анкета</string>
+    <string name="hint_poll_question">Въпрос</string>
+    <string name="hint_poll_option">Опция</string>
+    <string name="error_poll_question_required">Въпросът не може да е празен</string>
+    <string name="error_poll_min_options">Добавете поне 2 опции</string>
+    <string name="error_poll_max_options">Максимум %d опции</string>
+    <string name="error_poll_duplicate_options">Опциите трябва да са уникални</string>
     <string name="dialog_new_todo_title">Нов списък задачи</string>
     <string name="dialog_edit_todo_title">Редактирай списък задачи</string>
     <string name="dialog_removed_from_group_title">Премахнат от групата</string>
@@ -219,7 +226,7 @@
     <string name="menu_export_conversation">Експортирай разговор</string>
     <string name="menu_change_background">Промени фона</string>
     <string name="menu_new_todo_list">Нов списък задачи</string>
-    <string name="menu_seed_debug_poll">🧪 Тестова анкета (DEBUG)</string>
+    <string name="menu_new_poll">Нова анкета</string>
     <string name="menu_share_location">📍 Сподели местоположението ми</string>
     <string name="menu_request_location">📍 Поискай местоположение</string>
     <string name="menu_new_group">Нова група</string>

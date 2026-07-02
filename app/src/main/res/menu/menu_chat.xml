@@ -43,6 +43,11 @@
         app:showAsAction="never" />
 
     <item
+        android:id="@+id/action_new_poll"
+        android:title="@string/menu_new_poll"
+        app:showAsAction="never" />
+
+    <item
         android:id="@+id/action_search_conversation"
         android:title="@string/menu_search_conversation"
         app:showAsAction="never" />
@@ -72,9 +77,5 @@
         android:title="@string/menu_test_connection"
         app:showAsAction="never" />
 
-    <item
-        android:id="@+id/action_seed_debug_poll"
-        android:title="@string/menu_seed_debug_poll"
-        app:showAsAction="never" />
 
 </menu>

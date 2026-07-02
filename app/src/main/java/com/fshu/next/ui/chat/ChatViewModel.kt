@@ -475,13 +475,15 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /**
-     * TEMP: remove at Block D. Debug-only seed that inserts one poll list straight into local
-     * Room — no server round-trip, no creation UI (that ships in Block D) — so Block B's
-     * read-only render is testable on the G60 now. [groupId] null ⇒ DM list to [peer];
-     * non-null ⇒ group list (mirrors sendGroupText's from/to/groupId convention).
+     * Creates a poll: one atomic list-create carrying meta + every option (SPEC_T5.md v2 §3b/§3d,
+     * Block A.1 wire format — confirmed atomic client+server+local-echo in the Block D read-step).
+     * [groupId] null ⇒ DM poll to [peer]; non-null ⇒ group poll (mirrors sendGroupText's
+     * from/to=""/groupId convention). option_id scheme: "opt-<index>" in creation-order, used as
+     * both the packed `option_id` and the outer list-item id — sequential indices are unique
+     * within one creation call and can't collide with the reserved "meta" id or the "ballot:"
+     * namespace (Block A.1).
      */
-    fun seedDebugPoll(peer: String, groupId: String?) {
-        if (!com.fshu.next.BuildConfig.DEBUG) return
+    fun createPoll(peer: String, groupId: String?, question: String, mode: com.fshu.next.poll.PollMode, optionLabels: List<String>) {
         viewModelScope.launch(Dispatchers.IO) {
             val listId = UUID.randomUUID().toString()
             val arr = JsonArray()
@@ -496,14 +498,14 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
 
             addItem("meta", JsonObject().apply {
                 addProperty("kind", "meta")
-                addProperty("question", "Pizza night — what should we order?")
-                addProperty("mode", "single")
+                addProperty("question", question)
+                addProperty("mode", if (mode == com.fshu.next.poll.PollMode.MULTI) "multi" else "single")
                 addProperty("status", "open")
             })
 
-            val options = listOf("opt-1" to "Margherita", "opt-2" to "Pepperoni", "opt-3" to "Veggie")
-            options.forEachIndexed { i, (optId, label) ->
-                addItem("option-$optId", JsonObject().apply {
+            optionLabels.forEachIndexed { i, label ->
+                val optId = "opt-$i"
+                addItem(optId, JsonObject().apply {
                     addProperty("kind", "option")
                     addProperty("option_id", optId)
                     addProperty("label", label)
@@ -511,26 +513,20 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                 })
             }
 
-            // Seed a couple of ballots so bars/counts render non-empty on first look.
-            // Group case only seeds "me" — the other group members aren't known here.
-            addItem("ballot:$me", JsonObject().apply {
-                addProperty("kind", "ballot")
-                add("selected", JsonArray().apply { add("opt-1") })
-            })
-            if (groupId == null) {
-                addItem("ballot:$peer", JsonObject().apply {
-                    addProperty("kind", "ballot")
-                    add("selected", JsonArray().apply { add("opt-2") })
-                })
-            }
-
             val ts = System.currentTimeMillis()
             val (from, to) = if (groupId != null) Pair(me, "") else Pair(me, peer)
-            db.messageDao().insert(
+            val msgId = db.messageDao().insert(
                 Message(from = from, to = to, content = arr.toString(), type = "list",
-                    listId = listId, timestamp = ts, isSent = true, status = "SENT",
+                    listId = listId, timestamp = ts, isSent = true, status = "SENDING",
                     listOwner = me, groupId = groupId)
             )
+            val payload = mutableMapOf<String, Any?>(
+                "type" to "list-create", "from" to me,
+                "listId" to listId, "items" to arr,
+                "messageId" to msgId, "timestamp" to ts
+            )
+            if (groupId != null) payload["groupId"] = groupId else payload["to"] = peer
+            WebSocketClient.send(payload)
         }
     }
 

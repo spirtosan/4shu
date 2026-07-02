@@ -1,6 +1,5 @@
 package com.fshu.next.ui.chat
 
-import com.fshu.next.BuildConfig
 import android.content.BroadcastReceiver
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -35,6 +34,8 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.LinearLayout
+import android.widget.RadioButton
+import android.widget.RadioGroup
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
@@ -52,6 +53,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.fshu.next.R
 import com.fshu.next.databinding.ActivityChatBinding
+import com.fshu.next.poll.PollMode
 import com.fshu.next.ui.BackgroundBottomSheet
 import com.fshu.next.ui.ConnectionTestSheet
 import com.fshu.next.ui.gallery.MediaGalleryActivity
@@ -996,8 +998,6 @@ class ChatActivity : AppCompatActivity() {
             menu.findItem(R.id.action_test_connection)?.title =
                 getString(R.string.menu_check_connection_to, displayName)
         }
-        // TEMP: remove at Block D — debug-only trigger for the Block B poll-render seed.
-        menu.findItem(R.id.action_seed_debug_poll)?.isVisible = BuildConfig.DEBUG
         return super.onPrepareOptionsMenu(menu)
     }
 
@@ -1075,9 +1075,8 @@ class ChatActivity : AppCompatActivity() {
                 }
                 return true
             }
-            R.id.action_seed_debug_poll -> {
-                // TEMP: remove at Block D.
-                vm.seedDebugPoll(peer, groupId)
+            R.id.action_new_poll -> {
+                showNewPollDialog()
                 return true
             }
             R.id.action_mute_dm -> {
@@ -1313,6 +1312,171 @@ class ChatActivity : AppCompatActivity() {
             }
             .setNegativeButton(getString(R.string.btn_cancel), null)
             .show()
+    }
+
+    /**
+     * Poll creation dialog (T5 Phase 2 Block D). Question + dynamic option rows (mirrors
+     * showTodoDialog's add/remove pattern) + single-vs-multi selector. Validates before send —
+     * question non-empty, 2..MAX_POLL_OPTIONS non-empty options after trim, no duplicate labels
+     * (case-insensitive) — and shows an inline error instead of dismissing on invalid submit.
+     */
+    private fun showNewPollDialog() {
+        val dp  = resources.displayMetrics.density
+        val p16 = (16 * dp).toInt()
+        val p8  = (8  * dp).toInt()
+        val maxOptions = 10
+
+        val questionField = EditText(this).apply {
+            hint = getString(R.string.hint_poll_question)
+            inputType = InputType.TYPE_CLASS_TEXT
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        }
+
+        val radioSingle = RadioButton(this).apply {
+            id = View.generateViewId()
+            text = getString(R.string.poll_mode_single)
+            isChecked = true
+        }
+        val radioMulti = RadioButton(this).apply {
+            id = View.generateViewId()
+            text = getString(R.string.poll_mode_multi)
+        }
+        val modeGroup = RadioGroup(this).apply {
+            orientation = RadioGroup.HORIZONTAL
+            addView(radioSingle)
+            addView(radioMulti)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
+            ).also { it.topMargin = p8 }
+        }
+
+        val committedRows = mutableListOf<LinearLayout>()
+        val optionsContainer = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
+            ).also { it.topMargin = p8 }
+        }
+
+        val errorView = TextView(this).apply {
+            setTextColor(android.graphics.Color.parseColor("#E53935"))
+            textSize = 13f
+            visibility = View.GONE
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
+            ).also { it.topMargin = p8 }
+        }
+
+        fun commitOption(text: String) {
+            val label = TextView(this@ChatActivity).apply {
+                this.text = text
+                textSize = 15f
+                setPadding(p16, 0, p8, 0)
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            }
+            val p48 = (48 * dp).toInt()
+            val removeBtn = Button(this@ChatActivity).apply {
+                this.text = "×"; textSize = 18f
+                minimumWidth = 0; minWidth = 0; minimumHeight = 0; minHeight = 0
+                setPadding(p16, 0, p16, 0)
+                layoutParams = LinearLayout.LayoutParams(p48, p48)
+            }
+            val row = LinearLayout(this@ChatActivity).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
+                ).also { it.bottomMargin = p8 }
+                addView(label)
+                addView(removeBtn)
+            }
+            removeBtn.setOnClickListener {
+                committedRows.remove(row)
+                optionsContainer.removeView(row)
+            }
+            committedRows.add(row)
+            optionsContainer.addView(row)
+        }
+
+        val optionInput = EditText(this).apply {
+            hint = getString(R.string.hint_poll_option)
+            inputType = InputType.TYPE_CLASS_TEXT
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
+            ).also { it.topMargin = p8 }
+        }
+        val addOptionBtn = Button(this).apply {
+            text = getString(R.string.btn_add_item)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        }
+        addOptionBtn.setOnClickListener {
+            val text = optionInput.text.toString().trim()
+            if (text.isEmpty()) return@setOnClickListener
+            if (committedRows.size >= maxOptions) {
+                errorView.text = getString(R.string.error_poll_max_options, maxOptions)
+                errorView.visibility = View.VISIBLE
+                return@setOnClickListener
+            }
+            errorView.visibility = View.GONE
+            commitOption(text)
+            optionInput.text?.clear()
+            optionInput.requestFocus()
+        }
+
+        val outer = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(p16, p8, p16, p8)
+            addView(questionField)
+            addView(modeGroup)
+            addView(optionsContainer)
+            addView(optionInput)
+            addView(addOptionBtn)
+            addView(errorView)
+        }
+
+        val scroll = ScrollView(this).apply {
+            minimumHeight = (300 * dp).toInt()
+            setPadding(p8, p8, p8, p8)
+            addView(outer)
+        }
+
+        val dialog = MaterialAlertDialogBuilder(this)
+            .setTitle(getString(R.string.dialog_new_poll_title))
+            .setView(scroll)
+            .setPositiveButton(getString(R.string.btn_create), null)
+            .setNegativeButton(getString(R.string.btn_cancel), null)
+            .create()
+
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val question = questionField.text.toString().trim()
+                val labels = (committedRows.map { row -> (row.getChildAt(0) as TextView).text.toString().trim() } +
+                    listOfNotNull(optionInput.text.toString().trim().takeIf { it.isNotEmpty() }))
+                    .filter { it.isNotEmpty() }
+
+                val error = when {
+                    question.isEmpty() -> getString(R.string.error_poll_question_required)
+                    labels.size < 2 -> getString(R.string.error_poll_min_options)
+                    labels.size > maxOptions -> getString(R.string.error_poll_max_options, maxOptions)
+                    labels.map { it.lowercase() }.toSet().size != labels.size ->
+                        getString(R.string.error_poll_duplicate_options)
+                    else -> null
+                }
+                if (error != null) {
+                    errorView.text = error
+                    errorView.visibility = View.VISIBLE
+                    return@setOnClickListener
+                }
+                val mode = if (radioMulti.isChecked) PollMode.MULTI else PollMode.SINGLE
+                vm.createPoll(peer, groupId, question, mode, labels)
+                dialog.dismiss()
+            }
+        }
+        dialog.show()
     }
 
     override fun onRequestPermissionsResult(
