@@ -1290,12 +1290,13 @@ class FshuService : Service() {
             )
             if (!isSent) {
                 Log.d("FshuService", "persistListState: notifying owner=$owner groupId=$groupId isSent=$isSent existing=$existing")
+                val listPreviewLabel = if (com.fshu.next.poll.PollParser.isPoll(content)) "📊 Poll" else "📝 Todo list"
                 if (groupId != null) {
                     if (!com.fshu.next.ui.chat.ChatActivity.isActive ||
                         com.fshu.next.ui.chat.ChatActivity.currentPeer != groupId) {
                         if (!db.muteDao().isMuted(me, groupId)) {
                             val groupName = db.groupDao().getById(groupId)?.name ?: groupId
-                            notifyGroupMessage(groupId, groupName, owner, "📝 List")
+                            notifyGroupMessage(groupId, groupName, owner, listPreviewLabel)
                         }
                     }
                 } else {
@@ -1303,11 +1304,11 @@ class FshuService : Service() {
                         com.fshu.next.ui.chat.ChatActivity.currentPeer != owner) {
                         startActivity(
                             com.fshu.next.ui.MessagePopupActivity.createIntent(
-                                this, owner, getDisplayName(owner), "📝 Todo list"
+                                this, owner, getDisplayName(owner), listPreviewLabel
                             )
                         )
                     }
-                    notifyMessage(owner, "📝 Todo list")
+                    notifyMessage(owner, listPreviewLabel)
                     if (msgId != null && msgId > 0) {
                         WebSocketClient.send(mapOf(
                             "type" to "delivered", "messageId" to msgId, "from" to me, "to" to owner

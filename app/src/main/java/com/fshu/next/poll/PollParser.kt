@@ -29,6 +29,22 @@ object PollParser {
     private const val KIND_BALLOT = "ballot"
     private const val BALLOT_ID_PREFIX = "ballot:"
 
+    /**
+     * Cheap poll-vs-todo detection for preview/notification contexts that only have the raw
+     * items-array JSON string (Message.content or a list-state envelope's `items` field) and
+     * don't need a full parse. Same "active item with kind:meta" convention as [parse] — plain
+     * todo item text never parses as that shape, so this is backward-compatible with every
+     * existing todo list. Never throws; malformed JSON is treated as "not a poll".
+     */
+    fun isPoll(itemsJson: String): Boolean = try {
+        JsonParser.parseString(itemsJson).asJsonArray.any { el ->
+            val o = el.asJsonObject
+            val deletedAt = o.get("deletedAt")
+            (deletedAt == null || deletedAt.isJsonNull) &&
+                JsonParser.parseString(o.get("text")?.asString ?: "").asJsonObject.get("kind")?.asString == "meta"
+        }
+    } catch (e: Exception) { false }
+
     fun parse(items: List<ListItem>): ParsedPoll {
         val active = items.filter { it.deletedAt == null }
 

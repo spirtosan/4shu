@@ -54,6 +54,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import com.fshu.next.R
 import com.fshu.next.databinding.ActivityChatBinding
 import com.fshu.next.poll.PollMode
+import com.fshu.next.poll.PollParser
 import com.fshu.next.ui.BackgroundBottomSheet
 import com.fshu.next.ui.ConnectionTestSheet
 import com.fshu.next.ui.gallery.MediaGalleryActivity
@@ -977,6 +978,10 @@ class ChatActivity : AppCompatActivity() {
         menu.findItem(R.id.action_delete_group)?.isVisible = isGroupChat && isOwner
         menu.findItem(R.id.action_export)?.isVisible = !isGroupChat
         menu.findItem(R.id.action_new_todo)?.isVisible = !isGroupChat
+        // Group-only by product decision (Ivan, 2026-07-02) — T5 is "polls in groups", DM polls
+        // were incidental. This blocks *creation* only: PollParser/bindListOrPoll/persistListState
+        // stay DM-capable so a poll that ever reaches a DM context still renders correctly.
+        menu.findItem(R.id.action_new_poll)?.isVisible = isGroupChat
         menu.findItem(R.id.action_search_conversation)?.isVisible = !isGroupChat
         menu.findItem(R.id.action_search_group)?.isVisible = isGroupChat
         menu.findItem(R.id.action_media_files_links)?.isVisible = true
@@ -2039,7 +2044,7 @@ class ChatActivity : AppCompatActivity() {
             val time = timeFmt.format(Date(msg.timestamp))
             val content = when (msg.type) {
                 "file" -> "[File: ${msg.filename ?: msg.content}]"
-                "list" -> "[Todo list]"
+                "list" -> if (PollParser.isPoll(msg.content)) "[Poll]" else "[Todo list]"
                 else   -> msg.content
             }
             sb.appendLine("[$time] ${msg.from}: $content")
