@@ -69,7 +69,7 @@ interface MessageDao {
     @Query("UPDATE messages SET content = :content, listVersion = :version WHERE listId = :listId")
     suspend fun updateListState(listId: String, content: String, version: Int)
 
-    /** Updates only the version for a list — called when list-ack arrives from server. */
+    /** Unused since T5 Block C.2 (handleListAck no longer bumps listVersion alone). Kept for future use. */
     @Query("UPDATE messages SET listVersion = :version WHERE listId = :listId")
     suspend fun updateListVersion(listId: String, version: Int)
 

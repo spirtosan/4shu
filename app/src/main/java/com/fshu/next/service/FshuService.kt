@@ -1331,11 +1331,14 @@ class FshuService : Service() {
         MessageBus.tryEmit(json)
     }
 
-    /** Handles list-ack from server: updates list version and marks message as SENT. */
+    /**
+     * Handles list-ack from server: marks message as SENT. Does NOT write listVersion — that
+     * bump raced persistListState's echo for the same edit and could get the echo's own
+     * content dropped by its `version <= existing` staleness guard (T5 Block C.2). content+version
+     * are now written together, only by persistListState.
+     */
     private suspend fun handleListAck(json: JsonObject) {
-        val listId  = json.get("listId")?.takeIf { it.isJsonPrimitive }?.asString ?: return
-        val version = json.get("version")?.takeIf { it.isJsonPrimitive }?.asDouble?.toInt() ?: return
-        db.messageDao().updateListVersion(listId, version)
+        val listId = json.get("listId")?.takeIf { it.isJsonPrimitive }?.asString ?: return
         val msg = db.messageDao().getByListId(listId) ?: return
         db.messageDao().upgradeStatus(msg.id, "SENT")
     }
