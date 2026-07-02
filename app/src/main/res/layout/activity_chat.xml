@@ -202,6 +202,17 @@
                 android:visibility="gone" />
 
             <ImageButton
+                android:id="@+id/btnSelectionClosePoll"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:src="@drawable/ic_lock"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:tint="@android:color/white"
+                android:padding="8dp"
+                android:contentDescription="@string/menu_close_poll"
+                android:visibility="gone" />
+
+            <ImageButton
                 android:id="@+id/btnSelectionDelete"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"

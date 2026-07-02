@@ -597,6 +597,91 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /**
+     * Closes a poll — final, no re-open in v1 (T5 Phase 2 Block E). Owner-only; role gating is
+     * done in ChatActivity before this is ever called (client-honored, SPEC_T5.md v2 §2/§5.3 —
+     * the server never checks role, same as every other list-edit). Sibling of [voteOption],
+     * reusing the identical single-item list-edit / send-then-optimistic / ListWriteLock
+     * machinery: only the meta item ("id":"meta") is sent, question/mode are preserved verbatim
+     * and only status flips to "closed", and the optimistic write is content-only (no listVersion
+     * bump — C.1/C.2's fix applies here too: bumping locally would make the server's real echo
+     * look stale to persistListState's guard and get dropped). voteOption's existing closed-poll
+     * guard re-parses status fresh on every call, so once this edit reconciles, further votes are
+     * refused automatically — nothing else to wire.
+     */
+    fun closePoll(listId: String, peer: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val msg = db.messageDao().getByListId(listId) ?: return@launch
+            val rawArr = try { JsonParser.parseString(msg.content).asJsonArray } catch (e: Exception) { return@launch }
+            val items: List<ListItem> = rawArr.mapNotNull { el ->
+                val o = try { el.asJsonObject } catch (e: Exception) { return@mapNotNull null }
+                val id = o.get("id")?.takeIf { !it.isJsonNull }?.asString ?: return@mapNotNull null
+                ListItem(
+                    id = id,
+                    text = o.get("text")?.takeIf { !it.isJsonNull }?.asString ?: "",
+                    done = o.get("done")?.takeIf { !it.isJsonNull }?.asBoolean ?: false,
+                    checkedBy = o.get("checkedBy")?.takeIf { !it.isJsonNull }?.asString,
+                    checkedAt = o.get("checkedAt")?.takeIf { !it.isJsonNull }?.asLong,
+                    deletedAt = o.get("deletedAt")?.takeIf { !it.isJsonNull }?.asLong
+                )
+            }
+            val parsed = try { PollParser.parse(items) } catch (e: Exception) { return@launch }
+            val def = parsed.definition
+
+            // Defensive — already closed (e.g. a stale bubble the user tapped Close on twice
+            // before the first echo landed). No redundant edit.
+            if (def.status == PollStatus.CLOSED) return@launch
+
+            val metaItem = JsonObject().apply {
+                addProperty("id", "meta")
+                addProperty("text", JsonObject().apply {
+                    addProperty("kind", "meta")
+                    addProperty("question", def.question)
+                    addProperty("mode", if (def.mode == PollMode.MULTI) "multi" else "single")
+                    addProperty("status", "closed")
+                }.toString())
+                addProperty("done", false)
+            }
+            val wireArr = JsonArray().apply { add(metaItem) }
+
+            val sent = WebSocketClient.send(mapOf(
+                "type" to "list-edit", "from" to me, "to" to peer,
+                "listId" to listId, "items" to wireArr,
+                "timestamp" to System.currentTimeMillis()
+            ))
+
+            if (sent) {
+                com.fshu.next.util.ListWriteLock.mutex.withLock {
+                    val freshMsg = db.messageDao().getByListId(listId) ?: return@withLock
+                    val freshArr = try {
+                        JsonParser.parseString(freshMsg.content).asJsonArray
+                    } catch (e: Exception) { return@withLock }
+                    val merged = JsonArray()
+                    var replaced = false
+                    for (el in freshArr) {
+                        val o = try { el.asJsonObject } catch (e: Exception) { merged.add(el); continue }
+                        if (o.get("id")?.takeIf { !it.isJsonNull }?.asString == "meta") {
+                            merged.add(metaItem)
+                            replaced = true
+                        } else {
+                            merged.add(el)
+                        }
+                    }
+                    if (!replaced) merged.add(metaItem)
+                    db.messageDao().updateContent(freshMsg.id, merged.toString())
+                }
+            } else {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(
+                        getApplication(),
+                        getApplication<Application>().getString(com.fshu.next.R.string.vote_send_failed),
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
+        }
+    }
+
+    /**
      * Creates a poll: one atomic list-create carrying meta + every option (SPEC_T5.md v2 §3b/§3d,
      * Block A.1 wire format — confirmed atomic client+server+local-echo in the Block D read-step).
      * [groupId] null ⇒ DM poll to [peer]; non-null ⇒ group poll (mirrors sendGroupText's

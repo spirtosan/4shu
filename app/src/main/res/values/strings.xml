@@ -112,6 +112,10 @@
     <string name="error_poll_min_options">Add at least 2 options</string>
     <string name="error_poll_max_options">Maximum %d options</string>
     <string name="error_poll_duplicate_options">Options must be unique</string>
+    <string name="menu_close_poll">Close poll</string>
+    <string name="dialog_close_poll_title">Close this poll?</string>
+    <string name="dialog_close_poll_message">This can\'t be undone.</string>
+    <string name="dialog_close_poll_confirm">Close poll</string>
     <string name="dialog_new_todo_title">New todo list</string>
     <string name="dialog_edit_todo_title">Edit todo list</string>
     <string name="dialog_removed_from_group_title">Removed from group</string>

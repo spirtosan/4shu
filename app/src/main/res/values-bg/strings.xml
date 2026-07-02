@@ -110,6 +110,10 @@
     <string name="error_poll_min_options">Добавете поне 2 опции</string>
     <string name="error_poll_max_options">Максимум %d опции</string>
     <string name="error_poll_duplicate_options">Опциите трябва да са уникални</string>
+    <string name="menu_close_poll">Затвори анкетата</string>
+    <string name="dialog_close_poll_title">Затваряне на анкетата?</string>
+    <string name="dialog_close_poll_message">Това действие не може да бъде отменено.</string>
+    <string name="dialog_close_poll_confirm">Затвори анкетата</string>
     <string name="dialog_new_todo_title">Нов списък задачи</string>
     <string name="dialog_edit_todo_title">Редактирай списък задачи</string>
     <string name="dialog_removed_from_group_title">Премахнат от групата</string>

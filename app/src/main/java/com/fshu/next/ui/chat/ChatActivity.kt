@@ -301,6 +301,14 @@ class ChatActivity : AppCompatActivity() {
                     singleMsg.type != "deleted"
                 binding.btnSelectionReact.visibility =
                     if (canReact) View.VISIBLE else View.GONE
+                // Block E: owner-only, group-only, open-poll-only — matches group-rename/
+                // delete-group's existing myGroupRole == "owner" gate (no admin branch).
+                val canClosePoll = count == 1 && singleMsg != null &&
+                    singleMsg.type == "list" && isGroupChat && myGroupRole == "owner" &&
+                    PollParser.isPoll(singleMsg.content) &&
+                    pollStatusOrNull(singleMsg.content) == com.fshu.next.poll.PollStatus.OPEN
+                binding.btnSelectionClosePoll.visibility =
+                    if (canClosePoll) View.VISIBLE else View.GONE
             }
         }
 
@@ -430,6 +438,20 @@ class ChatActivity : AppCompatActivity() {
                     adapter.clearSelection()
                 }
                 .setNegativeButton(getString(R.string.btn_cancel)) { _, _ -> adapter.clearSelection() }
+                .show()
+        }
+
+        binding.btnSelectionClosePoll.setOnClickListener {
+            val msg = adapter.getSelectedMessages().firstOrNull() ?: return@setOnClickListener
+            val listId = msg.listId ?: return@setOnClickListener
+            MaterialAlertDialogBuilder(this)
+                .setTitle(getString(R.string.dialog_close_poll_title))
+                .setMessage(getString(R.string.dialog_close_poll_message))
+                .setPositiveButton(getString(R.string.dialog_close_poll_confirm)) { _, _ ->
+                    vm.closePoll(listId, peer)
+                    adapter.clearSelection()
+                }
+                .setNegativeButton(getString(R.string.btn_cancel), null)
                 .show()
         }
 
@@ -1642,6 +1664,30 @@ class ChatActivity : AppCompatActivity() {
                 }
                 .joinToString("\n")
         } catch (e: Exception) { msg.content }
+    }
+
+    /**
+     * Parsed poll status for toolbar gating (Block E) — same PollParser path formatPollForCopy/
+     * voteOption use, no new detection. Null on any parse failure (malformed/todo/non-poll),
+     * which the caller treats as "not an open poll" — never surfaces the Close button.
+     */
+    private fun pollStatusOrNull(itemsJson: String): com.fshu.next.poll.PollStatus? {
+        return try {
+            val rawArr = com.google.gson.JsonParser.parseString(itemsJson).asJsonArray
+            val items: List<com.fshu.next.data.model.ListItem> = rawArr.mapNotNull { el ->
+                val o = try { el.asJsonObject } catch (e: Exception) { return@mapNotNull null }
+                val id = o.get("id")?.takeIf { !it.isJsonNull }?.asString ?: return@mapNotNull null
+                com.fshu.next.data.model.ListItem(
+                    id = id,
+                    text = o.get("text")?.takeIf { !it.isJsonNull }?.asString ?: "",
+                    done = o.get("done")?.takeIf { !it.isJsonNull }?.asBoolean ?: false,
+                    checkedBy = o.get("checkedBy")?.takeIf { !it.isJsonNull }?.asString,
+                    checkedAt = o.get("checkedAt")?.takeIf { !it.isJsonNull }?.asLong,
+                    deletedAt = o.get("deletedAt")?.takeIf { !it.isJsonNull }?.asLong
+                )
+            }
+            PollParser.parse(items).definition.status
+        } catch (e: Exception) { null }
     }
 
     /**
