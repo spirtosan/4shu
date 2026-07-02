@@ -1019,7 +1019,7 @@ R.id.action_admin_panel -> {
             list.map { user ->
                 val last = db.messageDao().getLastMessage(user.username, me)
                 val preview = when (last?.type) {
-                    "list"               -> "\uD83D\uDCDD Todo list"
+                    "list"               -> if (isPollItemsJson(last.content)) "\uD83D\uDCCA Poll" else "\uD83D\uDCDD Todo list"
                     "file"               -> "\uD83D\uDCCE ${last.filename ?: last.content}"
                     "location",
                     "emergency-location",
