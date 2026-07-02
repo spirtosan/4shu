@@ -15,6 +15,7 @@ import android.widget.CheckBox
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ProgressBar
+import android.widget.RadioButton
 import android.widget.TextView
 import android.widget.Toast
 import androidx.recyclerview.widget.DiffUtil
@@ -693,10 +694,13 @@ class ChatAdapter : ListAdapter<Message, RecyclerView.ViewHolder>(DIFF) {
     }
 
     /**
-     * Poll render + voting (T5 Phase 2 Block B render, Block C voting). Each option row's tap
-     * target casts/changes/retracts the current user's ballot via [onPollVote] — enabled on both
-     * sent and received bubbles (unlike todo checkboxes' `canToggle = !msg.isSent`), since a poll
-     * creator must be able to vote in their own poll same as any other member.
+     * Poll render + voting (T5 Phase 2 Block B render, Block C voting, Block C.3 sizing/selection
+     * polish). Each option row's tap target casts/changes/retracts the current user's ballot via
+     * [onPollVote] — enabled on both sent and received bubbles (unlike todo checkboxes'
+     * `canToggle = !msg.isSent`), since a poll creator must be able to vote in their own poll same
+     * as any other member. Long-press toggles the named-voters expansion (Block C.3 — the count
+     * text is no longer its own tap target, since a text-sized hit rect was too small to hit
+     * reliably next to a full-row vote tap).
      */
     private fun bindPoll(
         questionView: TextView,
@@ -713,6 +717,8 @@ class ChatAdapter : ListAdapter<Message, RecyclerView.ViewHolder>(DIFF) {
         val totalVotes = tally.counts.values.sum()
         val ctx = optionsContainer.context
         val dp = ctx.resources.displayMetrics.density
+        // Already-parsed ballot for me — same lookup ChatViewModel.voteOption uses, no new parsing.
+        val mySelected = parsed.ballots.firstOrNull { it.voterId == me }?.selected.orEmpty()
 
         questionView.visibility = View.VISIBLE
         questionView.text = def.question
@@ -731,29 +737,52 @@ class ChatAdapter : ListAdapter<Message, RecyclerView.ViewHolder>(DIFF) {
         for (option in def.options) {
             val count = tally.counts[option.optionId] ?: 0
             val voters = tally.votersByOption[option.optionId].orEmpty()
+            val isMine = option.optionId in mySelected
 
             val row = LinearLayout(ctx).apply {
                 orientation = LinearLayout.VERTICAL
+                gravity = android.view.Gravity.CENTER_VERTICAL
                 layoutParams = LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
                 ).also { it.bottomMargin = (6 * dp).toInt() }
+                minimumHeight = (56 * dp).toInt()
+                setPadding(0, (8 * dp).toInt(), 0, (8 * dp).toInt())
             }
             val labelRow = LinearLayout(ctx).apply {
                 orientation = LinearLayout.HORIZONTAL
+                gravity = android.view.Gravity.CENTER_VERTICAL
                 layoutParams = LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
                 )
             }
+            // My-vote indicator — filled checkbox (multi) / filled radio (single), read-only
+            // (row itself is the tap target, not this widget). Block C.3: previously a voter had
+            // no way to tell which options were theirs in the collapsed bubble.
+            val selectionIndicator = (
+                if (def.mode == PollMode.MULTI) CheckBox(ctx) else RadioButton(ctx)
+            ).apply {
+                isChecked = isMine
+                isClickable = false
+                isFocusable = false
+                setPadding(0, 0, 0, 0)
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT
+                ).also { it.marginEnd = (4 * dp).toInt() }
+            }
             val labelTv = TextView(ctx).apply {
                 text = option.label
-                textSize = 13f
+                textSize = 14f
                 layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
             }
             val countTv = TextView(ctx).apply {
-                text = ctx.resources.getQuantityString(com.fshu.next.R.plurals.poll_vote_count, count, count)
+                val countText = ctx.resources.getQuantityString(com.fshu.next.R.plurals.poll_vote_count, count, count)
+                // Trailing glyph hints "more info via long-press" — decorative, not translatable
+                // text (same convention as the emoji literals elsewhere in this codebase).
+                text = if (voters.isNotEmpty()) "$countText ⋯" else countText
                 textSize = 12f
                 setTextColor(COLOR_GREY)
             }
+            labelRow.addView(selectionIndicator)
             labelRow.addView(labelTv)
             labelRow.addView(countTv)
 
@@ -768,12 +797,12 @@ class ChatAdapter : ListAdapter<Message, RecyclerView.ViewHolder>(DIFF) {
             row.addView(labelRow)
             row.addView(bar)
 
-            // Named voters — cheap tap-to-expand on the vote-count text, collapsed by default
-            // (SPEC_T5.md v2 §5 Decision 2: named-only). Kept off the row's own tap target since
-            // the row itself now casts a vote (Block C) — the count is the one remaining spot on
-            // the row not wired to send a ballot.
+            // Named voters — collapsed by default (SPEC_T5.md v2 §5 Decision 2: named-only), now
+            // toggled by long-pressing the row (Block C.3 — the count text alone was too small a
+            // target to hit reliably, and sat right next to the full-row vote tap).
+            var votersTv: TextView? = null
             if (voters.isNotEmpty()) {
-                val votersTv = TextView(ctx).apply {
+                votersTv = TextView(ctx).apply {
                     text = voters.joinToString(", ") { getNickname(it) ?: it }
                     textSize = 11f
                     setTextColor(COLOR_GREY)
@@ -781,20 +810,25 @@ class ChatAdapter : ListAdapter<Message, RecyclerView.ViewHolder>(DIFF) {
                     setPadding(0, (2 * dp).toInt(), 0, 0)
                 }
                 row.addView(votersTv)
-                countTv.isClickable = true
-                countTv.isFocusable = true
-                countTv.setOnClickListener {
-                    votersTv.visibility = if (votersTv.visibility == View.VISIBLE) View.GONE else View.VISIBLE
-                }
             }
 
-            // Vote tap target — the whole row (label text + bar; count is claimed above when
-            // voters exist). One-item list-edit per tap, no debounce (SPEC_T5.md v2 §5.5).
+            // Tap = vote, long-press = expand/collapse named voters (Block C.3). One-item
+            // list-edit per tap, no debounce (SPEC_T5.md v2 §5.5).
             if (listId != null) {
                 row.isClickable = true
                 row.isFocusable = true
+                val outValue = android.util.TypedValue()
+                ctx.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
+                row.setBackgroundResource(outValue.resourceId)
                 row.setOnClickListener {
                     onPollVote?.invoke(listId, option.optionId)
+                }
+                val voterList = votersTv
+                if (voterList != null) {
+                    row.setOnLongClickListener {
+                        voterList.visibility = if (voterList.visibility == View.VISIBLE) View.GONE else View.VISIBLE
+                        true
+                    }
                 }
             }
 

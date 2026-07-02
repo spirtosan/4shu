@@ -100,7 +100,7 @@
     <string name="label_poll">📊 Poll</string>
     <string name="poll_mode_single">Single choice</string>
     <string name="poll_mode_multi">Multiple choice</string>
-    <string name="poll_status_open">Open</string>
+    <string name="poll_status_open">Active</string>
     <string name="poll_status_closed">Closed</string>
     <string name="poll_unavailable">Poll unavailable</string>
     <string name="poll_closed_cannot_vote">This poll is closed</string>

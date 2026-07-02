@@ -32,7 +32,7 @@
             android:id="@+id/tv_poll_question"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textSize="14sp"
+            android:textSize="15sp"
             android:textStyle="bold"
             android:textColor="?attr/colorTextPrimary"
             android:layout_marginBottom="4dp"

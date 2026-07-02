@@ -98,7 +98,7 @@
     <string name="label_poll">📊 Анкета</string>
     <string name="poll_mode_single">Един избор</string>
     <string name="poll_mode_multi">Множествен избор</string>
-    <string name="poll_status_open">Отворена</string>
+    <string name="poll_status_open">Активна</string>
     <string name="poll_status_closed">Затворена</string>
     <string name="poll_unavailable">Анкетата не е налична</string>
     <string name="poll_closed_cannot_vote">Тази анкета е затворена</string>
