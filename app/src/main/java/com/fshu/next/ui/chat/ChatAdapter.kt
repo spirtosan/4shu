@@ -62,6 +62,9 @@ class ChatAdapter : ListAdapter<Message, RecyclerView.ViewHolder>(DIFF) {
     /** Invoked when the user taps a checkbox in a list bubble: (listId, itemId UUID, newDoneState). */
     var onListItemToggle: ((String, String, Boolean) -> Unit)? = null
 
+    /** Invoked when the user taps a poll option row to cast/change/retract their ballot: (listId, optionId). */
+    var onPollVote: ((String, String) -> Unit)? = null
+
     /** username → display name map, set by the host Activity. Used to resolve checkedBy labels. */
     var nicknameMap: Map<String, String> = emptyMap()
 
@@ -659,7 +662,7 @@ class ChatAdapter : ListAdapter<Message, RecyclerView.ViewHolder>(DIFF) {
             bindPollUnavailable(itemsContainer)
             return
         }
-        bindPoll(questionView, metaRow, modeView, statusView, itemsContainer, totalView, parsed)
+        bindPoll(questionView, metaRow, modeView, statusView, itemsContainer, totalView, parsed, listId)
     }
 
     private fun bindTodoItems(container: LinearLayout, msg: Message, listId: String?, items: List<ListItem>) {
@@ -689,7 +692,12 @@ class ChatAdapter : ListAdapter<Message, RecyclerView.ViewHolder>(DIFF) {
         }
     }
 
-    /** Read-only poll render (T5 Phase 2 Block B) — no vote controls yet (Blocks C/D/E). */
+    /**
+     * Poll render + voting (T5 Phase 2 Block B render, Block C voting). Each option row's tap
+     * target casts/changes/retracts the current user's ballot via [onPollVote] — enabled on both
+     * sent and received bubbles (unlike todo checkboxes' `canToggle = !msg.isSent`), since a poll
+     * creator must be able to vote in their own poll same as any other member.
+     */
     private fun bindPoll(
         questionView: TextView,
         metaRow: LinearLayout,
@@ -697,7 +705,8 @@ class ChatAdapter : ListAdapter<Message, RecyclerView.ViewHolder>(DIFF) {
         statusView: TextView,
         optionsContainer: LinearLayout,
         totalView: TextView,
-        parsed: ParsedPoll
+        parsed: ParsedPoll,
+        listId: String?
     ) {
         val def = parsed.definition
         val tally = PollTally.tally(def, parsed.ballots)
@@ -759,7 +768,10 @@ class ChatAdapter : ListAdapter<Message, RecyclerView.ViewHolder>(DIFF) {
             row.addView(labelRow)
             row.addView(bar)
 
-            // Named voters — cheap tap-to-expand, collapsed by default (SPEC_T5.md v2 §5 Decision 2: named-only).
+            // Named voters — cheap tap-to-expand on the vote-count text, collapsed by default
+            // (SPEC_T5.md v2 §5 Decision 2: named-only). Kept off the row's own tap target since
+            // the row itself now casts a vote (Block C) — the count is the one remaining spot on
+            // the row not wired to send a ballot.
             if (voters.isNotEmpty()) {
                 val votersTv = TextView(ctx).apply {
                     text = voters.joinToString(", ") { getNickname(it) ?: it }
@@ -769,10 +781,20 @@ class ChatAdapter : ListAdapter<Message, RecyclerView.ViewHolder>(DIFF) {
                     setPadding(0, (2 * dp).toInt(), 0, 0)
                 }
                 row.addView(votersTv)
-                labelRow.isClickable = true
-                labelRow.isFocusable = true
-                labelRow.setOnClickListener {
+                countTv.isClickable = true
+                countTv.isFocusable = true
+                countTv.setOnClickListener {
                     votersTv.visibility = if (votersTv.visibility == View.VISIBLE) View.GONE else View.VISIBLE
+                }
+            }
+
+            // Vote tap target — the whole row (label text + bar; count is claimed above when
+            // voters exist). One-item list-edit per tap, no debounce (SPEC_T5.md v2 §5.5).
+            if (listId != null) {
+                row.isClickable = true
+                row.isFocusable = true
+                row.setOnClickListener {
+                    onPollVote?.invoke(listId, option.optionId)
                 }
             }
 

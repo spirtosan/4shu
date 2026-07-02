@@ -264,6 +264,9 @@ class ChatActivity : AppCompatActivity() {
         adapter.onListItemToggle = { listId, itemId, done ->
             vm.checkItem(listId, itemId, done, peer)
         }
+        adapter.onPollVote = { listId, optionId ->
+            vm.voteOption(listId, optionId, peer)
+        }
         adapter.onReactionTap = { msg, emoji ->
             val myEmoji = findMyEmoji(msg)
             if (emoji == myEmoji) vm.sendReaction(msg, null) else vm.sendReaction(msg, emoji)

@@ -12,8 +12,12 @@ import com.google.gson.JsonArray
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import com.fshu.next.data.local.AppDatabase
+import com.fshu.next.data.model.ListItem
 import com.fshu.next.data.model.Message
 import com.fshu.next.data.remote.WebSocketClient
+import com.fshu.next.poll.PollMode
+import com.fshu.next.poll.PollParser
+import com.fshu.next.poll.PollStatus
 import com.fshu.next.util.CryptoHelper
 import com.fshu.next.util.EcdhHelper
 import com.fshu.next.util.LocationHelper
@@ -472,6 +476,112 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
             }
         }
         pendingChecks[key] = job
+    }
+
+    /**
+     * Casts/changes/retracts the current user's ballot on a poll option (T5 Phase 2 Block C).
+     * Single-item list-edit — sends ONLY the voter's own "ballot:<me>" item, never the whole
+     * items array (Step 2 finding: a whole-array edit would clobber a concurrent voter; the
+     * server upserts per-item on (item_id, list_id) and re-broadcasts full state, so a
+     * one-item edit is race-safe).
+     *
+     * Send-then-optimistic (SPEC_T5.md v2 §5 Decision 1, Option 1): the local row is only
+     * updated after WebSocketClient.send() reports successful enqueue. On success, only
+     * `content` is rewritten — listVersion is deliberately left untouched. Step 1 confirmed a
+     * content-only change already rebinds the poll bubble via DiffUtil; bumping listVersion here
+     * would make the server's authoritative echo (version+1) look stale to
+     * persistListState's `version <= existing` guard and get silently dropped, desyncing the
+     * client. On failure (no socket), nothing is written locally — a vote must never appear
+     * counted unless it was actually sent.
+     */
+    fun voteOption(listId: String, tappedOptionId: String, peer: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val msg = db.messageDao().getByListId(listId) ?: return@launch
+            val rawArr = try { JsonParser.parseString(msg.content).asJsonArray } catch (e: Exception) { return@launch }
+            val items: List<ListItem> = rawArr.mapNotNull { el ->
+                val o = try { el.asJsonObject } catch (e: Exception) { return@mapNotNull null }
+                val id = o.get("id")?.takeIf { !it.isJsonNull }?.asString ?: return@mapNotNull null
+                ListItem(
+                    id = id,
+                    text = o.get("text")?.takeIf { !it.isJsonNull }?.asString ?: "",
+                    done = o.get("done")?.takeIf { !it.isJsonNull }?.asBoolean ?: false,
+                    checkedBy = o.get("checkedBy")?.takeIf { !it.isJsonNull }?.asString,
+                    checkedAt = o.get("checkedAt")?.takeIf { !it.isJsonNull }?.asLong,
+                    deletedAt = o.get("deletedAt")?.takeIf { !it.isJsonNull }?.asLong
+                )
+            }
+            val parsed = try { PollParser.parse(items) } catch (e: Exception) { return@launch }
+            val def = parsed.definition
+
+            // Closed-poll guard — client-honored only (Block E owns setting a poll closed).
+            if (def.status == PollStatus.CLOSED) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(
+                        getApplication(),
+                        getApplication<Application>().getString(com.fshu.next.R.string.poll_closed_cannot_vote),
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+                return@launch
+            }
+
+            // Current ballot for me — successive taps compose off the latest local content.
+            val current = parsed.ballots.firstOrNull { it.voterId == me }?.selected ?: emptyList()
+
+            val newSelected: List<String> = if (def.mode == PollMode.SINGLE) {
+                if (current.size == 1 && current[0] == tappedOptionId) emptyList() // retract (Option A)
+                else listOf(tappedOptionId)
+            } else {
+                if (tappedOptionId in current) current - tappedOptionId else current + tappedOptionId
+            }
+
+            // Retract = selected:[] upserted normally — NEVER deleted:true. "deleted" means "never
+            // voted"; empty-selected means "abstained" — SPEC_T5.md v2 §3d/§5.4 keep these distinct.
+            val ballotId = "ballot:$me"
+            val packedBallot = JsonObject().apply {
+                addProperty("kind", "ballot")
+                add("selected", JsonArray().apply { newSelected.forEach { add(it) } })
+            }
+            val ballotItem = JsonObject().apply {
+                addProperty("id", ballotId)
+                addProperty("text", packedBallot.toString())
+                addProperty("done", false)
+            }
+            val wireArr = JsonArray().apply { add(ballotItem) }
+
+            // send()'s Boolean is OkHttp enqueue-success — reliably catches the offline/no-socket
+            // case (the vanishing-vote trap); it won't catch a socket that drops mid-flight.
+            // Acceptable v1 limitation, documented not engineered around.
+            val sent = WebSocketClient.send(mapOf(
+                "type" to "list-edit", "from" to me, "to" to peer,
+                "listId" to listId, "items" to wireArr,
+                "timestamp" to System.currentTimeMillis()
+            ))
+
+            if (sent) {
+                val merged = JsonArray()
+                var replaced = false
+                for (el in rawArr) {
+                    val o = try { el.asJsonObject } catch (e: Exception) { merged.add(el); continue }
+                    if (o.get("id")?.takeIf { !it.isJsonNull }?.asString == ballotId) {
+                        merged.add(ballotItem)
+                        replaced = true
+                    } else {
+                        merged.add(el)
+                    }
+                }
+                if (!replaced) merged.add(ballotItem)
+                db.messageDao().updateContent(msg.id, merged.toString())
+            } else {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(
+                        getApplication(),
+                        getApplication<Application>().getString(com.fshu.next.R.string.vote_send_failed),
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
+        }
     }
 
     /**

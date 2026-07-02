@@ -103,6 +103,8 @@
     <string name="poll_status_open">Open</string>
     <string name="poll_status_closed">Closed</string>
     <string name="poll_unavailable">Poll unavailable</string>
+    <string name="poll_closed_cannot_vote">This poll is closed</string>
+    <string name="vote_send_failed">Couldn\'t send your vote — reconnect and try again</string>
     <string name="dialog_new_poll_title">New poll</string>
     <string name="hint_poll_question">Question</string>
     <string name="hint_poll_option">Option</string>

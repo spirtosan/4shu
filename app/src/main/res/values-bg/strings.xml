@@ -101,6 +101,8 @@
     <string name="poll_status_open">Отворена</string>
     <string name="poll_status_closed">Затворена</string>
     <string name="poll_unavailable">Анкетата не е налична</string>
+    <string name="poll_closed_cannot_vote">Тази анкета е затворена</string>
+    <string name="vote_send_failed">Гласът не бе изпратен — свържете се отново и опитайте пак</string>
     <string name="dialog_new_poll_title">Нова анкета</string>
     <string name="hint_poll_question">Въпрос</string>
     <string name="hint_poll_option">Опция</string>
