@@ -697,7 +697,10 @@ R.id.action_admin_panel -> {
                     users.find { it.username == from }?.displayName ?: from
                 }
                 val preview = when (type) {
-                    "list"               -> "$senderName: 📝 Todo list"
+                    "list"               -> {
+                        val itemsJson = json.get("items")?.toString() ?: "[]"
+                        if (isPollItemsJson(itemsJson)) "$senderName: 📊 Poll" else "$senderName: 📝 Todo list"
+                    }
                     "file"               -> "$senderName: 📎 ${json.get("filename")?.asString ?: "File"}"
                     "location",
                     "emergency-location",
@@ -729,6 +732,21 @@ R.id.action_admin_panel -> {
         }
     }
 
+    /**
+     * True if a list's items array (JSON string, same shape as Message.content) holds an active
+     * kind:"meta" item — mirrors ChatAdapter.bindListOrPoll's poll-vs-todo detection, used here
+     * so chat-list previews for type="list" messages don't mislabel polls as todo lists (or dump
+     * raw JSON for either).
+     */
+    private fun isPollItemsJson(itemsJson: String): Boolean = try {
+        JsonParser.parseString(itemsJson).asJsonArray.any { el ->
+            val o = el.asJsonObject
+            val deletedAt = o.get("deletedAt")
+            (deletedAt == null || deletedAt.isJsonNull) &&
+                JsonParser.parseString(o.get("text")?.asString ?: "").asJsonObject.get("kind")?.asString == "meta"
+        }
+    } catch (e: Exception) { false }
+
     private suspend fun enrichGroupItems() {
         val db = AppDatabase.getInstance(this)
         val enriched = withContext(Dispatchers.IO) {
@@ -737,6 +755,7 @@ R.id.action_admin_panel -> {
                 val preview = when (last?.type) {
                     "file"  -> "\uD83D\uDCCE ${last.filename ?: last.content}"
                     "voice" -> "\uD83C\uDF99\uFE0F Voice message"
+                    "list"  -> if (isPollItemsJson(last.content)) "\uD83D\uDCCA Poll" else "\uD83D\uDCDD Todo list"
                     else    -> last?.content
                 }
                 val unread = db.messageDao().countUnreadGroup(g.groupId)
