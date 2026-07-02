@@ -48,6 +48,7 @@ import com.fshu.next.util.LocationHelper
 import com.fshu.next.util.MessageBus
 import com.fshu.next.util.Prefs
 import kotlinx.coroutines.*
+import kotlinx.coroutines.sync.withLock
 import java.io.File
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
@@ -1271,9 +1272,19 @@ class FshuService : Service() {
         val msgId = json.get("messageId")?.takeIf { !it.isJsonNull }?.asDouble?.toLong()
         val existing = db.messageDao().getByListId(listId)
         if (existing != null) {
-            // Ignore stale pushes — only apply if server version is strictly newer.
-            if (version <= (existing.listVersion ?: 0)) return
-            db.messageDao().updateListState(listId, content, version)
+            // Atomic read-check-write vs. ChatViewModel.voteOption's optimistic write (T5 Block
+            // C.1) — both re-read fresh inside the same lock so neither can clobber the other's
+            // write with a stale merge. Re-fetch here (not just reuse `existing` above) because
+            // this branch may run after this same device queued its own optimistic write.
+            var applied = false
+            com.fshu.next.util.ListWriteLock.mutex.withLock {
+                val fresh = db.messageDao().getByListId(listId) ?: return@withLock
+                // Ignore stale pushes — only apply if server version is strictly newer.
+                if (version <= (fresh.listVersion ?: 0)) return@withLock
+                db.messageDao().updateListState(listId, content, version)
+                applied = true
+            }
+            if (!applied) return
             if (groupId == null && msgId != null && msgId > 0 && owner != me) {
                 WebSocketClient.send(mapOf(
                     "type" to "delivered", "messageId" to msgId, "from" to me, "to" to owner

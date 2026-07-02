@@ -26,6 +26,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
@@ -559,19 +560,30 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
             ))
 
             if (sent) {
-                val merged = JsonArray()
-                var replaced = false
-                for (el in rawArr) {
-                    val o = try { el.asJsonObject } catch (e: Exception) { merged.add(el); continue }
-                    if (o.get("id")?.takeIf { !it.isJsonNull }?.asString == ballotId) {
-                        merged.add(ballotItem)
-                        replaced = true
-                    } else {
-                        merged.add(el)
+                // Atomic re-read → merge → write vs. FshuService.persistListState's echo write
+                // (T5 Block C.1) — same lock, same pattern: re-read fresh INSIDE the lock rather
+                // than reusing `rawArr` (captured before the network round trip), so a concurrent
+                // echo (including this exact vote's own broadcast, since group broadcasts include
+                // the sender) can't be clobbered by a stale merge. Never held across send() above.
+                com.fshu.next.util.ListWriteLock.mutex.withLock {
+                    val freshMsg = db.messageDao().getByListId(listId) ?: return@withLock
+                    val freshArr = try {
+                        JsonParser.parseString(freshMsg.content).asJsonArray
+                    } catch (e: Exception) { return@withLock }
+                    val merged = JsonArray()
+                    var replaced = false
+                    for (el in freshArr) {
+                        val o = try { el.asJsonObject } catch (e: Exception) { merged.add(el); continue }
+                        if (o.get("id")?.takeIf { !it.isJsonNull }?.asString == ballotId) {
+                            merged.add(ballotItem)
+                            replaced = true
+                        } else {
+                            merged.add(el)
+                        }
                     }
+                    if (!replaced) merged.add(ballotItem)
+                    db.messageDao().updateContent(freshMsg.id, merged.toString())
                 }
-                if (!replaced) merged.add(ballotItem)
-                db.messageDao().updateContent(msg.id, merged.toString())
             } else {
                 withContext(Dispatchers.Main) {
                     Toast.makeText(
