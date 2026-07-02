@@ -1,0 +1,35 @@
+--- /opt/fshu5 ---
+total 876
+drwxr-xr-x   6 root root   4096 Jul  2 07:02 .
+drwxr-xr-x   5 root root   4096 Apr 28 17:54 ..
+-rw-r--r--   1 root root   4032 Apr 28 18:04 admin.js
+drwxr-xr-x   2 root root   4096 May 16 16:36 avatars
+drwxr-xr-x   2 root root   4096 May 20 18:57 data
+-rw-r--r--   1 root root      0 May  3 13:41 data.db
+drwxr-xr-x   3 root root   4096 Jun 29 19:28 files
+-rw-r--r--   1 root root   2370 May  8 18:00 firebase-adminsdk.json
+-rw-r--r--   1 root root   4096 Apr 28 18:03 fshu5.db
+-rw-r--r--   1 root root      0 May  1 23:24 fshu.db
+drwxr-xr-x 171 root root   4096 May  8 17:00 node_modules
+-rw-r--r--   1 root root    386 May  8 17:00 package.json
+-rw-r--r--   1 root root  94394 May  8 17:00 package-lock.json
+-rw-r--r--   1 root root     64 Apr 28 17:58 secret.key
+-rw-r--r--   1 root root 148328 Jul  2 07:02 server.js
+-rw-r--r--   1 root root 143717 May 21 16:21 server.js.bak
+-rw-r--r--   1 root root 142303 May 19 07:39 server.js.bak2
+-rw-r--r--   1 root root 143886 Jul  2 07:02 server.js.bak.2026-07-02-1002
+-rw-r--r--   1 root root  80622 May  8 05:09 server.js.bak_invite
+-rw-r--r--   1 root root  80622 May  3 13:48 server_patched3d.js
+
+--- /opt/fshu5/data ---
+total 5072
+drwxr-xr-x 2 root root    4096 May 20 18:57 .
+drwxr-xr-x 6 root root    4096 Jul  2 07:02 ..
+-rw-r--r-- 1 root root     894 May 20 18:57 config.json
+-rw-r--r-- 1 root root   32768 Apr 28 17:58 fshu5.db-shm
+-rw-r--r-- 1 root root  210152 Apr 28 17:58 fshu5.db-wal
+-rw-r--r-- 1 root root  376832 Jun 24 15:07 fshu.db
+-rw-r--r-- 1 root root  192512 May 15 06:56 fshu.db.bak.20260515_095637
+-rw-r--r-- 1 root root  192512 May 15 07:39 fshu.db.bak.20260515_103950
+-rw-r--r-- 1 root root   32768 Jul  2 07:02 fshu.db-shm
+-rw-r--r-- 1 root root 4136512 Jul  2 07:02 fshu.db-wal
