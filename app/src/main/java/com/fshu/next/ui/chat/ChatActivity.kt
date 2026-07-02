@@ -359,7 +359,7 @@ class ChatActivity : AppCompatActivity() {
                 val text = messages.joinToString("\n") { msg ->
                     when (msg.type) {
                         "file"     -> "[${msg.filename ?: "File"}]"
-                        "list"     -> "[Todo list]\n${formatListForCopy(msg)}"
+                        "list"     -> "${if (PollParser.isPoll(msg.content)) "[Poll]" else "[Todo list]"}\n${formatListForCopy(msg)}"
                         "location" -> try {
                             com.google.gson.JsonParser.parseString(msg.content)
                                 .asJsonObject.get("mapsUrl")?.asString ?: "[Location]"
@@ -1626,6 +1626,9 @@ class ChatActivity : AppCompatActivity() {
     }
 
     private fun formatListForCopy(msg: com.fshu.next.data.model.Message): String {
+        if (PollParser.isPoll(msg.content)) {
+            return formatPollForCopy(msg.content)
+        }
         return try {
             com.google.gson.JsonParser.parseString(msg.content).asJsonArray
                 .mapNotNull { el ->
@@ -1639,6 +1642,53 @@ class ChatActivity : AppCompatActivity() {
                 }
                 .joinToString("\n")
         } catch (e: Exception) { msg.content }
+    }
+
+    /**
+     * Readable poll copy body — question + mode/total + one "label — count" line per option,
+     * same PollParser/PollTally the bubble uses. Never emits ballot items, voter names, or raw
+     * JSON; falls back to [R.string.poll_unavailable] on malformed input rather than dumping
+     * the packed item text (Block C.4 — copy previously leaked raw ballot JSON, see PROJECT_MEMORY).
+     */
+    private fun formatPollForCopy(itemsJson: String): String {
+        return try {
+            val rawArr = com.google.gson.JsonParser.parseString(itemsJson).asJsonArray
+            val items: List<com.fshu.next.data.model.ListItem> = rawArr.mapNotNull { el ->
+                val o = try { el.asJsonObject } catch (e: Exception) { return@mapNotNull null }
+                val id = o.get("id")?.takeIf { !it.isJsonNull }?.asString ?: return@mapNotNull null
+                com.fshu.next.data.model.ListItem(
+                    id = id,
+                    text = o.get("text")?.takeIf { !it.isJsonNull }?.asString ?: "",
+                    done = o.get("done")?.takeIf { !it.isJsonNull }?.asBoolean ?: false,
+                    checkedBy = o.get("checkedBy")?.takeIf { !it.isJsonNull }?.asString,
+                    checkedAt = o.get("checkedAt")?.takeIf { !it.isJsonNull }?.asLong,
+                    deletedAt = o.get("deletedAt")?.takeIf { !it.isJsonNull }?.asLong
+                )
+            }
+            val parsed = PollParser.parse(items)
+            val def = parsed.definition
+            val tally = com.fshu.next.poll.PollTally.tally(def, parsed.ballots)
+            val totalVotes = tally.counts.values.sum()
+
+            val modeLabel = getString(
+                if (def.mode == PollMode.MULTI) R.string.poll_mode_multi else R.string.poll_mode_single
+            )
+            val voteCountStr = resources.getQuantityString(R.plurals.poll_total_votes, totalVotes, totalVotes)
+            val metaLine = if (def.status == com.fshu.next.poll.PollStatus.CLOSED) {
+                "$modeLabel · $voteCountStr · ${getString(R.string.poll_status_closed)}"
+            } else {
+                "$modeLabel · $voteCountStr"
+            }
+
+            val lines = mutableListOf(def.question, metaLine, "")
+            def.options.forEach { option ->
+                val count = tally.counts[option.optionId] ?: 0
+                lines.add("${option.label} — $count")
+            }
+            lines.joinToString("\n")
+        } catch (e: Exception) {
+            getString(R.string.poll_unavailable)
+        }
     }
 
     private fun findMyEmoji(msg: com.fshu.next.data.model.Message): String? {
