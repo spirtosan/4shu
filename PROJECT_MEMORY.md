@@ -28,7 +28,7 @@ Priority: **P0** blocking users · **P1** important · **P2** normal · **P3** l
 
 | ID | Item | Notes |
 |----|------|-------|
-| T5 | Polls in groups (reuse todo-list infra) | **Phase 1 done** (server group-aware lists). **Phase 2 Block A done** (pure Kotlin poll data model + tally, no UI/server — this session). Block B (client poll UI + wire integration) not started. Two assumptions made in Block A are unconfirmed against SPEC_T5.md v2 — see Open Questions before starting Block B. Design: `SPEC_T5.md` v2. |
+| T5 | Polls in groups (reuse todo-list infra) | **Phase 1 done** (server group-aware lists). **Phase 2 Block A + A.1 done, wire format locked.** Poll data model + tally (pure Kotlin, no UI/server) plus the two Block A format decisions (meta placement, ballot `item_id`) are now confirmed and written into `SPEC_T5.md` v2 §3b/§3d/§5. Block B (client poll UI + wire integration) not started. Design: `SPEC_T5.md` v2. |
 
 ### Done
 
@@ -56,32 +56,23 @@ _Nothing currently parked._
 
 ## Open Questions
 
-- **T5 Phase 2 Block A — two unconfirmed assumptions (flag before Block B, 2026-07-02):**
-  SPEC_T5.md v2 doesn't give a literal formula/format for either of these, so Block A
-  proceeded with the most spec-consistent reading rather than blocking; both need an
-  explicit yes/no before Block B locks the actual wire format:
-  1. **Ballot `item_id` derivation.** §2a/§3d/§4 say a ballot's `item_id` is "a stable
-     per-voter identifier" and is plaintext to the server, but never state the exact
-     string. Nothing else in the ballot payload (`{kind:"ballot", selected:[...]}`) or
-     the `list-edit` wire shape carries a separate voter field, so `item_id` is the
-     only channel through which voter identity reaches the client — meaning it must
-     directly encode the username. **Block A assumed `item_id` == the raw username
-     string**, unmodified, unnamespaced. Asked Ivan via AskUserQuestion mid-session;
-     no response received, proceeded per tool guidance ("use best judgment, re-ask
-     later"). Re-ask before Block B if this matters for wire compatibility.
-  2. **Poll meta placement.** §3b describes `type`/`mode`/`status`/`question` as living
-     "in the poll's list-message JSON / list-create payload" — worded differently from
-     options/ballots ("packed into a list item's text", §3c/§3d), which reads as
-     envelope-level rather than item-level. But `Message.content` today is a bare
-     JSON array with no envelope for extra fields (confirmed in `ChatViewModel.kt`),
-     and the Block A task prompt itself says to parse the definition "from a
-     type:"poll" list's **list_items**" — which only makes sense if meta lives inside
-     list_items too. **Block A modeled poll meta as its own list item with
-     `kind:"meta"`**, packed into `text` the same way as options/ballots (see
-     `PollParser.kt`), to reuse list_items as the sole source of truth with zero
-     content-envelope/protocol change. This is an implementation choice, not a literal
-     spec citation — confirm before Block B writes the `list-create` sending code that
-     has to match it.
+- **T5 Phase 2 Block A.1 — both format decisions RESOLVED (2026-07-02).** Was two
+  unconfirmed Block A assumptions (see prior revision of this file for the original
+  writeup); now locked and written into `SPEC_T5.md` v2 §3b, §3d, §5 item 7:
+  1. **Poll meta placement — CONFIRMED as built.** Meta (`question`/`mode`/`status`)
+     stays as its own `kind:"meta"` list item, packed into `text`, same convention
+     as options/ballots. Rationale: Phase 1 added no server-side poll-type column or
+     envelope field, and Phase 2 must not touch the server, so `list_items` is the
+     only available carrier. No code change needed — this confirmed what was
+     already shipped.
+  2. **Ballot `item_id` — CHANGED from the Block A assumption.** Was raw username;
+     now `"ballot:" + username`. `PollParser.kt` derives `voterId` by stripping only
+     the leading `"ballot:"` occurrence (usernames may contain `:`, so no split-on
+     `:`). Meta/option id schemes are untouched — namespacing ballots alone already
+     guarantees no user-derived string collides with the meta id or any option id in
+     the `(list_id, item_id)` PK. Still stable per-voter, still plaintext to the
+     server (`ballot:alice` visible at rest/on the wire), upsert key is the opaque
+     full string → no server/schema/protocol change.
 - **T5 — design RESOLVED** (planning chat + recon, 2026-07-02): see `SPEC_T5.md` v2 for the full decision log (single/multi at creation, named-only votes, client-honored close, re-vote-by-upsert, live results via `list-state`, generic offline queue). Server Phase 1 (group-aware lists) implemented this session; Phase 2 (client poll UI) not started.
 - **server.js repo/live drift (found 2026-07-02, unresolved — flag for Ivan):** the committed `server.js` and the deployed `/opt/fshu5/server.js` have diverged. Live-only (not in git): emergency-call/emergency-location/`sos-message` handling, `hide_presence` contact setting, `group-file` binary upload groupId support, `getEmergencyAllow`/emergency-allow toggles, group-key self-healing on connect. Repo-only (not deployed): `trust_level` column + family-group trust propagation, `admin-set-trust`. The T5 patch touched only list-related code, confirmed byte-identical in both copies before editing, and was applied to both independently — no other drift was touched or reconciled. **The deployed state (including the live-only safety features) is now preserved read-only in `snapshots/live-2026-07-02/`** (captured 2026-07-02, see its README for the full diff) so it's durable/diffable pending reconciliation. Recommend a full three-way reconciliation (repo ↔ snapshot ↔ next-live) before the next unrelated deploy; do the trust-level code removal (see Dropped, above) as part of that same pass.
 
@@ -125,3 +116,4 @@ _Nothing currently parked._
 | 2026-07-02 | T5 Phase 1 (server-only): made lists group-aware, zero schema migration (`lists.group_id` already existed, unused). `insertList` now writes `group_id`; `getRecentLists` unions DM lists with group lists (via `group_members` join); new `userCanAccessList()` gates `list-sync-request` group access; `broadcastListState` gains a group branch that fans out to `getGroupMembers.all(group_id)` (online → `sendToAll`, offline → `enqueue`), mirroring `broadcastGroupState`; DM branch (`group_id` null) unchanged. `list-create` accepts optional `groupId`, requires sender be a group member. `list-state` envelope gains a `groupId` field (both branches) so a future client can route poll state to the right group. No new protocol verbs; `list-edit`/`list-check` untouched — they already route through the patched `broadcastListState`, so ballot fan-out (Phase 2) needs no further server work. Applied identically to local repo `server.js` and live `/opt/fshu5/server.js` (see repo/live drift note in Open Questions — the touched code was verified byte-identical in both before editing). Verified: syntax check (local + remote), service restart clean (`journalctl` no errors), existing 6 DM list rows + schema unchanged post-restart. Backup: `fshu5-server-2026-07-02-*.tar.gz` on `/mnt/ivan/backups/fshu-next/`; server-side `.bak` also left at `/opt/fshu5/server.js.bak.*`. Phase 2 (client poll UI + tally) not started — needs approval. | `server.js`, `PROJECT_MEMORY.md` | _this commit_ |
 | 2026-07-02 | Safety capture of deployed server state into `snapshots/live-2026-07-02/` — read-only (`cat`/`sqlite3 .schema`/`ls` only), no server change of any kind. Captured `server.js` (verbatim, original CRLF preserved), `schema.sql` (structure only, no row data), `manifest.txt` (directory listings). Skipped as secret/data: `firebase-adminsdk.json`, `secret.key`, all `*.db*` files, `node_modules/`. `install-fshu-next.sh` not present on server — nothing to capture. `admin.js` exists on disk but is not `require()`d by `server.js` — left uncaptured (out of stated scope). README documents the live-vs-repo feature diff (live-only: emergency-call/location, `sos-message`, `hide_presence`, `group-file` groupId, group-key self-heal; repo-only: `trust_level`, family-group propagation, `admin-set-trust`) and one trivial cosmetic (non-functional) one-line diff in a T5 comment. Board: per-contact trust-level UI moved from Parked to **Dropped** (Ivan, not needed); removal deferred to reconciliation pending a check it isn't load-bearing. | `snapshots/live-2026-07-02/server.js`, `snapshots/live-2026-07-02/schema.sql`, `snapshots/live-2026-07-02/manifest.txt`, `snapshots/live-2026-07-02/README.md`, `PROJECT_MEMORY.md` | _this commit_ |
 | 2026-07-02 | T5 Phase 2 Block A (client-only, pure Kotlin, no UI/server/protocol change): poll data model + tally. New `com.fshu.next.poll` package: `PollModels.kt` (`PollMode`, `PollStatus`, `PollOption`, `PollDefinition`, `Ballot`, `PollTallyResult`), `PollParser.kt` (parses a poll's `List<ListItem>` list_items into `PollDefinition` + `List<Ballot>`, dispatching on a `kind` field packed into each item's `text` — `meta`/`option`/`ballot`), `PollTally.kt` (`tally()`: optionId→count + named voters per option; asserts no duplicate voterId rather than deduping, since re-vote collapse is the server upsert's job; ignores ballots referencing unknown/removed options; agnostic to poll status — close is client-honored on the write path, not in tallying). No Room schema change (stays v25), no new protocol verbs, no `server.js` touch. Added `testImplementation 'junit:junit:4.13.2'` (no test framework existed yet) + unit tests: `PollParserTest.kt`, `PollTallyTest.kt` (single-select, multi-select, re-vote replacement, duplicate-voterId assertion, unknown-option exclusion, closed-poll tally parity, abstain). **Two implementation assumptions made where SPEC_T5.md v2 gives properties but not a literal format — flagged in Open Questions, unconfirmed:** (1) ballot `item_id` == raw voter username; (2) poll meta (`question`/`mode`/`status`) packed as its own `kind:"meta"` list item, same convention as options/ballots. Asked Ivan mid-session via AskUserQuestion; no response, proceeded as instructed by the tool ("best judgment, re-ask later"). Tests written but **not run** — Claude Code does not run Gradle; Ivan to run `./gradlew test` or run via Android Studio to verify before Block B. | `app/build.gradle`, `app/src/main/java/com/fshu/next/poll/PollModels.kt`, `app/src/main/java/com/fshu/next/poll/PollParser.kt`, `app/src/main/java/com/fshu/next/poll/PollTally.kt`, `app/src/test/java/com/fshu/next/poll/PollParserTest.kt`, `app/src/test/java/com/fshu/next/poll/PollTallyTest.kt`, `PROJECT_MEMORY.md` | _this commit_ |
+| 2026-07-02 | T5 Phase 2 Block A.1 (client + docs only, no server/protocol/schema change): locked the two Block A format decisions. **Meta placement — CONFIRMED as built**, no code change; documented rationale (list_items is the only carrier Phase 2 can use without touching the server) in `SPEC_T5.md` §3b. **Ballot `item_id` — CHANGED**: raw username → `"ballot:" + username`. `PollParser.kt` now derives `voterId` via `item.id.removePrefix("ballot:")` with a `require()` guard if the prefix is missing — strips only the leading occurrence, safe against usernames containing `:`. `PollModels.kt` doc comment updated to match. Test fixtures updated: `PollParserTest.kt` ballots now built with `"ballot:<user>"` item_ids (plus new cases for a colon-containing username and a missing-prefix throw); `PollTallyTest.kt` gained an end-to-end test parsing `"ballot:<user>"` list_items through `PollParser` into `PollTally.tally()` and asserting named voters come out as bare usernames. `SPEC_T5.md` §3b/§3d amended with the locked literal formats + supersession notes; new §5 item 7 records both decisions with rationale in the spec's own decision log. Tests updated but **not run** (no Gradle). Board: T5 note now "Phase 2 Block A + A.1 done, wire format locked." Open Questions: both prior unconfirmed-assumption entries replaced with RESOLVED writeups. | `SPEC_T5.md`, `app/src/main/java/com/fshu/next/poll/PollParser.kt`, `app/src/main/java/com/fshu/next/poll/PollModels.kt`, `app/src/test/java/com/fshu/next/poll/PollParserTest.kt`, `app/src/test/java/com/fshu/next/poll/PollTallyTest.kt`, `PROJECT_MEMORY.md` | _this commit_ |

@@ -76,6 +76,14 @@ sender, so it buys almost nothing).
 | `status` | `"open"` \| `"closed"` | Client-honored. Owner/admin sets `closed`. No auto-expiry in v1. |
 | `question` | string | The poll question. |
 
+> **Storage decision (supersedes the wording above, locked 2026-07-02, implemented
+> in Phase 2 Block A):** meta lives as its **own list item, `kind:"meta"`, packed
+> into `text`** — the same convention as options (§3c) and ballots (§3d) — not in
+> a `list-create`/content envelope field. Reason: Phase 1 added no server-side
+> column or envelope field for poll type/meta (it only made list fan-out
+> group-aware), and Phase 2 is client-only, so `list_items` is the only carrier
+> available without touching the server. Matches the shipped Phase 1 server.
+
 ### 3c. Options
 Created up front at `list-create`. Each: `{ kind:"option", option_id, label,
 position }`, packed into a list item's `text`.
@@ -83,6 +91,18 @@ position }`, packed into a list item's `text`.
 ### 3d. Ballots
 Each: `{ kind:"ballot", selected:[option_id…] }` packed into the item `text`, on a
 list item whose **`item_id` = a stable per-voter identifier** (see §2a, §4).
+
+> **Literal format (locked 2026-07-02, implemented in Phase 2 Block A.1):**
+> `item_id = "ballot:" + username`. The prefix guarantees no user-derived string
+> collides with the meta item's id or any option's `item_id` in the shared
+> `(list_id, item_id)` PK. Usernames may themselves contain `:`, so a parser
+> derives the voter's username by stripping **only the leading `"ballot:"`
+> occurrence**, never by splitting on `:`. Preserved properties from §2a/§4 still
+> hold: still stable per-voter, still plaintext to the server (e.g. `ballot:alice`
+> is visible at rest and on the wire), and the upsert key is the opaque full
+> string (`"ballot:alice"`) — so this is a pure client-side string convention with
+> no server/schema/protocol change.
+
 - `voter_key`/identity = the voter's **user identity**, not per-device (one human =
   one vote across devices).
 - `single` mode ⇒ client enforces `selected` length ≤ 1.
@@ -161,6 +181,20 @@ trivial, no debounce.
      function of held ballots; re-tally is cheap. A server-side summary would be an
      unverifiable member-supplied blob (blind server); a client one is redundant
      drift-prone state. Recompute on demand.
+7. **Implementation-level format decisions (Phase 2 Block A.1, locked 2026-07-02)**
+   — the two format questions §2a/§3b/§3d state properties for but not a literal
+   value, resolved during client implementation rather than left as an assumption:
+   - **Poll meta storage:** meta (`type`/`mode`/`status`/`question`) is packed as
+     its own list item, `kind:"meta"`, into `text` — same convention as options and
+     ballots. See §3b. Reason: Phase 1 shipped with no server-side poll-type column
+     or envelope field, and Phase 2 is client-only, so `list_items` is the only
+     carrier that needs no server change.
+   - **Ballot `item_id` format:** `"ballot:" + username`, not the raw username. See
+     §3d. Reason: namespacing guarantees no user-derived string collides with the
+     meta item's id or any option's `item_id` in the shared `(list_id, item_id)`
+     PK; a raw-username scheme couldn't make that guarantee. Still stable
+     per-voter, still plaintext to the server, still an opaque upsert key — no
+     server/schema/protocol change either way.
 
 ---
 

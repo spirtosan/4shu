@@ -15,8 +15,8 @@ private fun optionItem(id: String, optionId: String, label: String, position: In
     text = """{"kind":"option","option_id":"$optionId","label":"$label","position":$position}"""
 )
 
-private fun ballotItem(voterId: String, selected: List<String>) = ListItem(
-    id = voterId,
+private fun ballotItem(voterUsername: String, selected: List<String>) = ListItem(
+    id = "ballot:$voterUsername",
     text = """{"kind":"ballot","selected":[${selected.joinToString(",") { "\"$it\"" }}]}"""
 )
 
@@ -46,12 +46,36 @@ class PollParserTest {
         val items = listOf(
             metaItem("i-meta", "Q", "single", "open"),
             optionItem("i-opt-a", "opt-a", "A", 0),
-            ListItem(id = "bob", text = """{"kind":"ballot","selected":["opt-a"]}""", deletedAt = 1L),
+            ListItem(id = "ballot:bob", text = """{"kind":"ballot","selected":["opt-a"]}""", deletedAt = 1L),
         )
 
         val parsed = PollParser.parse(items)
 
         assertEquals(0, parsed.ballots.size)
+    }
+
+    @Test
+    fun `ballot item_id strips only the leading 'ballot-' prefix, username may contain colons`() {
+        val items = listOf(
+            metaItem("i-meta", "Q", "single", "open"),
+            optionItem("i-opt-a", "opt-a", "A", 0),
+            ListItem(id = "ballot:alice:device2", text = """{"kind":"ballot","selected":["opt-a"]}"""),
+        )
+
+        val parsed = PollParser.parse(items)
+
+        assertEquals(listOf("alice:device2"), parsed.ballots.map { it.voterId })
+    }
+
+    @Test
+    fun `ballot item_id missing the 'ballot-' prefix throws`() {
+        val items = listOf(
+            metaItem("i-meta", "Q", "single", "open"),
+            optionItem("i-opt-a", "opt-a", "A", 0),
+            ListItem(id = "alice", text = """{"kind":"ballot","selected":["opt-a"]}"""),
+        )
+
+        assertThrows(IllegalArgumentException::class.java) { PollParser.parse(items) }
     }
 
     @Test

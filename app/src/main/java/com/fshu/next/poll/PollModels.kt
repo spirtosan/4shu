@@ -23,8 +23,9 @@ data class PollDefinition(
 )
 
 // SPEC_T5.md v2 §3d. One row per voter: voterId is the outer list-item `id`
-// (item_id), assumed == the voter's username per §2a — UNCONFIRMED, see report.
-// `selected` holds every chosen optionId in one ballot (not one item per option).
+// (item_id, format "ballot:<username>") with the "ballot:" prefix already
+// stripped by PollParser — the bare username. `selected` holds every chosen
+// optionId in one ballot (not one item per option).
 data class Ballot(
     val voterId: String,
     val selected: List<String>

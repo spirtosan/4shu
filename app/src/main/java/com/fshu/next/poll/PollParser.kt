@@ -12,18 +12,22 @@ data class ParsedPoll(
 /**
  * Parses a type:"poll" list's list_items into a [PollDefinition] and its ballots.
  *
- * Design note (not spelled out verbatim in SPEC_T5.md v2, inferred from the block
- * instructions to parse the definition "from list_items" and from §3c/§3d packing
- * option/ballot payloads into item `text`): poll meta (question/mode/status) is
- * packed the same way, as one list item with kind:"meta" — this keeps list_items
- * as the single source of truth and needs no wire/content envelope change. Flagged
- * for confirmation alongside the item_id question — see task report.
+ * Meta placement (SPEC_T5.md v2 §3b, locked 2026-07-02): poll meta (question/mode/
+ * status) is packed as its own list item with kind:"meta", same convention as
+ * options/ballots — Phase 1 added no server-side column for it, and Phase 2 must
+ * not touch the server, so list_items is the only available carrier.
+ *
+ * Ballot item_id format (SPEC_T5.md v2 §3d, locked 2026-07-02): "ballot:<username>".
+ * The prefix guarantees no user-derived string collides with the meta id or any
+ * option_id in the (list_id, item_id) PK; usernames may themselves contain ':', so
+ * only the leading "ballot:" occurrence is stripped, never a split on ':'.
  */
 object PollParser {
 
     private const val KIND_META = "meta"
     private const val KIND_OPTION = "option"
     private const val KIND_BALLOT = "ballot"
+    private const val BALLOT_ID_PREFIX = "ballot:"
 
     fun parse(items: List<ListItem>): ParsedPoll {
         val active = items.filter { it.deletedAt == null }
@@ -73,10 +77,14 @@ object PollParser {
                     options[optionId] = PollOption(optionId, label, position)
                 }
                 KIND_BALLOT -> {
+                    val voterId = item.id.removePrefix(BALLOT_ID_PREFIX)
+                    require(voterId != item.id) {
+                        "ballot item_id missing '$BALLOT_ID_PREFIX' prefix: ${item.id}"
+                    }
                     val selected = obj.getAsJsonArray("selected")
                         ?.map { it.asString }
                         ?: emptyList()
-                    ballots.add(Ballot(voterId = item.id, selected = selected))
+                    ballots.add(Ballot(voterId = voterId, selected = selected))
                 }
                 else -> continue // unknown/forward-compat kind — skip
             }

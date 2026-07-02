@@ -1,5 +1,6 @@
 package com.fshu.next.poll
 
+import com.fshu.next.data.model.ListItem
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
 import org.junit.Test
@@ -111,5 +112,24 @@ class PollTallyTest {
         val result = PollTally.tally(singleDef(), ballots)
 
         assertEquals(mapOf("opt-a" to 0, "opt-b" to 0, "opt-c" to 0), result.counts)
+    }
+
+    @Test
+    fun `end-to-end - parsed 'ballot-user' item_ids tally to bare usernames`() {
+        val items = listOf(
+            ListItem(id = "i-meta", text = """{"kind":"meta","question":"Q","mode":"single","status":"open"}"""),
+            ListItem(id = "i-opt-a", text = """{"kind":"option","option_id":"opt-a","label":"A","position":0}"""),
+            ListItem(id = "i-opt-b", text = """{"kind":"option","option_id":"opt-b","label":"B","position":1}"""),
+            ListItem(id = "ballot:alice", text = """{"kind":"ballot","selected":["opt-a"]}"""),
+            ListItem(id = "ballot:bob", text = """{"kind":"ballot","selected":["opt-a"]}"""),
+        )
+
+        val parsed = PollParser.parse(items)
+        val result = PollTally.tally(parsed.definition, parsed.ballots)
+
+        assertEquals(2, result.counts["opt-a"])
+        // Named voters are the bare usernames — "ballot:" is a wire/storage detail
+        // that never leaks into tally output.
+        assertEquals(listOf("alice", "bob"), result.votersByOption["opt-a"])
     }
 }
