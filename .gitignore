@@ -40,3 +40,6 @@ node_modules/
 # OS
 .DS_Store
 Thumbs.db
+
+# Screenshots (binary churn, no history value)
+Screenshots/
