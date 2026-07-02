@@ -152,4 +152,7 @@ dependencies {
     // T8: media gallery viewer
     implementation 'androidx.viewpager2:viewpager2:1.0.0'
     implementation 'com.github.chrisbanes:PhotoView:2.3.0'
+
+    // Unit tests (pure JVM, no Android framework)
+    testImplementation 'junit:junit:4.13.2'
 }
