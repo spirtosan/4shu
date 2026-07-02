@@ -410,7 +410,7 @@ const stmt = {
 
     getList:            db.prepare('SELECT * FROM lists WHERE list_id = ?'),
     getListVersion:     db.prepare('SELECT version FROM lists WHERE list_id = ?'),
-    insertList:         db.prepare('INSERT OR IGNORE INTO lists (list_id, owner, peer, version, created_at, message_id) VALUES (?, ?, ?, 1, ?, ?)'),
+    insertList:         db.prepare('INSERT OR IGNORE INTO lists (list_id, owner, peer, group_id, version, created_at, message_id) VALUES (?, ?, ?, ?, 1, ?, ?)'),
     bumpListVersion:    db.prepare('UPDATE lists SET version = version + 1 WHERE list_id = ?'),
     getListItems:       db.prepare('SELECT * FROM list_items WHERE list_id = ? ORDER BY COALESCE(sort_order, 0), item_id'),
     upsertListItem:     db.prepare(`
@@ -421,7 +421,12 @@ const stmt = {
           checked_by=excluded.checked_by, checked_at=excluded.checked_at,
           deleted_at=excluded.deleted_at`),
     markItemDeleted:    db.prepare('UPDATE list_items SET deleted_at = ? WHERE item_id = ? AND list_id = ?'),
-    getRecentLists:     db.prepare('SELECT * FROM lists WHERE (owner = ? OR peer = ?) AND created_at > ?'),
+    // DM lists (owner/peer) unioned with group lists (group membership) — group polls (T5) use this path.
+    getRecentLists:     db.prepare(`
+        SELECT * FROM lists WHERE (owner = ? OR peer = ?) AND created_at > ?
+        UNION
+        SELECT l.* FROM lists l JOIN group_members gm ON l.group_id = gm.group_id
+        WHERE gm.username = ? AND l.created_at > ?`),
 
     upsertReaction: db.prepare(`
         INSERT INTO reactions (message_id, from_user, emoji, timestamp)
@@ -867,9 +872,16 @@ function sendListState(ws, list, listId) {
         version:   list.version,
         owner:     list.owner,
         to:        list.peer,
+        groupId:   list.group_id ?? null,
         items:     list.items,
         messageId: list.message_id ?? null,
     });
+}
+
+function userCanAccessList(list, username) {
+    if (list.owner === username || list.peer === username) return true;
+    if (!list.group_id) return false;
+    return stmt.getGroupMembers.all(list.group_id).some(m => m.username === username);
 }
 
 function broadcastListState(list, listId) {
@@ -879,9 +891,23 @@ function broadcastListState(list, listId) {
         version:   list.version,
         owner:     list.owner,
         to:        list.peer,
+        groupId:   list.group_id ?? null,
         items:     list.items,
         messageId: list.message_id ?? null,
     };
+    if (list.group_id) {
+        // Group list (T5 polls) — fan out to all group members, mirroring broadcastGroupState.
+        const members = stmt.getGroupMembers.all(list.group_id);
+        const env = { ...msg, timestamp: Date.now() };
+        for (const m of members) {
+            if (isOnline(m.username)) {
+                sendToAll(m.username, msg);
+            } else {
+                enqueue(m.username, env);
+            }
+        }
+        return;
+    }
     sendToAll(list.owner, msg);
     if (list.peer) sendToAll(list.peer, msg);
     const env = { ...msg, timestamp: Date.now() };
@@ -1925,9 +1951,14 @@ wss.on('connection', (ws, req) => {
             }
 
             case 'list-create': {
-                const { listId, items } = msg;
+                const { listId, items, groupId } = msg;
                 if (!listId || !Array.isArray(items)) break;
-                stmt.insertList.run( listId, msg.from, msg.to, Date.now(), msg.messageId ?? null);
+                if (groupId) {
+                    // Group list (T5 polls) — creator must be a group member.
+                    const members = stmt.getGroupMembers.all(groupId);
+                    if (!members.find(m => m.username === username)) break;
+                }
+                stmt.insertList.run(listId, msg.from, msg.to ?? null, groupId ?? null, Date.now(), msg.messageId ?? null);
                 for (const it of items) {
                     stmt.upsertListItem.run(it.id, listId, it.text, 0, null, null, null);
                 }
@@ -1980,13 +2011,13 @@ wss.on('connection', (ws, req) => {
             case 'list-sync-request': {
                 if (msg.listId) {
                     const list = getListWithItems(msg.listId);
-                    if (list && (list.owner === username || list.peer === username)) {
+                    if (list && userCanAccessList(list, username)) {
                         sendListState(ws, list, msg.listId);
                     }
                 } else {
                     const cutoff      = Date.now() - 7 * 24 * 60 * 60 * 1000;
                     const knownVers   = (msg.lastKnownVersions && typeof msg.lastKnownVersions === 'object') ? msg.lastKnownVersions : {};
-                    const recentLists = stmt.getRecentLists.all(username, username, cutoff);
+                    const recentLists = stmt.getRecentLists.all(username, username, cutoff, username, cutoff);
                     for (const row of recentLists) {
                         if (row.version > (knownVers[row.list_id] || 0)) {
                             const list = getListWithItems(row.list_id);

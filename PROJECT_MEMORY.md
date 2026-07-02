@@ -20,14 +20,15 @@ Priority: **P0** blocking users · **P1** important · **P2** normal · **P3** l
 | ID | Item | Type | Pri | Notes |
 |----|------|------|-----|-------|
 | TS | SDK bump: `minSdk 26→31`, `compileSdk 34→35` | Config | **P1** | Part of platform policy; compileSdk bump also feeds T2 fix. Keep `targetSdk 34` until call testing on G60. Ivan edits in Android Studio. |
-| T5 | Polls in groups (reuse todo-list infra) | Feature | **P2** | Build on existing `lists`/`list_items` tables. |
 | T7 | Screen share | Feature | **P3** | Large. WebRTC screen capture. Interacts with foreground-service rules. |
 | T11 | Shared todo list with "who did the task" | Feature | **P3** | Tentative, not confirmed. |
 | T1 | Reset-link page shows "???" symbols | Bug | **P3 / parked** | Charset/encoding on reset page. Secret-question is the only active reset path, so low impact for now. |
 
 ### In Progress
 
-_Nothing in progress._
+| ID | Item | Notes |
+|----|------|-------|
+| T5 | Polls in groups (reuse todo-list infra) | **Phase 1 done** (server group-aware lists, this session). **Phase 2 pending** (client poll UI + tally — not started, needs approval). Design: `SPEC_T5.md` v2. |
 
 ### Done
 
@@ -48,16 +49,8 @@ _Nothing in progress._
 
 ## Open Questions
 
-- **T5 — design (UNRESOLVED, settle before code):**
-  Polls in groups reuse the existing todo-list transport (`list-create` / `list-edit` / `list-check` / `list-state`) and the `list_items` Room table. The core constraint: **the server cannot tally votes** — all group messages are E2E-encrypted with the group ECDH key, so the server never sees poll content. Tallying must be client-side: each vote is relayed as an encrypted item (same key), and every member counts locally from the `list-state` they receive.
-
-  Decisions still open — **do not invent answers; resolve in planning chat before writing any code:**
-  1. **Single-select vs multi-select** — does the poll type need to be declared at creation, or is it always one of each?
-  2. **Anonymous vs named votes** — does a voter's identity appear in results? (Affects the item payload schema.)
-  3. **Close / expiry** — can the poll owner close it early? Is there a time-based expiry? Who can see results before close?
-  4. **Vote change** — can a participant change their vote after casting? If so, how is the previous vote revoked in the encrypted item stream?
-  5. **Live result updates** — results update via the normal `list-state` push; is that acceptable latency, or is a dedicated push needed?
-  6. **Offline catch-up** — the server queues `list-state` for offline members already (same as todo lists); confirm this is sufficient for polls or whether a closed-poll summary needs separate storage.
+- **T5 — design RESOLVED** (planning chat + recon, 2026-07-02): see `SPEC_T5.md` v2 for the full decision log (single/multi at creation, named-only votes, client-honored close, re-vote-by-upsert, live results via `list-state`, generic offline queue). Server Phase 1 (group-aware lists) implemented this session; Phase 2 (client poll UI) not started.
+- **server.js repo/live drift (found 2026-07-02, unresolved — flag for Ivan):** the committed `server.js` and the deployed `/opt/fshu5/server.js` have diverged. Live-only (not in git): emergency-call/emergency-location/`sos-message` handling, `hide_presence` contact setting, `group-file` binary upload groupId support, `getEmergencyAllow`/emergency-allow toggles. Repo-only (not deployed): `trust_level` column + family-group trust propagation, `admin-set-trust`. The T5 patch this session touched only list-related code, which was confirmed byte-identical in both copies before editing, and was applied to both independently — no other drift was touched or reconciled. Recommend a full three-way reconciliation before the next unrelated deploy.
 
 ---
 
@@ -71,6 +64,8 @@ _Nothing in progress._
 | 2026-06-28 | Not distributing via Play Store → Play targetSdk deadlines do not apply. |
 | 2026-06-28 | Separate `PROJECT_MEMORY.md` (this file), maintained by Claude Code. |
 | 2026-06-30 | Session close — T2 verified + closed (calls + 16 KB both green); jni_zero R8 keep-rule fix pushed (56c1668). T8 media gallery also confirmed G60-verified. Next session: T5 polls in groups — design unresolved, tally-under-E2E is the open constraint. |
+| 2026-07-02 | T5 design approved (SPEC_T5.md v2) — polls are lists with a `type:"poll"` discriminator; no Android Room migration, no server schema migration; server work collapses to "make lists group-aware". |
+| 2026-07-02 | server.js repo/live drift discovered (see Open Questions) — not reconciled, only the isolated list-code path was touched for T5 Phase 1. |
 
 ---
 
@@ -94,3 +89,4 @@ _Nothing in progress._
 | 2026-06-30 | T2 VERIFIED + CLOSED: APK Analyzer gate (b) green — all arm64-v8a `.so` 16 KB-aligned. Call gate (c) green — voice + video calls pass on G60. R8/minify regression found + fixed: WebRTC M144 AAR ships `org.jni_zero.**` (JniInit binding classes); R8 was stripping them → crash on startup with minify enabled. Fix: `-keep class org.jni_zero.** { *; }` added to `proguard-rules.pro`. T8 media gallery also confirmed G60-verified this session. | `app/proguard-rules.pro`, `PROJECT_MEMORY.md` | 56c1668 |
 | 2026-06-30 | Session close — T5 design questions recorded in Open Questions; Decisions Log session-close note added. No feature code. | `PROJECT_MEMORY.md` | _this commit_ |
 | 2026-07-02 | Housekeeping: gradle-wrapper.properties drift (Studio-added timestamp comment + `distributionSha256Sum`, `distributionUrl` unchanged at gradle-8.7-bin) discarded via `git checkout --`. `.gitignore` gained `Screenshots/` (binary churn, no history value). Tracked durable spec/audit docs: `SPEC_T4_T3.md`, `SPEC_T5.md`, `SPEC_T6.md`, `SPEC_T8.md`, `SPEC_T9.md`, `KEEPALIVE_AUDIT.md`. `KEEPALIVE_OEM_ANALYSIS.md`, `T2_16KB_FIX_PLAN.md`, `T7_SCREEN_SHARE_SPEC.md`, `call-crash-log.txt` intentionally left untracked (not in scope for this triage). No feature code — recon-only session for T5, findings not yet committed. | `.gitignore`, `PROJECT_MEMORY.md` | _this commit_ |
+| 2026-07-02 | T5 Phase 1 (server-only): made lists group-aware, zero schema migration (`lists.group_id` already existed, unused). `insertList` now writes `group_id`; `getRecentLists` unions DM lists with group lists (via `group_members` join); new `userCanAccessList()` gates `list-sync-request` group access; `broadcastListState` gains a group branch that fans out to `getGroupMembers.all(group_id)` (online → `sendToAll`, offline → `enqueue`), mirroring `broadcastGroupState`; DM branch (`group_id` null) unchanged. `list-create` accepts optional `groupId`, requires sender be a group member. `list-state` envelope gains a `groupId` field (both branches) so a future client can route poll state to the right group. No new protocol verbs; `list-edit`/`list-check` untouched — they already route through the patched `broadcastListState`, so ballot fan-out (Phase 2) needs no further server work. Applied identically to local repo `server.js` and live `/opt/fshu5/server.js` (see repo/live drift note in Open Questions — the touched code was verified byte-identical in both before editing). Verified: syntax check (local + remote), service restart clean (`journalctl` no errors), existing 6 DM list rows + schema unchanged post-restart. Backup: `fshu5-server-2026-07-02-*.tar.gz` on `/mnt/ivan/backups/fshu-next/`; server-side `.bak` also left at `/opt/fshu5/server.js.bak.*`. Phase 2 (client poll UI + tally) not started — needs approval. | `server.js`, `PROJECT_MEMORY.md` | _this commit_ |
