@@ -95,6 +95,12 @@
     <string name="delete_option_for_everyone">Изтрий за всички</string>
     <string name="delete_option_for_me">Изтрий само за мен</string>
     <string name="label_todo_list">☑ Списък задачи</string>
+    <string name="label_poll">📊 Анкета</string>
+    <string name="poll_mode_single">Един избор</string>
+    <string name="poll_mode_multi">Множествен избор</string>
+    <string name="poll_status_open">Отворена</string>
+    <string name="poll_status_closed">Затворена</string>
+    <string name="poll_unavailable">Анкетата не е налична</string>
     <string name="dialog_new_todo_title">Нов списък задачи</string>
     <string name="dialog_edit_todo_title">Редактирай списък задачи</string>
     <string name="dialog_removed_from_group_title">Премахнат от групата</string>
@@ -213,6 +219,7 @@
     <string name="menu_export_conversation">Експортирай разговор</string>
     <string name="menu_change_background">Промени фона</string>
     <string name="menu_new_todo_list">Нов списък задачи</string>
+    <string name="menu_seed_debug_poll">🧪 Тестова анкета (DEBUG)</string>
     <string name="menu_share_location">📍 Сподели местоположението ми</string>
     <string name="menu_request_location">📍 Поискай местоположение</string>
     <string name="menu_new_group">Нова група</string>

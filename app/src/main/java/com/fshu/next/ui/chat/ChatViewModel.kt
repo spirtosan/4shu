@@ -474,6 +474,66 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         pendingChecks[key] = job
     }
 
+    /**
+     * TEMP: remove at Block D. Debug-only seed that inserts one poll list straight into local
+     * Room — no server round-trip, no creation UI (that ships in Block D) — so Block B's
+     * read-only render is testable on the G60 now. [groupId] null ⇒ DM list to [peer];
+     * non-null ⇒ group list (mirrors sendGroupText's from/to/groupId convention).
+     */
+    fun seedDebugPoll(peer: String, groupId: String?) {
+        if (!com.fshu.next.BuildConfig.DEBUG) return
+        viewModelScope.launch(Dispatchers.IO) {
+            val listId = UUID.randomUUID().toString()
+            val arr = JsonArray()
+
+            fun addItem(id: String, packed: JsonObject) {
+                arr.add(JsonObject().apply {
+                    addProperty("id", id)
+                    addProperty("text", packed.toString())
+                    addProperty("done", false)
+                })
+            }
+
+            addItem("meta", JsonObject().apply {
+                addProperty("kind", "meta")
+                addProperty("question", "Pizza night — what should we order?")
+                addProperty("mode", "single")
+                addProperty("status", "open")
+            })
+
+            val options = listOf("opt-1" to "Margherita", "opt-2" to "Pepperoni", "opt-3" to "Veggie")
+            options.forEachIndexed { i, (optId, label) ->
+                addItem("option-$optId", JsonObject().apply {
+                    addProperty("kind", "option")
+                    addProperty("option_id", optId)
+                    addProperty("label", label)
+                    addProperty("position", i)
+                })
+            }
+
+            // Seed a couple of ballots so bars/counts render non-empty on first look.
+            // Group case only seeds "me" — the other group members aren't known here.
+            addItem("ballot:$me", JsonObject().apply {
+                addProperty("kind", "ballot")
+                add("selected", JsonArray().apply { add("opt-1") })
+            })
+            if (groupId == null) {
+                addItem("ballot:$peer", JsonObject().apply {
+                    addProperty("kind", "ballot")
+                    add("selected", JsonArray().apply { add("opt-2") })
+                })
+            }
+
+            val ts = System.currentTimeMillis()
+            val (from, to) = if (groupId != null) Pair(me, "") else Pair(me, peer)
+            db.messageDao().insert(
+                Message(from = from, to = to, content = arr.toString(), type = "list",
+                    listId = listId, timestamp = ts, isSent = true, status = "SENT",
+                    listOwner = me, groupId = groupId)
+            )
+        }
+    }
+
     fun sendCurrentLocation(peer: String) {
         viewModelScope.launch(Dispatchers.IO) {
             val location = LocationHelper.getCurrentLocation(getApplication())

@@ -19,19 +19,64 @@
         android:paddingBottom="6dp">
 
         <TextView
+            android:id="@+id/tv_header"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="☑ Todo list"
+            android:text="@string/label_todo_list"
             android:textSize="12sp"
             android:textStyle="bold"
             android:textColor="?attr/colorTextSecondary"
             android:layout_marginBottom="4dp" />
+
+        <TextView
+            android:id="@+id/tv_poll_question"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:textColor="?attr/colorTextPrimary"
+            android:layout_marginBottom="4dp"
+            android:visibility="gone" />
+
+        <LinearLayout
+            android:id="@+id/ll_poll_meta"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="4dp"
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/tv_poll_mode"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:textSize="11sp"
+                android:textColor="?attr/colorTextSecondary" />
+
+            <TextView
+                android:id="@+id/tv_poll_status"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+
+        </LinearLayout>
 
         <LinearLayout
             android:id="@+id/ll_items"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical" />
+
+        <TextView
+            android:id="@+id/tv_poll_total"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="11sp"
+            android:textColor="?attr/colorTextTertiary"
+            android:layout_marginTop="2dp"
+            android:visibility="gone" />
 
         <TextView
             android:id="@+id/tv_time"

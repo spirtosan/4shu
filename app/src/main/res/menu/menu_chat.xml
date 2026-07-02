@@ -72,4 +72,9 @@
         android:title="@string/menu_test_connection"
         app:showAsAction="never" />
 
+    <item
+        android:id="@+id/action_seed_debug_poll"
+        android:title="@string/menu_seed_debug_poll"
+        app:showAsAction="never" />
+
 </menu>

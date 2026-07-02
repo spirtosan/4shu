@@ -23,9 +23,15 @@ import androidx.recyclerview.widget.RecyclerView
 import coil.load
 import com.google.android.material.color.MaterialColors
 import com.google.gson.JsonParser
+import com.fshu.next.data.model.ListItem
 import com.fshu.next.data.model.Message
 import com.fshu.next.databinding.ItemListReceivedBinding
 import com.fshu.next.databinding.ItemListSentBinding
+import com.fshu.next.poll.ParsedPoll
+import com.fshu.next.poll.PollMode
+import com.fshu.next.poll.PollParser
+import com.fshu.next.poll.PollStatus
+import com.fshu.next.poll.PollTally
 import com.fshu.next.databinding.ItemLocationReceivedBinding
 import com.fshu.next.databinding.ItemLocationRequestReceivedBinding
 import com.fshu.next.databinding.ItemLocationRequestSentBinding
@@ -151,6 +157,7 @@ class ChatAdapter : ListAdapter<Message, RecyclerView.ViewHolder>(DIFF) {
         private const val TICK_DOUBLE = "✓✓"
         private val COLOR_GREY = Color.parseColor("#9E9E9E")
         private val COLOR_BLUE = Color.parseColor("#4FC3F7")
+        private val COLOR_POLL_OPEN = Color.parseColor("#4CAF50")
     }
 
     override fun getItemViewType(pos: Int): Int {
@@ -281,7 +288,11 @@ class ChatAdapter : ListAdapter<Message, RecyclerView.ViewHolder>(DIFF) {
                     "READ"    -> { holder.b.pbSending.visibility = View.GONE; holder.b.tvStatus.visibility = View.VISIBLE; holder.b.tvStatus.text = TICK_DOUBLE; holder.b.tvStatus.setTextColor(COLOR_BLUE) }
                     else      -> { holder.b.pbSending.visibility = View.GONE; holder.b.tvStatus.visibility = View.GONE }
                 }
-                bindListItems(holder.b.llItems, msg)
+                bindListOrPoll(
+                    holder.b.tvHeader, holder.b.tvPollQuestion, holder.b.llPollMeta,
+                    holder.b.tvPollMode, holder.b.tvPollStatus, holder.b.llItems,
+                    holder.b.tvPollTotal, msg
+                )
                 holder.b.bubble.setOnLongClickListener { _ ->
                     toggleSelection(msg)
                     true
@@ -293,7 +304,11 @@ class ChatAdapter : ListAdapter<Message, RecyclerView.ViewHolder>(DIFF) {
             }
             is RecvListVH -> {
                 holder.b.tvTime.text = time
-                bindListItems(holder.b.llItems, msg)
+                bindListOrPoll(
+                    holder.b.tvHeader, holder.b.tvPollQuestion, holder.b.llPollMeta,
+                    holder.b.tvPollMode, holder.b.tvPollStatus, holder.b.llItems,
+                    holder.b.tvPollTotal, msg
+                )
                 holder.b.bubble.setOnLongClickListener { _ ->
                     toggleSelection(msg)
                     true
@@ -584,29 +599,81 @@ class ChatAdapter : ListAdapter<Message, RecyclerView.ViewHolder>(DIFF) {
         }
     }
 
-    private fun bindListItems(container: LinearLayout, msg: Message) {
-        container.removeAllViews()
-        val listId = msg.listId ?: return
+    /**
+     * Dispatches a type="list" message to poll or todo rendering. Detection (SPEC_T5.md v2 §3b):
+     * a list is a poll iff it holds an active item whose packed text has kind:"meta" — plain
+     * todo item text never parses as JSON with that shape, so this is backward-compatible with
+     * every existing DM todo list. A malformed/partial poll (meta present, parse otherwise fails —
+     * e.g. options still mid-sync) falls back to a "Poll unavailable" placeholder rather than
+     * crashing the list bubble or misrendering as a todo list.
+     */
+    private fun bindListOrPoll(
+        header: TextView,
+        questionView: TextView,
+        metaRow: LinearLayout,
+        modeView: TextView,
+        statusView: TextView,
+        itemsContainer: LinearLayout,
+        totalView: TextView,
+        msg: Message
+    ) {
+        itemsContainer.removeAllViews()
+        val listId = msg.listId
+        val rawArr = try { JsonParser.parseString(msg.content).asJsonArray } catch (e: Exception) { null }
+        val items: List<ListItem> = rawArr?.mapNotNull { el ->
+            val o = try { el.asJsonObject } catch (e: Exception) { return@mapNotNull null }
+            val id = o.get("id")?.takeIf { !it.isJsonNull }?.asString ?: return@mapNotNull null
+            ListItem(
+                id = id,
+                text = o.get("text")?.takeIf { !it.isJsonNull }?.asString ?: "",
+                done = o.get("done")?.takeIf { !it.isJsonNull }?.asBoolean ?: false,
+                checkedBy = o.get("checkedBy")?.takeIf { !it.isJsonNull }?.asString,
+                checkedAt = o.get("checkedAt")?.takeIf { !it.isJsonNull }?.asLong,
+                deletedAt = o.get("deletedAt")?.takeIf { !it.isJsonNull }?.asLong
+            )
+        } ?: emptyList()
+
+        val isPoll = items.any { item ->
+            item.deletedAt == null && try {
+                JsonParser.parseString(item.text).asJsonObject.get("kind")?.asString == "meta"
+            } catch (e: Exception) { false }
+        }
+
+        if (!isPoll) {
+            header.text = header.context.getString(com.fshu.next.R.string.label_todo_list)
+            questionView.visibility = View.GONE
+            metaRow.visibility = View.GONE
+            totalView.visibility = View.GONE
+            bindTodoItems(itemsContainer, msg, listId, items)
+            return
+        }
+
+        header.text = header.context.getString(com.fshu.next.R.string.label_poll)
+        val parsed = try {
+            PollParser.parse(items)
+        } catch (e: Exception) {
+            android.util.Log.w("ChatAdapter", "Malformed poll list $listId", e)
+            questionView.visibility = View.GONE
+            metaRow.visibility = View.GONE
+            totalView.visibility = View.GONE
+            bindPollUnavailable(itemsContainer)
+            return
+        }
+        bindPoll(questionView, metaRow, modeView, statusView, itemsContainer, totalView, parsed)
+    }
+
+    private fun bindTodoItems(container: LinearLayout, msg: Message, listId: String?, items: List<ListItem>) {
+        if (listId == null) return
         val canToggle = !msg.isSent
-        val arr = try { JsonParser.parseString(msg.content).asJsonArray } catch (e: Exception) { return }
-        for (i in 0 until arr.size()) {
-            val item = try { arr[i].asJsonObject } catch (e: Exception) { continue }
-            // Skip soft-deleted items
-            val deletedAt = item.get("deletedAt")
-            if (deletedAt != null && !deletedAt.isJsonNull) continue
-            val itemId = item.get("id")?.asString ?: continue
-            val text = item.get("text")?.asString ?: ""
-            val done = item.get("done")?.asBoolean ?: false
-            val checkedBy = item.get("checkedBy")?.takeIf { !it.isJsonNull }?.asString
-            val checkedByDisplay = if (checkedBy != null) {
-                getNickname(checkedBy) ?: checkedBy
-            } else null
-            val label = if (done && checkedByDisplay != null) "$text  ✓ $checkedByDisplay" else text
+        for (item in items) {
+            if (item.deletedAt != null) continue
+            val checkedByDisplay = item.checkedBy?.let { getNickname(it) ?: it }
+            val label = if (item.done && checkedByDisplay != null) "${item.text}  ✓ $checkedByDisplay" else item.text
             val cb = CheckBox(container.context).apply {
                 this.text = label
                 setOnCheckedChangeListener(null)
-                isChecked = done
-                paintFlags = if (done) paintFlags or Paint.STRIKE_THRU_TEXT_FLAG
+                isChecked = item.done
+                paintFlags = if (item.done) paintFlags or Paint.STRIKE_THRU_TEXT_FLAG
                              else paintFlags and Paint.STRIKE_THRU_TEXT_FLAG.inv()
                 isEnabled = canToggle
                 isClickable = canToggle
@@ -614,12 +681,116 @@ class ChatAdapter : ListAdapter<Message, RecyclerView.ViewHolder>(DIFF) {
                     setOnCheckedChangeListener { _, isChecked ->
                         paintFlags = if (isChecked) paintFlags or Paint.STRIKE_THRU_TEXT_FLAG
                                      else paintFlags and Paint.STRIKE_THRU_TEXT_FLAG.inv()
-                        onListItemToggle?.invoke(listId, itemId, isChecked)
+                        onListItemToggle?.invoke(listId, item.id, isChecked)
                     }
                 }
             }
             container.addView(cb)
         }
+    }
+
+    /** Read-only poll render (T5 Phase 2 Block B) — no vote controls yet (Blocks C/D/E). */
+    private fun bindPoll(
+        questionView: TextView,
+        metaRow: LinearLayout,
+        modeView: TextView,
+        statusView: TextView,
+        optionsContainer: LinearLayout,
+        totalView: TextView,
+        parsed: ParsedPoll
+    ) {
+        val def = parsed.definition
+        val tally = PollTally.tally(def, parsed.ballots)
+        val totalVotes = tally.counts.values.sum()
+        val ctx = optionsContainer.context
+        val dp = ctx.resources.displayMetrics.density
+
+        questionView.visibility = View.VISIBLE
+        questionView.text = def.question
+
+        metaRow.visibility = View.VISIBLE
+        modeView.text = ctx.getString(
+            if (def.mode == PollMode.MULTI) com.fshu.next.R.string.poll_mode_multi
+            else com.fshu.next.R.string.poll_mode_single
+        )
+        statusView.text = ctx.getString(
+            if (def.status == PollStatus.CLOSED) com.fshu.next.R.string.poll_status_closed
+            else com.fshu.next.R.string.poll_status_open
+        )
+        statusView.setTextColor(if (def.status == PollStatus.CLOSED) COLOR_GREY else COLOR_POLL_OPEN)
+
+        for (option in def.options) {
+            val count = tally.counts[option.optionId] ?: 0
+            val voters = tally.votersByOption[option.optionId].orEmpty()
+
+            val row = LinearLayout(ctx).apply {
+                orientation = LinearLayout.VERTICAL
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
+                ).also { it.bottomMargin = (6 * dp).toInt() }
+            }
+            val labelRow = LinearLayout(ctx).apply {
+                orientation = LinearLayout.HORIZONTAL
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
+                )
+            }
+            val labelTv = TextView(ctx).apply {
+                text = option.label
+                textSize = 13f
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            }
+            val countTv = TextView(ctx).apply {
+                text = ctx.resources.getQuantityString(com.fshu.next.R.plurals.poll_vote_count, count, count)
+                textSize = 12f
+                setTextColor(COLOR_GREY)
+            }
+            labelRow.addView(labelTv)
+            labelRow.addView(countTv)
+
+            val bar = ProgressBar(ctx, null, android.R.attr.progressBarStyleHorizontal).apply {
+                max = if (totalVotes > 0) totalVotes else 1
+                progress = count
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, (6 * dp).toInt()
+                ).also { it.topMargin = (2 * dp).toInt() }
+            }
+
+            row.addView(labelRow)
+            row.addView(bar)
+
+            // Named voters — cheap tap-to-expand, collapsed by default (SPEC_T5.md v2 §5 Decision 2: named-only).
+            if (voters.isNotEmpty()) {
+                val votersTv = TextView(ctx).apply {
+                    text = voters.joinToString(", ") { getNickname(it) ?: it }
+                    textSize = 11f
+                    setTextColor(COLOR_GREY)
+                    visibility = View.GONE
+                    setPadding(0, (2 * dp).toInt(), 0, 0)
+                }
+                row.addView(votersTv)
+                labelRow.isClickable = true
+                labelRow.isFocusable = true
+                labelRow.setOnClickListener {
+                    votersTv.visibility = if (votersTv.visibility == View.VISIBLE) View.GONE else View.VISIBLE
+                }
+            }
+
+            optionsContainer.addView(row)
+        }
+
+        totalView.visibility = View.VISIBLE
+        totalView.text = ctx.resources.getQuantityString(com.fshu.next.R.plurals.poll_total_votes, totalVotes, totalVotes)
+    }
+
+    private fun bindPollUnavailable(container: LinearLayout) {
+        val tv = TextView(container.context).apply {
+            text = context.getString(com.fshu.next.R.string.poll_unavailable)
+            textSize = 13f
+            setTypeface(null, android.graphics.Typeface.ITALIC)
+            setTextColor(COLOR_GREY)
+        }
+        container.addView(tv)
     }
 
     private fun bindSosContent(

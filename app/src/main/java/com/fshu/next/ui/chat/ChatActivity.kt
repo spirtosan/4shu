@@ -1,5 +1,6 @@
 package com.fshu.next.ui.chat
 
+import com.fshu.next.BuildConfig
 import android.content.BroadcastReceiver
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -995,6 +996,8 @@ class ChatActivity : AppCompatActivity() {
             menu.findItem(R.id.action_test_connection)?.title =
                 getString(R.string.menu_check_connection_to, displayName)
         }
+        // TEMP: remove at Block D — debug-only trigger for the Block B poll-render seed.
+        menu.findItem(R.id.action_seed_debug_poll)?.isVisible = BuildConfig.DEBUG
         return super.onPrepareOptionsMenu(menu)
     }
 
@@ -1070,6 +1073,11 @@ class ChatActivity : AppCompatActivity() {
                 showTodoDialog(emptyList(), getString(R.string.dialog_new_todo_title)) { items, _ ->
                     vm.createList(peer, items.map { (id, text, _) -> Pair(id, text) })
                 }
+                return true
+            }
+            R.id.action_seed_debug_poll -> {
+                // TEMP: remove at Block D.
+                vm.seedDebugPoll(peer, groupId)
                 return true
             }
             R.id.action_mute_dm -> {

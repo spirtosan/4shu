@@ -97,6 +97,12 @@
     <string name="delete_option_for_everyone">Delete for everyone</string>
     <string name="delete_option_for_me">Delete for me only</string>
     <string name="label_todo_list">☑ Todo list</string>
+    <string name="label_poll">📊 Poll</string>
+    <string name="poll_mode_single">Single choice</string>
+    <string name="poll_mode_multi">Multiple choice</string>
+    <string name="poll_status_open">Open</string>
+    <string name="poll_status_closed">Closed</string>
+    <string name="poll_unavailable">Poll unavailable</string>
     <string name="dialog_new_todo_title">New todo list</string>
     <string name="dialog_edit_todo_title">Edit todo list</string>
     <string name="dialog_removed_from_group_title">Removed from group</string>
@@ -227,6 +233,7 @@
     <string name="menu_export_conversation">Export conversation</string>
     <string name="menu_change_background">Change background</string>
     <string name="menu_new_todo_list">New todo list</string>
+    <string name="menu_seed_debug_poll">🧪 Seed test poll (DEBUG)</string>
     <string name="menu_share_location">📍 Share my location</string>
     <string name="menu_request_location">📍 Request location</string>
     <string name="menu_new_group">New group</string>
@@ -414,6 +421,14 @@
     <plurals name="dialog_delete_messages_body">
         <item quantity="one">This will delete the selected message from your device only.</item>
         <item quantity="other">This will delete the selected messages from your device only.</item>
+    </plurals>
+    <plurals name="poll_vote_count">
+        <item quantity="one">%d vote</item>
+        <item quantity="other">%d votes</item>
+    </plurals>
+    <plurals name="poll_total_votes">
+        <item quantity="one">%d total vote</item>
+        <item quantity="other">%d total votes</item>
     </plurals>
     <string name="menu_search_conversation">Search in conversation</string>
     <string name="menu_search_group">Search in group</string>
