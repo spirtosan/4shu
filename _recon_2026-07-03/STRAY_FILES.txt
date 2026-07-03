@@ -1,0 +1,19 @@
+patch_server.py
+server5_reference.js
+exit: 0
+--- .gitignore check ---
+(no output above means not ignored)
+
+RESULT: Both files are TRACKED in git (not ignored, not untracked).
+- server5_reference.js: 1751 lines. Last touched bc180dc "Phase 3d: location trust levels —
+  family/trusted/contact/stranger, admin panel trust control, auto-answer family only, server
+  enforcement" (2026-05-03). Contains the same trust_level/family/admin-set-trust system being
+  dropped from server.js in this reconciliation. Now the ONLY place in the repo where this
+  system's source still exists after server.js is overwritten with the live copy — worth
+  keeping only as historical reference, if at all.
+- patch_server.py: 107 lines. Last touched 30ec43c "Bug fixes: delete-for-all display, missed
+  call, group delete, auto-location per contact" (2026-05-09). A one-off Python patch script
+  containing a senderTrust/getUserTrustLevel snippet (line 65) — looks like a scratch tool used
+  to apply a past patch to server.js, not part of the running application.
+- Disposition (delete / archive / keep) is NOT decided in this pass per instruction — flagging
+  for Ivan only.

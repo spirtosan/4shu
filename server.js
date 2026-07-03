@@ -175,7 +175,6 @@ CREATE TABLE IF NOT EXISTS users (
   avatar_path     TEXT,
   last_seen       INTEGER,
   created_at      INTEGER NOT NULL,
-  trust_level     TEXT DEFAULT 'contact',
   public_key      TEXT,
   status          TEXT DEFAULT 'active'
 );
@@ -345,6 +344,7 @@ try { db.exec('ALTER TABLE users ADD COLUMN show_avatar INTEGER DEFAULT 1'); } c
 try { db.exec('ALTER TABLE users ADD COLUMN show_nickname INTEGER DEFAULT 1'); } catch {}
 try { db.exec('ALTER TABLE users ADD COLUMN email_searchable INTEGER DEFAULT 1'); } catch {}
 try { db.exec('ALTER TABLE users ADD COLUMN phone_searchable INTEGER DEFAULT 1'); } catch {}
+try { db.exec('ALTER TABLE users ADD COLUMN hide_presence INTEGER DEFAULT 0'); } catch {}
 try { db.exec('ALTER TABLE users ADD COLUMN secret_question TEXT'); } catch {}
 try { db.exec('ALTER TABLE users ADD COLUMN secret_answer_hash TEXT'); } catch {}
 
@@ -359,7 +359,7 @@ try { db.exec('CREATE INDEX IF NOT EXISTS idx_messages_client_id ON messages(cli
 const stmt = {
     getUser:             db.prepare('SELECT * FROM users WHERE username = ?'),
     getAllUsers:         db.prepare("SELECT * FROM users WHERE status != 'deleted' ORDER BY username"),
-    insertUser:         db.prepare(`INSERT INTO users (username, password_hash, admin, created_at, trust_level, email, secret_question, secret_answer_hash) VALUES (?, ?, 0, ?, 'contact', ?, ?, ?)`),
+    insertUser:         db.prepare(`INSERT INTO users (username, password_hash, admin, created_at, email, secret_question, secret_answer_hash) VALUES (?, ?, 0, ?, ?, ?, ?)`),
     deleteUser:         db.prepare('DELETE FROM users WHERE username = ?'),
     updateNickname:     db.prepare('UPDATE users SET nickname = ? WHERE username = ?'),
     getContactNicknames:   db.prepare('SELECT contact, nickname FROM contact_nicknames WHERE owner = ?'),
@@ -421,7 +421,7 @@ const stmt = {
           checked_by=excluded.checked_by, checked_at=excluded.checked_at,
           deleted_at=excluded.deleted_at`),
     markItemDeleted:    db.prepare('UPDATE list_items SET deleted_at = ? WHERE item_id = ? AND list_id = ?'),
-    // DM lists (owner/peer) unioned with group lists (group membership) — group polls (T5) use this path.
+    // DM lists (owner/peer) unioned with group lists (group membership) -- group polls (T5) use this path.
     getRecentLists:     db.prepare(`
         SELECT * FROM lists WHERE (owner = ? OR peer = ?) AND created_at > ?
         UNION
@@ -454,8 +454,6 @@ const stmt = {
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`),
     getGroupHistory:       db.prepare('SELECT * FROM messages WHERE group_id = ? AND timestamp >= ? ORDER BY timestamp'),
 
-    getUserTrustLevel:     db.prepare('SELECT trust_level FROM users WHERE username = ?'),
-    setUserTrustLevel:     db.prepare("UPDATE users SET trust_level = ? WHERE username = ?"),
     getMemberFamilyGroups: db.prepare("SELECT 1 FROM groups g JOIN group_members gm ON g.group_id = gm.group_id WHERE gm.username = ? AND g.type = 'family' LIMIT 1"),
 
     getInvite:    db.prepare('SELECT * FROM invites WHERE token = ?'),
@@ -465,7 +463,7 @@ const stmt = {
     revokeInvite: db.prepare('DELETE FROM invites WHERE token = ? AND used_at IS NULL'),
 
     // Data-export / account-deletion
-    getUserForExport:            db.prepare('SELECT username, nickname, created_at, trust_level FROM users WHERE username = ?'),
+    getUserForExport:            db.prepare('SELECT username, nickname, created_at FROM users WHERE username = ?'),
     getContactNicknamesForExport: db.prepare('SELECT contact, nickname FROM contact_nicknames WHERE owner = ?'),
     getMessagesForExport:        db.prepare('SELECT * FROM messages WHERE (from_user = ? OR to_user = ?) AND deleted_for_all = 0 ORDER BY timestamp ASC'),
     getGroupsForExport:          db.prepare('SELECT g.* FROM groups g JOIN group_members gm ON g.group_id = gm.group_id WHERE gm.username = ?'),
@@ -494,6 +492,7 @@ const stmt = {
 // Contacts & blocks statements
 stmt.getContacts = db.prepare(`
   SELECT c.contact, c.status, c.created_at, c.updated_at,
+         c.allow_emergency_call, c.allow_emergency_location,
          u.nickname, u.avatar_path, u.last_seen, u.status as user_status
   FROM contacts c
   JOIN users u ON u.username = c.contact
@@ -601,7 +600,8 @@ stmt.updatePrivacy = db.prepare(`
     show_avatar = ?,
     show_nickname = ?,
     email_searchable = ?,
-    phone_searchable = ?
+    phone_searchable = ?,
+    hide_presence = ?
   WHERE username = ?
 `);
 
@@ -657,6 +657,16 @@ stmt.checkAutoLocation = db.prepare(
 );
 stmt.checkContactAccepted = db.prepare(
   "SELECT 1 FROM contacts WHERE owner = ? AND contact = ? AND status = 'accepted'"
+);
+
+stmt.getEmergencyAllow = db.prepare(
+    `SELECT allow_emergency_call, allow_emergency_location
+     FROM contacts WHERE owner = ? AND contact = ?`
+);
+
+stmt.updateEmergencyLocation = db.prepare(
+    `UPDATE contacts SET allow_emergency_location = ?, updated_at = ?
+     WHERE owner = ? AND contact = ?`
 );
 
 // ---------------------------------------------------------------------------
@@ -761,7 +771,7 @@ function broadcastAllUsers() {
     for (const [uname, userDevices] of clients.entries()) {
         const contacts = stmt.getContacts.all(uname).map(c => c.contact);
         const contactUsers = contacts.length > 0
-            ? db.prepare(`SELECT username, nickname, last_seen, status, public_key, trust_level FROM users WHERE username IN (${contacts.map(() => '?').join(',')})`)
+            ? db.prepare(`SELECT username, nickname, last_seen, status, public_key FROM users WHERE username IN (${contacts.map(() => '?').join(',')})`)
                 .all(...contacts)
             : [];
         const self = stmt.getUser.get(uname);
@@ -771,7 +781,6 @@ function broadcastAllUsers() {
             lastSeen:   isOnline(u.username) ? null : (u.last_seen || null),
             nickname:   u.nickname || null,
             publicKey:  u.public_key || null,
-            trustLevel: u.trust_level || 'contact',
         }));
         for (const ws of userDevices.values()) {
             const pendingRequests = db.prepare("SELECT COUNT(*) as cnt FROM contacts WHERE contact = ? AND status = 'pending'").get(uname)?.cnt || 0;
@@ -972,6 +981,27 @@ function sendGroupStatesOnConnect(username, ws) {
     const groups = stmt.getMemberGroups.all(username);
     for (const g of groups) {
         sendGroupState(ws, g.group_id, username);
+        // If this user's key slot is null, trigger key recovery
+        const membership = db.prepare(
+            'SELECT encrypted_group_key FROM group_members WHERE group_id = ? AND username = ?'
+        ).get(g.group_id, username);
+        if (!membership || !membership.encrypted_group_key) {
+            const userKey = db.prepare('SELECT public_key FROM users WHERE username = ?').get(username);
+            if (userKey && userKey.public_key) {
+                if (g.owner === username) {
+                    // Owner lost their own key — tell them to regenerate
+                    send(ws, { type: 'group-key-needed', groupId: g.group_id, forUser: username, forUserPublicKey: userKey.public_key });
+                } else {
+                    // Member lost their key — tell the owner to re-encrypt for them
+                    const payload = { type: 'group-key-needed', groupId: g.group_id, forUser: username, forUserPublicKey: userKey.public_key };
+                    if (isOnline(g.owner)) {
+                        sendToAll(g.owner, payload);
+                    } else {
+                        enqueue(g.owner, payload);
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -1103,8 +1133,8 @@ function handleBinaryUpload(ws, raw, fromUser) {
         const header = JSON.parse(raw.slice(4, 4 + headerLen).toString('utf8'));
         const encBytes = raw.slice(4 + headerLen);
 
-        const { tempId, from, to, filename, mimeType, nonce, messageId: senderRoomId, timestamp } = header;
-        if (!from || !to || !filename) return;
+        const { tempId, from, to, groupId, filename, mimeType, nonce, messageId: senderRoomId, timestamp } = header;
+        if (!from || !filename) return;
         if (from !== fromUser) return;
 
         const maxBytes = (config.limits?.maxFileSizeMB ?? 50) * 1024 * 1024;
@@ -1119,6 +1149,31 @@ function handleBinaryUpload(ws, raw, fromUser) {
         const safeExt     = /^.[a-zA-Z0-9]{1,8}$/.test(ext) ? ext : '';
         const filePath    = path.join(FILES_DIR, fileId + safeExt);
         const ts          = timestamp ?? Date.now();
+
+        if (groupId) {
+            // --- Group file upload ---
+            const members = stmt.getGroupMembers.all(groupId);
+            if (!members.some(m => m.username === from)) {
+                send(ws, { type: 'file-error', tempId, reason: 'not-a-member' });
+                return;
+            }
+            fs.writeFileSync(filePath, encBytes);
+            stmt.insertFile.run(fileId, from, filename, mimeType || null, filePath, encBytes.length, nonce || null, ts, ts + FILE_MAX_AGE_MS, null);
+            db.prepare('INSERT OR IGNORE INTO messages (message_id, from_user, group_id, content, timestamp, type, file_id) VALUES (?, ?, ?, NULL, ?, ?, ?)').run(serverMsgId, from, groupId, ts, 'file', fileId);
+            send(ws, { type: 'ack', tempId: tempId ?? null, messageId: senderRoomId ?? null, fileId, serverMsgId, timestamp: ts });
+            const groupMeta = {
+                type: 'group-file', from, groupId, filename,
+                mimeType: mimeType || null,
+                size: encBytes.length, fileId, nonce: nonce || null, serverMsgId,
+                messageId: senderRoomId ?? null, timestamp: ts
+            };
+            fanOutGroupMessage(groupId, groupMeta, from, ws.deviceId);
+            console.log(`  binary group-file "${filename}" (${encBytes.length}B) ${from}→${groupId}`);
+            return;
+        }
+
+        // --- DM file upload ---
+        if (!to) return;
 
         const msgType  = header.type || 'file';
         const metaJson = (msgType === 'voice')
@@ -1848,10 +1903,9 @@ wss.on('connection', (ws, req) => {
             }
 
             case 'call-emergency': {
-                if (!areContacts(msg.to, username)) {
-                    send(ws, { type: 'call-reject', from: msg.to, to: username, reason: 'not-contact' });
-                    break;
-                }
+                if (!areContacts(msg.to, username)) break;
+                const emergRowCall = stmt.getEmergencyAllow.get(msg.to, username);
+                if (emergRowCall && emergRowCall.allow_emergency_call === 0) break;
                 activeCalls.set(msg.from, msg.to);
                 activeCalls.set(msg.to, msg.from);
                 if (isOnline(msg.to)) {
@@ -1859,7 +1913,9 @@ wss.on('connection', (ws, req) => {
                 } else {
                     activeCalls.delete(msg.from);
                     activeCalls.delete(msg.to);
-                    enqueue(msg.to, { type: 'missed-call', from: msg.from, to: msg.to, timestamp: Date.now() });
+                    const toUserEmerg = stmt.getUser.get(msg.to);
+                    if (toUserEmerg?.fcm_token) sendFcmWakeup(toUserEmerg.fcm_token).catch(() => {});
+                    enqueue(msg.to, { type: 'missed-call', from: msg.from, to: msg.to, timestamp: Date.now(), isEmergency: true });
                     console.log(`  queued missed-call (emergency) for offline ${msg.to}`);
                 }
                 break;
@@ -2047,6 +2103,20 @@ wss.on('connection', (ws, req) => {
                 break;
             }
 
+            case 'emergency-location-request': {
+                if (!areContacts(msg.to, username)) break;
+                const emergRowLoc = stmt.getEmergencyAllow.get(msg.to, username);
+                if (emergRowLoc && emergRowLoc.allow_emergency_location === 0) break;
+                if (isOnline(msg.to)) {
+                    sendToAll(msg.to, msg);
+                } else {
+                    const toUserELoc = stmt.getUser.get(msg.to);
+                    if (toUserELoc?.fcm_token) sendFcmWakeup(toUserELoc.fcm_token).catch(() => {});
+                    enqueue(msg.to, msg);
+                }
+                break;
+            }
+
             case 'location-request': {
                 const isContact = !!stmt.checkContactAccepted.get(msg.to, username);
                 if (!isContact) {
@@ -2078,6 +2148,47 @@ wss.on('connection', (ws, req) => {
                 } else {
                     enqueue(msg.to, { type: 'emergency-location', from: msg.from, to: msg.to, lat: msg.lat, lon: msg.lon, accuracy: msg.accuracy, messageId: msg.messageId, timestamp: msg.timestamp ?? Date.now() });
                 }
+                break;
+            }
+
+            case 'sos-message': {
+                if (!areContacts(msg.to, username)) break;
+                const emergRowSos = stmt.getEmergencyAllow.get(msg.to, username);
+                if (emergRowSos && emergRowSos.allow_emergency_call === 0) break;
+                const sosId = require('crypto').randomUUID();
+                const sosMsgId = `${username}:${sosId}`;
+                const sosTs = Date.now();
+                try {
+                    stmt.insertMessage.run(sosMsgId, username, msg.to, msg.content, sosTs, 'sos-message', null, null, null, msg.clientId || sosId);
+                } catch {}
+                send(ws, { type: 'ack', messageId: msg.messageId, clientId: msg.clientId });
+                const sosPayload = { type: 'sos-message', message_id: sosMsgId, messageId: msg.messageId, from: username, to: msg.to, content: msg.content, timestamp: sosTs };
+                if (isOnline(msg.to)) {
+                    sendToAll(msg.to, sosPayload);
+                } else {
+                    const toUserSos = stmt.getUser.get(msg.to);
+                    if (toUserSos?.fcm_token) sendFcmWakeup(toUserSos.fcm_token).catch(() => {});
+                    enqueue(msg.to, sosPayload);
+                }
+                break;
+            }
+
+            case 'set-emergency-allow': {
+                const { target, allow } = msg;
+                if (!target || allow === undefined) break;
+                db.prepare(
+                    `UPDATE contacts SET allow_emergency_call = ?, updated_at = ?
+                     WHERE owner = ? AND contact = ?`
+                ).run(allow ? 1 : 0, Date.now(), username, target);
+                send(ws, { type: 'ack-emergency-allow', target });
+                break;
+            }
+
+            case 'emergency-location-update': {
+                const { target, allow } = msg;
+                if (!target || allow === undefined) break;
+                stmt.updateEmergencyLocation.run(allow ? 1 : 0, Date.now(), username, target);
+                send(ws, { type: 'ack-emergency-location-update', target });
                 break;
             }
 
@@ -2209,7 +2320,6 @@ wss.on('connection', (ws, req) => {
                         username:   u.username,
                         createdAt:  u.created_at ? new Date(u.created_at).toISOString().slice(0, 10) : '',
                         admin:      u.admin === 1,
-                        trustLevel: u.trust_level || 'contact',
                     }))
                 });
                 break;
@@ -2252,21 +2362,6 @@ wss.on('connection', (ws, req) => {
                 if (newP.length < 4) { send(ws, { type: 'admin-error', message: 'Password too short (min 4)' }); break; }
                 stmt.updatePassword.run(bcrypt.hashSync(newP, 10), target);
                 send(ws, { type: 'admin-result', message: `Password reset for "${target}"` });
-                break;
-            }
-
-            case 'admin-set-trust': {
-                const user = stmt.getUser.get(username);
-                if (!user?.admin) { send(ws, { type: 'admin-error', message: 'Unauthorized' }); break; }
-                const target = (msg.username || '').trim().toLowerCase();
-                const trust  = msg.trustLevel;
-                if (!target || !["family", "trusted", "contact", "stranger"].includes(trust)) {
-                    send(ws, { type: 'admin-error', message: 'Invalid trust level' }); break;
-                }
-                if (!stmt.getUser.get(target)) { send(ws, { type: 'admin-error', message: 'User not found' }); break; }
-                stmt.setUserTrustLevel.run(trust, target);
-                broadcastAllUsers();
-                send(ws, { type: 'admin-result', message: `Trust level for "${target}" set to ${trust}` });
                 break;
             }
 
@@ -2418,10 +2513,6 @@ wss.on('connection', (ws, req) => {
                     if (m.username === username) continue;
                     stmt.addGroupMember.run(groupId, m.username, 'member', now, m.encryptedKey || null);
                 }
-                if ((groupType || 'group') === 'family') {
-                    const allMembers = stmt.getGroupMembers.all(groupId);
-                    for (const m of allMembers) stmt.setUserTrustLevel.run('family', m.username);
-                }
                 broadcastGroupState(groupId);
                 console.log(`  group-create: ${groupId} "${name}" by ${username}, ${members.length} member(s)`);
                 break;
@@ -2497,10 +2588,6 @@ wss.on('connection', (ws, req) => {
                     send(ws, { type: 'group-error', groupId, reason: 'already-member' }); break;
                 }
                 stmt.addGroupMember.run(groupId, invitee, 'member', Date.now(), encryptedKey || null);
-                if (group.type === 'family') {
-                    const allMembers = stmt.getGroupMembers.all(groupId);
-                    for (const m of allMembers) stmt.setUserTrustLevel.run('family', m.username);
-                }
                 broadcastGroupState(groupId);
                 console.log(`  group-invite: ${invitee} added to ${groupId} by ${username}`);
                 break;
@@ -2520,9 +2607,6 @@ wss.on('connection', (ws, req) => {
                 if (!targetMem) { send(ws, { type: 'group-error', groupId, reason: 'not-a-member' }); break; }
                 if (targetMem.role === 'owner') { send(ws, { type: 'group-error', groupId, reason: 'cannot-kick-owner' }); break; }
                 stmt.removeGroupMember.run(groupId, target);
-                if (kickedGroup.type === 'family') {
-                    if (!stmt.getMemberFamilyGroups.get(target)) stmt.setUserTrustLevel.run('contact', target);
-                }
                 const removedMsg = { type: 'group-removed', groupId, reason: 'kicked' };
                 if (isOnline(target)) { sendToAll(target, removedMsg); } else { enqueue(target, removedMsg); }
                 broadcastGroupState(groupId);
@@ -2540,9 +2624,6 @@ wss.on('connection', (ws, req) => {
                 if (!myMem) break;
                 if (myMem.role === 'owner') { send(ws, { type: 'group-error', groupId, reason: 'owner-cannot-leave' }); break; }
                 stmt.removeGroupMember.run(groupId, username);
-                if (leftGroup.type === 'family') {
-                    if (!stmt.getMemberFamilyGroups.get(username)) stmt.setUserTrustLevel.run('contact', username);
-                }
                 sendToAll(username, { type: 'group-removed', groupId, reason: 'left' });
                 broadcastGroupState(groupId);
                 console.log(`  group-leave: ${username} left ${groupId}`);
@@ -2561,11 +2642,6 @@ wss.on('connection', (ws, req) => {
                 const members = stmt.getGroupMembers.all(groupId);
                 stmt.deleteGroupMembers.run(groupId);
                 stmt.deleteGroup.run(groupId);
-                if (group.type === 'family') {
-                    for (const m of members) {
-                        if (!stmt.getMemberFamilyGroups.get(m.username)) stmt.setUserTrustLevel.run('contact', m.username);
-                    }
-                }
                 const deletedMsg = { type: 'group-removed', groupId, reason: 'deleted' };
                 for (const m of members) {
                     if (isOnline(m.username)) { sendToAll(m.username, deletedMsg); }
@@ -2855,7 +2931,7 @@ wss.on('connection', (ws, req) => {
             case 'get-users': {
                 const guContacts = stmt.getContacts.all(username).map(c => c.contact);
                 const guContactUsers = guContacts.length > 0
-                    ? db.prepare('SELECT username, nickname, last_seen, public_key, trust_level FROM users WHERE username IN (' + guContacts.map(() => '?').join(',') + ')')
+                    ? db.prepare('SELECT username, nickname, last_seen, public_key FROM users WHERE username IN (' + guContacts.map(() => '?').join(',') + ')')
                         .all(...guContacts)
                     : [];
                 const guSelf = stmt.getUser.get(username);
@@ -2865,7 +2941,6 @@ wss.on('connection', (ws, req) => {
                     lastSeen:   isOnline(u.username) ? null : (u.last_seen || null),
                     nickname:   u.nickname || null,
                     publicKey:  u.public_key || null,
-                    trustLevel: u.trust_level || 'contact',
                 }));
                 const guPending = db.prepare("SELECT COUNT(*) as cnt FROM contacts WHERE contact = ? AND status = 'pending'").get(username)?.cnt || 0;
                 send(ws, { type: 'users', users: guUserList, pendingRequests: guPending });
@@ -2899,13 +2974,14 @@ wss.on('connection', (ws, req) => {
             }
 
             case 'update-privacy': {
-                const { discoverable, showAvatar, showNickname, emailSearchable, phoneSearchable } = msg;
+                const { discoverable, showAvatar, showNickname, emailSearchable, phoneSearchable, hidePresence } = msg;
                 stmt.updatePrivacy.run(
                     discoverable ? 1 : 0,
                     showAvatar ? 1 : 0,
                     showNickname ? 1 : 0,
                     emailSearchable ? 1 : 0,
                     phoneSearchable ? 1 : 0,
+                    hidePresence ? 1 : 0,
                     username
                 );
                 send(ws, { type: 'privacy-updated' });
