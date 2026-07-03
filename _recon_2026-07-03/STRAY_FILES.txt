@@ -15,5 +15,5 @@ RESULT: Both files are TRACKED in git (not ignored, not untracked).
   call, group delete, auto-location per contact" (2026-05-09). A one-off Python patch script
   containing a senderTrust/getUserTrustLevel snippet (line 65) — looks like a scratch tool used
   to apply a past patch to server.js, not part of the running application.
-- Disposition (delete / archive / keep) is NOT decided in this pass per instruction — flagging
-  for Ivan only.
+- Disposition: RESOLVED 2026-07-03 — both files deleted (git history retains them); see
+  changelog.
