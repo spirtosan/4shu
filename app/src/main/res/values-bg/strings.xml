@@ -154,6 +154,7 @@
     <string name="call_share_screen">Споделяне на екрана</string>
     <string name="call_stop_sharing">Спиране на споделянето</string>
     <string name="call_self_preview_sharing">Споделянето на екрана е активно</string>
+    <string name="screen_share_banner">%1$s споделя своя екран</string>
     <string name="label_server_url">URL на сървъра</string>
     <string name="label_device_name">Име на устройството</string>
     <string name="label_location_sharing">📍 Споделяне на местоположение</string>

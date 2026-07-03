@@ -435,6 +435,24 @@ class CallViewModel(app: Application) : AndroidViewModel(app) {
         webRTC.stopScreenShare()
     }
 
+    // T7 Block D: outgoing screen-share-start/-stop signal. Called from CallActivity's
+    // updateScreenShareUi() — the single vm.isScreenSharing-reading driver Block C
+    // established — so every real transition (consent-grant-completion, OS-revoke,
+    // button-stop) signals exactly once. lastSignaledScreenSharing lives here (not in
+    // CallActivity) so it survives rotation: updateScreenShareUi()'s post-rotation resync
+    // call sees no change and sends nothing.
+    private var lastSignaledScreenSharing = false
+
+    fun syncScreenShareSignal() {
+        val sharing = isScreenSharing
+        if (sharing == lastSignaledScreenSharing) return
+        lastSignaledScreenSharing = sharing
+        WebSocketClient.send(mapOf(
+            "type" to (if (sharing) "screen-share-start" else "screen-share-stop"),
+            "from" to me, "to" to peer
+        ))
+    }
+
     fun toggleSpeaker() {
         val speaker = !(isSpeakerOn.value ?: false)
         val speakerBefore = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)

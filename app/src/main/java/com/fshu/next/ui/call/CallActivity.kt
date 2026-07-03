@@ -24,14 +24,17 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.lifecycle.lifecycleScope
 import com.google.gson.JsonObject
+import com.fshu.next.BuildConfig
 import com.fshu.next.R
 import com.fshu.next.data.remote.WebSocketClient
 import com.fshu.next.databinding.ActivityCallBinding
 import com.fshu.next.service.FshuService
 import com.fshu.next.util.MessageBus
+import com.fshu.next.util.Prefs
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import org.webrtc.RendererCommon
 
 class CallActivity : AppCompatActivity() {
     companion object {
@@ -292,6 +295,31 @@ class CallActivity : AppCompatActivity() {
         // (and WebRTCManager underneath it) survive config changes.
         updateScreenShareUi()
 
+        // T7 Block D — TEMP: DEBUG-only receiver test hook, exercises the real
+        // collector -> peer-gate -> handleMessage case path with a fabricated inbound
+        // signal (server relay is Step (ii), not deployed yet). Long-press tv_status —
+        // unused gesture, always present regardless of call type. Remove at Block E
+        // close-out once the real server relay makes this reachable for real.
+        if (BuildConfig.DEBUG) {
+            binding.tvStatus.setOnLongClickListener {
+                val me = Prefs.getUsername(this)
+                MessageBus.tryEmit(JsonObject().apply {
+                    addProperty("type", "screen-share-start")
+                    addProperty("from", peer)
+                    addProperty("to", me)
+                })
+                lifecycleScope.launch {
+                    delay(4_000)
+                    MessageBus.tryEmit(JsonObject().apply {
+                        addProperty("type", "screen-share-stop")
+                        addProperty("from", peer)
+                        addProperty("to", me)
+                    })
+                }
+                true
+            }
+        }
+
         binding.btnSilence.setOnClickListener {
             FshuService.silenceEmergencyRamp(this)
             binding.llSilenceBtn.visibility = View.GONE
@@ -337,6 +365,7 @@ class CallActivity : AppCompatActivity() {
      * explicitly instead of flipping the button optimistically.
      */
     private fun updateScreenShareUi() {
+        vm.syncScreenShareSignal()
         val sharing = vm.isScreenSharing
         if (sharing) {
             binding.btnScreenShare.setBackgroundResource(R.drawable.bg_call_button_active)
@@ -348,6 +377,16 @@ class CallActivity : AppCompatActivity() {
             binding.btnScreenShare.contentDescription = getString(R.string.call_share_screen)
         }
         binding.panelScreenSharePlaceholder.visibility = if (sharing) View.VISIBLE else View.GONE
+    }
+
+    // T7 Block D: receiver-side "peer is sharing their screen" state. Own boolean (not
+    // vm-held — this reflects the remote peer's state, not ours) with a single
+    // updateScreenShareBanner() call site, mirroring Block C's discipline for the button.
+    private var peerIsSharingScreen = false
+
+    private fun updateScreenShareBanner() {
+        binding.tvScreenShareBanner.visibility = if (peerIsSharingScreen) View.VISIBLE else View.GONE
+        binding.tvScreenShareBanner.text = getString(R.string.screen_share_banner, peer)
     }
 
     private fun setupIncomingSlider() {
@@ -616,6 +655,20 @@ class CallActivity : AppCompatActivity() {
             "call-end", "call-reject", "call-decline" -> vm.remoteEndCall(
                 json.get("reason")?.asString ?: if (json.get("type")?.asString == "call-reject") "rejected" else "ended"
             )
+            // T7 Block D: receiver-side screen-share UX. First explicit setScalingType
+            // calls in the codebase — both directions set explicitly so the restore on
+            // stop isn't implicit (default is SCALE_ASPECT_BALANCED, recon-confirmed
+            // against the pinned M144 artifact).
+            "screen-share-start" -> {
+                peerIsSharingScreen = true
+                updateScreenShareBanner()
+                binding.surfaceRemote.setScalingType(RendererCommon.ScalingType.SCALE_ASPECT_FIT)
+            }
+            "screen-share-stop" -> {
+                peerIsSharingScreen = false
+                updateScreenShareBanner()
+                binding.surfaceRemote.setScalingType(RendererCommon.ScalingType.SCALE_ASPECT_BALANCED)
+            }
         }
     }
 }

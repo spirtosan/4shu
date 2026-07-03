@@ -156,6 +156,7 @@
     <string name="call_share_screen">Share screen</string>
     <string name="call_stop_sharing">Stop sharing</string>
     <string name="call_self_preview_sharing">Screen sharing active</string>
+    <string name="screen_share_banner">%1$s is sharing their screen</string>
     <string name="label_server_url">Server URL</string>
     <string name="label_device_name">Device name</string>
     <string name="label_location_sharing">📍 Location sharing</string>

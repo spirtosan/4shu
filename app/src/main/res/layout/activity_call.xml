@@ -34,6 +34,24 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
+    <!-- T7 Block D: screen-share banner — visible only while the peer is sharing their
+         screen. Constrained below tv_status (not at the top) so it can't collide with
+         the emergency banner above. -->
+    <TextView
+        android:id="@+id/tv_screen_share_banner"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:textColor="#FFFFFF"
+        android:textSize="15sp"
+        android:textStyle="bold"
+        android:gravity="center"
+        android:background="#40405C"
+        android:padding="10dp"
+        android:visibility="gone"
+        app:layout_constraintTop_toBottomOf="@id/tv_status"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
     <!-- Caller name -->
     <TextView
         android:id="@+id/tv_peer"

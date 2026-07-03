@@ -567,6 +567,10 @@ class FshuService : Service() {
                 WebSocketClient.send(mapOf("type" to "peer-test-response", "from" to me, "testId" to testId))
             }
             "peer-test-result"        -> MessageBus.emit(json)
+            // T7 Block D: explicit for self-documentation only — the else default below
+            // already emits unhandled types, so this is functionally a no-op.
+            "screen-share-start"      -> MessageBus.emit(json)
+            "screen-share-stop"       -> MessageBus.emit(json)
             "group-state"             -> handleGroupState(json)
             "group-message"           -> persistGroupMessage(json)
             "group-file"              -> persistIncomingGroupFile(json)
