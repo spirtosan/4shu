@@ -193,13 +193,21 @@
         Bottom controls bar — shown when NOT incoming.
         Single horizontal row: [mute | speaker | camera | flip | screen-share] ··· [end call]
         panel_controls (the first 5) are GONE until IN_CALL.
+
+        T7 Block C.1 (fixes end-call clipping on higher Display-size settings): panel_controls
+        is now a flexible (0dp/weight=1) region instead of wrap_content, so its 5 buttons —
+        each centered in its own equal-weight cell — shrink together and can never force the
+        row past the screen edge. btn_end_call keeps a genuinely fixed size (never weighted)
+        so it can't stretch into a pill on the one frame where it's the row's only visible
+        child (CALLING/ringing, before panel_controls appears); the bar's added "|end" gravity
+        keeps it pinned to the right edge in that case, replacing the old dedicated spacer View.
     -->
     <LinearLayout
         android:id="@+id/panel_bottom_bar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:gravity="center_vertical"
+        android:gravity="center_vertical|end"
         android:paddingStart="16dp"
         android:paddingEnd="16dp"
         android:paddingBottom="40dp"
@@ -210,87 +218,119 @@
         app:layout_constraintEnd_toEndOf="parent">
 
         <!--
-            Control buttons: mute + speaker + camera + flip + screen-share.
-            Collectively GONE until IN_CALL; fixed 56×56dp each, left-aligned.
+            Control buttons: mute + speaker + camera + flip + screen-share, each centered in
+            its own equal-weight cell so they shrink together instead of overflowing the row.
+            Collectively GONE until IN_CALL; fixed 56×56dp each.
         -->
         <LinearLayout
             android:id="@+id/panel_controls"
-            android:layout_width="wrap_content"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
+            android:layout_weight="1"
             android:orientation="horizontal"
             android:gravity="center_vertical"
+            android:clipChildren="false"
             android:visibility="gone">
 
             <!-- Mute -->
-            <ImageButton
-                android:id="@+id/btn_mute"
-                android:layout_width="56dp"
-                android:layout_height="56dp"
-                android:background="@drawable/bg_call_button"
-                android:src="@drawable/ic_mic"
-                android:padding="14dp"
-                android:layout_marginEnd="12dp"
-                android:contentDescription="Mute" />
+            <FrameLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:clipChildren="false">
+                <ImageButton
+                    android:id="@+id/btn_mute"
+                    android:layout_width="56dp"
+                    android:layout_height="56dp"
+                    android:layout_gravity="center"
+                    android:background="@drawable/bg_call_button"
+                    android:src="@drawable/ic_mic"
+                    android:padding="14dp"
+                    android:contentDescription="Mute" />
+            </FrameLayout>
 
             <!-- Speaker -->
-            <ImageButton
-                android:id="@+id/btn_speaker"
-                android:layout_width="56dp"
-                android:layout_height="56dp"
-                android:background="@drawable/bg_call_button"
-                android:src="@drawable/ic_earpiece"
-                android:padding="14dp"
-                android:layout_marginEnd="12dp"
-                android:contentDescription="Speaker" />
+            <FrameLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:clipChildren="false">
+                <ImageButton
+                    android:id="@+id/btn_speaker"
+                    android:layout_width="56dp"
+                    android:layout_height="56dp"
+                    android:layout_gravity="center"
+                    android:background="@drawable/bg_call_button"
+                    android:src="@drawable/ic_earpiece"
+                    android:padding="14dp"
+                    android:contentDescription="Speaker" />
+            </FrameLayout>
 
             <!-- Camera toggle — video calls only -->
-            <ImageButton
-                android:id="@+id/btn_camera"
-                android:layout_width="56dp"
-                android:layout_height="56dp"
-                android:background="@drawable/bg_call_button"
-                android:src="@drawable/ic_videocam"
-                android:padding="14dp"
-                android:layout_marginEnd="12dp"
-                android:visibility="gone"
-                android:contentDescription="Camera" />
+            <FrameLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:clipChildren="false">
+                <ImageButton
+                    android:id="@+id/btn_camera"
+                    android:layout_width="56dp"
+                    android:layout_height="56dp"
+                    android:layout_gravity="center"
+                    android:background="@drawable/bg_call_button"
+                    android:src="@drawable/ic_videocam"
+                    android:padding="14dp"
+                    android:visibility="gone"
+                    android:contentDescription="Camera" />
+            </FrameLayout>
 
             <!-- Flip camera — video calls only -->
-            <ImageButton
-                android:id="@+id/btn_flip_camera"
-                android:layout_width="56dp"
-                android:layout_height="56dp"
-                android:background="@drawable/bg_call_button"
-                android:src="@drawable/ic_flip_camera"
-                android:padding="14dp"
-                android:layout_marginEnd="12dp"
-                android:visibility="gone"
-                android:contentDescription="Flip Camera" />
+            <FrameLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:clipChildren="false">
+                <ImageButton
+                    android:id="@+id/btn_flip_camera"
+                    android:layout_width="56dp"
+                    android:layout_height="56dp"
+                    android:layout_gravity="center"
+                    android:background="@drawable/bg_call_button"
+                    android:src="@drawable/ic_flip_camera"
+                    android:padding="14dp"
+                    android:visibility="gone"
+                    android:contentDescription="Flip Camera" />
+            </FrameLayout>
 
             <!-- Share screen — video calls only. Active/inactive conveyed via
                  background+tint (see updateScreenShareUi), same mechanism as camera/mute. -->
-            <ImageButton
-                android:id="@+id/btn_screen_share"
-                android:layout_width="56dp"
-                android:layout_height="56dp"
-                android:background="@drawable/bg_call_button"
-                android:src="@drawable/ic_screen_share"
-                android:padding="14dp"
-                android:visibility="gone"
-                android:contentDescription="@string/call_share_screen" />
+            <FrameLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:clipChildren="false">
+                <ImageButton
+                    android:id="@+id/btn_screen_share"
+                    android:layout_width="56dp"
+                    android:layout_height="56dp"
+                    android:layout_gravity="center"
+                    android:background="@drawable/bg_call_button"
+                    android:src="@drawable/ic_screen_share"
+                    android:padding="14dp"
+                    android:visibility="gone"
+                    android:contentDescription="@string/call_share_screen" />
+            </FrameLayout>
         </LinearLayout>
 
-        <!-- Spacer pushes end call to the right -->
-        <View
-            android:layout_width="0dp"
-            android:layout_height="1dp"
-            android:layout_weight="1" />
-
-        <!-- End Call — always visible in the bottom bar -->
+        <!-- End Call — fixed size, never weighted, so it can't stretch into a pill when it's
+             the row's only visible child (CALLING state, before panel_controls appears).
+             Always visible in the bottom bar; pinned to the right edge via the bar's
+             gravity="end" (replaces the old dedicated spacer View). -->
         <ImageButton
             android:id="@+id/btn_end_call"
             android:layout_width="56dp"
             android:layout_height="56dp"
+            android:layout_marginStart="12dp"
             android:background="@drawable/bg_call_decline"
             android:src="@drawable/ic_call_end"
             android:padding="14dp"
