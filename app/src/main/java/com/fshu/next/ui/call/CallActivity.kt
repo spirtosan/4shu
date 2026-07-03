@@ -46,6 +46,12 @@ class CallActivity : AppCompatActivity() {
         const val EXTRA_IS_MUTED = "is_muted"
         private const val RC_PERMISSIONS = 1
 
+        // T15: auto-hide delay after a reveal. No existing named call-UI timeout constant to
+        // reuse (grepped — none); matches the T7 Block D DEBUG-hook's inline delay(4_000) value
+        // for consistency, but that hook is unrelated (screen-share test fixture), so this is
+        // its own constant rather than a shared reference.
+        private const val CONTROLS_AUTO_HIDE_MS = 4_000L
+
         /** True while the activity is in the foreground — used to gate end-call vibration. */
         @Volatile var isActive = false
     }
@@ -61,6 +67,9 @@ class CallActivity : AppCompatActivity() {
     private var proximityWakeLock: PowerManager.WakeLock? = null
     private var finishJob: Job? = null
     private var busyPlayer: MediaPlayer? = null
+
+    // T15: auto-hide in-call control bar.
+    private var controlsHideJob: Job? = null
 
     // Slider state — class-level so onRequestPermissionsResult can reset on mic denial
     private var sliderCommitted = false
@@ -207,6 +216,11 @@ class CallActivity : AppCompatActivity() {
                 }
                 else -> Unit
             }
+
+            // T15: reasserted last so it overrides the baseline visibility set above whenever
+            // IN_CALL — this observer refires with the cached state on rotation too, so no
+            // separate post-rotation hook is needed (same discipline as the other observers here).
+            updateControlsVisibility()
         }
 
         vm.endReason.observe(this) { reason ->
@@ -274,10 +288,12 @@ class CallActivity : AppCompatActivity() {
         }
 
         binding.btnEndCall.setOnClickListener { vm.endCall() }
-        binding.btnMute.setOnClickListener { vm.toggleMute() }
-        binding.btnSpeaker.setOnClickListener { vm.toggleSpeaker() }
-        binding.btnCamera.setOnClickListener { vm.toggleCamera() }
-        binding.btnFlipCamera.setOnClickListener { vm.switchCamera() }
+        // T15: every non-terminal control tap resets the auto-hide countdown — the button is
+        // only reachable while the bar is already revealed, so this never needs to reveal too.
+        binding.btnMute.setOnClickListener { vm.toggleMute(); scheduleControlsAutoHide() }
+        binding.btnSpeaker.setOnClickListener { vm.toggleSpeaker(); scheduleControlsAutoHide() }
+        binding.btnCamera.setOnClickListener { vm.toggleCamera(); scheduleControlsAutoHide() }
+        binding.btnFlipCamera.setOnClickListener { vm.switchCamera(); scheduleControlsAutoHide() }
 
         // T7 Block C: real "Share screen" toggle — never optimistic, state comes from
         // vm.isScreenSharing via updateScreenShareUi() only.
@@ -290,10 +306,23 @@ class CallActivity : AppCompatActivity() {
                 FshuService.demoteFromMediaProjection()
                 updateScreenShareUi()
             }
+            scheduleControlsAutoHide()
         }
         // Initial sync — correct after rotation/activity recreation since the ViewModel
         // (and WebRTCManager underneath it) survive config changes.
         updateScreenShareUi()
+
+        // T15: tap-anywhere-on-video-or-background reveal. view_tap_reveal is declared first
+        // in activity_call.xml (right after surface_remote) so every real control, banner, and
+        // text view — declared later, drawn on top — wins hit-testing for its own bounds; a tap
+        // on btn_mute or tv_screen_share_banner never reaches this listener. No-ops outside
+        // IN_CALL — ringing/emergency chrome is untouched by T15 (out of scope per the ticket).
+        binding.viewTapReveal.setOnClickListener {
+            if (vm.state.value != CallViewModel.State.IN_CALL) return@setOnClickListener
+            vm.revealControls()
+            updateControlsVisibility()
+            scheduleControlsAutoHide()
+        }
 
         // T7 Block D — TEMP: DEBUG-only receiver test hook, exercises the real
         // collector -> peer-gate -> handleMessage case path with a fabricated inbound
@@ -377,6 +406,46 @@ class CallActivity : AppCompatActivity() {
             binding.btnScreenShare.contentDescription = getString(R.string.call_share_screen)
         }
         binding.panelScreenSharePlaceholder.visibility = if (sharing) View.VISIBLE else View.GONE
+    }
+
+    /**
+     * T15: single source of truth for the auto-hide control-bar visibility, mirroring
+     * updateScreenShareUi()'s discipline — one call site, driven by vm state, never toggled
+     * optimistically. Governs the button bar plus the peer name/status/duration text (the
+     * "no persistent end-call, no persistent status/timer" hidden state) — NOT the screen-share
+     * banner or self-preview, which stay visible per the T7 recon (they're status, not controls).
+     * Auto-hide only applies to the connected (IN_CALL) state; every other state leaves this
+     * chrome permanently visible, unchanged from pre-T15 behavior, and cancels any pending
+     * hide timer so it can't fire after the call has moved on (e.g. to ENDED).
+     */
+    private fun updateControlsVisibility() {
+        val inCall = vm.state.value == CallViewModel.State.IN_CALL
+        if (!inCall) {
+            controlsHideJob?.cancel()
+            controlsHideJob = null
+            binding.tvPeer.visibility = View.VISIBLE
+            return
+        }
+        val vis = if (vm.controlsRevealed) View.VISIBLE else View.GONE
+        binding.tvPeer.visibility = vis
+        binding.tvStatus.visibility = vis
+        binding.tvDuration.visibility = vis
+        binding.panelBottomBar.visibility = vis
+        // Re-arm the countdown if this call is reached with nothing scheduled (e.g. post-
+        // rotation: the boolean survives in the ViewModel, but the old activity's lifecycleScope
+        // job died with it) — otherwise a bar left revealed before a rotation would stay open
+        // indefinitely until the next unrelated tap.
+        if (vm.controlsRevealed && controlsHideJob == null) scheduleControlsAutoHide()
+    }
+
+    /** Resets the auto-hide countdown; called on reveal and on any non-terminal button tap. */
+    private fun scheduleControlsAutoHide() {
+        controlsHideJob?.cancel()
+        controlsHideJob = lifecycleScope.launch {
+            delay(CONTROLS_AUTO_HIDE_MS)
+            vm.hideControls()
+            updateControlsVisibility()
+        }
     }
 
     // T7 Block D: receiver-side "peer is sharing their screen" state. Own boolean (not
@@ -618,6 +687,8 @@ class CallActivity : AppCompatActivity() {
         super.onDestroy()
         finishJob?.cancel()
         finishJob = null
+        controlsHideJob?.cancel()
+        controlsHideJob = null
         releaseProximityWakeLock()
         if (renderersInitialized) {
             vm.clearVideoRenderers()

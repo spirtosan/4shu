@@ -17,6 +17,21 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
+    <!-- T15: tap-to-reveal target for the auto-hidden control bar. Declared right after
+         surface_remote and before every other overlay (banners, text, buttons), so those
+         later-declared siblings sit on top of it in z-order and win hit-testing for their
+         own bounds — a tap on a button or banner never reaches this view; a tap on bare
+         video/background does. Transparent, no text, excluded from accessibility. -->
+    <View
+        android:id="@+id/view_tap_reveal"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:importantForAccessibility="no"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
     <!-- Emergency banner — visible only for emergency calls -->
     <TextView
         android:id="@+id/tv_emergency_banner"

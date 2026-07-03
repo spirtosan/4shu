@@ -311,6 +311,7 @@ class CallViewModel(app: Application) : AndroidViewModel(app) {
             pendingIceCandidates.forEach { webRTC.addIceCandidate(it) }
             pendingIceCandidates.clear()
             acquireAudioFocus()
+            controlsRevealed = false
             state.postValue(State.IN_CALL)
             startTimer()
         }
@@ -357,6 +358,7 @@ class CallViewModel(app: Application) : AndroidViewModel(app) {
         ringingTimeoutJob?.cancel(); ringingTimeoutJob = null
         webRTC.handleAnswer(SessionDescription(SessionDescription.Type.ANSWER, sdpStr))
         acquireAudioFocus()
+        controlsRevealed = false
         state.value = State.IN_CALL
         startTimer()
         getApplication<Application>().getSystemService(Vibrator::class.java)
@@ -452,6 +454,17 @@ class CallViewModel(app: Application) : AndroidViewModel(app) {
             "from" to me, "to" to peer
         ))
     }
+
+    // T15: auto-hide in-call control bar. Plain property (not LiveData), same pattern as
+    // isScreenSharing/lastSignaledScreenSharing above — survives rotation because it lives in
+    // the ViewModel, and CallActivity re-applies it from its state observer (which re-fires the
+    // cached LiveData value on resubscribe) rather than needing a dedicated post-rotation hook.
+    // Reset to false at the two IN_CALL transition points below — "starts hidden on connect".
+    var controlsRevealed = false
+        private set
+
+    fun revealControls() { controlsRevealed = true }
+    fun hideControls() { controlsRevealed = false }
 
     fun toggleSpeaker() {
         val speaker = !(isSpeakerOn.value ?: false)
