@@ -178,7 +178,73 @@ feature ships.)*
 1. **Signaling relay:** does the call signaling already relay arbitrary typed messages
    between the two peers, or is there a server-side allowlist? (Decides whether
    `server.js` needs a change.)
+
+   **RESOLVED:** server dispatches on an explicit `switch(msg.type)` allowlist; the
+   default case only `console.warn`-drops unknown types (verified in the reconciled
+   `server.js`). Screen share NEEDS a server change — add two relay cases
+   `screen-share-start` / `screen-share-stop`, modeled on the existing
+   `ice-candidate`/`call-ringing`/`ringing-ack` relay: `sendToAll(msg.to, msg); break;`
+   (online-only, no offline queue — correct for ephemeral in-call control). This is a
+   functional deploy (repo edit + push to live + restart fshu5) and is the designated
+   deploy that also removes the parked T13 dead line.
+
 2. **FGS shape:** add `mediaProjection` type to the existing call service, or a
    separate `ScreenCaptureService`? (Either works.)
+
+   **RESOLVED (Ivan):** add the `mediaProjection` foregroundServiceType to the EXISTING
+   call foreground service (not a separate `ScreenCaptureService`). One lifecycle,
+   unified teardown via the existing call terminal path (T3 `stopAlerting` pattern);
+   screen share only runs inside an active call, so no standalone service.
+
 3. **Reusable video sender:** confirm the call uses one reusable video
    sender/transceiver so `setTrack` works without renegotiation. (Expected yes.)
+
+   **RESOLVED: YES.** `WebRTCManager` is the sole WebRTC wrapper; Unified Plan
+   (explicit, `WebRTCManager.kt:127`); one video `RtpSender` created once per call via
+   `pc.addTrack` in `addLocalVideo`, never recreated by `switchCamera`/`enableVideo`,
+   separate from audio; `onRenegotiationNeeded` is a no-op; `setTrack` won't
+   renegotiate. Camera `VideoTrack` already retained as `localVideoTrack` for restore.
+   Impl note: the `RtpSender` isn't stored yet — capture `addTrack`'s return value into
+   a field (one line), or look it up via `peerConnection.senders`/`transceivers`
+   filtered to video at swap time; keep `videoCapturer`/`surfaceTextureHelper`/
+   `localVideoTrack` alive during a share (don't let `endCall` disposal run).
+
+---
+
+## 8. Implementation Plan (v1)
+
+Small blocks, each a testable G60 milestone, same rhythm as T5.
+
+- **Block A — WebRTC layer** (client-only, no UI, no change to existing-call
+  behavior). Store the video `RtpSender` (capture `addTrack`'s return); add
+  `startScreenShare(screenTrack)` / `stopScreenShare()` doing
+  `videoSender.setTrack(screen/localVideoTrack, false)`; create the screen track
+  (`ScreenCapturerAndroid` → its OWN `SurfaceTextureHelper`/`VideoSource`/`VideoTrack`,
+  separate from the camera's); guard camera capturer/track from `endCall` disposal
+  mid-share. **Test:** existing voice+video calls still pass on G60 (regression only;
+  new methods unused).
+- **Block B — MediaProjection + FGS, DEBUG-triggered.**
+  `FOREGROUND_SERVICE_MEDIA_PROJECTION` permission; add `mediaProjection` to the
+  existing call service's `foregroundServiceType`; consent intent
+  (`createScreenCaptureIntent`); Android-14 ordering (start FGS BEFORE
+  `getMediaProjection`) + `MediaProjection.Callback`. Temporary `BuildConfig.DEBUG`
+  trigger (`seedDebugPoll` pattern) to start/stop without real UI. **Test:**
+  debug-trigger in a call → other phone's remote surface shows the screen; OS-revoke
+  via cast notification → swaps back to camera.
+- **Block C — Sender UX.** Real "Share screen" toggle in the in-call control bar;
+  consent flow; in-app sharing indicator; spring-back-on-denial (T9 lesson — never
+  lock the UI); remove the debug trigger.
+- **Block D — Signaling + receiver UX + the one server deploy.** Client sends
+  `screen-share-start`/`stop`; add the two server relay cases AND remove the T13 dead
+  line; deploy to live + restart fshu5 + smoke-test a call; receiver shows "X is
+  sharing their screen" banner and switches remote surface to `SCALE_ASPECT_FIT`.
+  **Test:** sharer toggles → receiver sees banner + correctly-scaled screen.
+- **Block E — Edge cases + strings + close-out.** Call-ends-while-sharing teardown
+  (mirror T3 `stopAlerting` terminal paths, no leaks); OS-revoke path finalize;
+  rotation/aspect; EN+BG strings (no RU); mark §7 resolved end-to-end; memory
+  close-out.
+
+**Cross-cutting:** UPDATE build throughout (reuses the M144 `.so` — 16 KB gate
+satisfied, no native change); targetSdk STAYS 34 (Android-14 `mediaProjection` FGS
+ordering is 34-sensitive); the ONLY production touch is Block D's deploy, which also
+carries T13.

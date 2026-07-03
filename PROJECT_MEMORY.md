@@ -20,7 +20,6 @@ Priority: **P0** blocking users · **P1** important · **P2** normal · **P3** l
 | ID | Item | Type | Pri | Notes |
 |----|------|------|-----|-------|
 | TS | SDK bump: `minSdk 26→31`, `compileSdk 34→35` | Config | **P1** | Part of platform policy; compileSdk bump also feeds T2 fix. Keep `targetSdk 34` until call testing on G60. Ivan edits in Android Studio. |
-| T7 | Screen share | Feature | **P3** | Large. WebRTC screen capture. Interacts with foreground-service rules. |
 | T11 | Shared todo list with "who did the task" | Feature | **P3** | Tentative, not confirmed. |
 | T1 | Reset-link page shows "???" symbols | Bug | **P3 / parked** | Charset/encoding on reset page. Secret-question is the only active reset path, so low impact for now. |
 | T12 | List-type bubbles (todo + poll) don't support reactions | Bug/Gap | **P3** | No `ll_reactions` container in `item_list_sent/received.xml`; `ChatAdapter` never calls `bindReactions` for `SentListVH`/`RecvListVH`. Pre-existing, predates T5 — found during T5 Block D testing, not a poll-specific regression. Own layout work if picked up. |
@@ -28,7 +27,9 @@ Priority: **P0** blocking users · **P1** important · **P2** normal · **P3** l
 
 ### In Progress
 
-_Nothing currently in progress._
+| ID | Item | Notes |
+|----|------|-------|
+| T7 | Screen share | Design complete — §7 Q1/Q2/Q3 resolved (spec §7), plan in spec §8. Block A (WebRTC layer) next. UPDATE build; targetSdk stays 34; only Block D touches production (+ carries T13). |
 
 ### Done
 
@@ -201,6 +202,7 @@ _Nothing currently parked._
 | 2026-07-02 | server.js repo/live drift discovered (see Open Questions) — not reconciled, only the isolated list-code path was touched for T5 Phase 1. |
 | 2026-07-03 | Reconciliation approach = adopt live verbatim into the repo (no hand-merge). git `server.js` == prod `server.js`, sha256-verified across repo/live-pull/snapshot before commit. |
 | 2026-07-03 | Stray trust-level files (`server5_reference.js`, `patch_server.py`) deleted — not needed, git history retains them. Inert `getMemberFamilyGroups` line left in `server.js` to ride the next real server deploy rather than restart production for a dead line. |
+| 2026-07-03 | T7 design locked — Q1 allowlist (2 relay cases, deployed in Block D), Q2 mediaProjection on existing call FGS, Q3 reusable sender = YES. |
 
 ---
 
@@ -250,3 +252,4 @@ _Nothing currently parked._
 | 2026-07-03 | Server repo/live reconciliation — adopted live verbatim into repo (sha256 `4d066bb515800b3d4c79c5f42d0d2e2ee942e56257c0f8b147469e9531381d39`, matching the live pull and `snapshots/live-2026-07-02/server.js` exactly). No hand-merge. `trust_level`/family-group-trust-propagation/`admin-set-trust` dropped by adoption (repo-only, never deployed, confirmed not load-bearing in read-only recon Phase 1). Emergency call/location gating, `sos-message`, `hide_presence` (users table), group-key self-heal on connect, and `group-file` groupId support now in git (were live-only before). DB schema unchanged (`schema.live.sql` == snapshot, no `trust_level` column ever existed live — no migration either direction). Syntax-validated via a `/tmp` candidate on the live host (`node --check`, deleted after) without touching or restarting `/opt/fshu5/server.js`/`fshu5`. Read-only Phase 1 recon bundle (`./_recon_2026-07-03/`) reused and extended, not deleted. `server5_reference.js`/`patch_server.py` (tracked, still contain the dropped trust_level code) flagged for a separate disposition decision, not acted on — see `STRAY_FILES.txt`. | `server.js`, `PROJECT_MEMORY.md`, `./_recon_2026-07-03/STRAY_FILES.txt` | _this commit_ |
 | 2026-07-03 | Post-reconciliation cleanup (repo-only, no live interaction): deleted `server5_reference.js` (stale full old-server copy w/ trust code) and `patch_server.py` (scratch patch that re-injects senderTrust gating) — both tracked, history preserved. Tidied `_recon_2026-07-03/` scratch, kept `RECON_REPORT.md` + `STRAY_FILES.txt` as the audit record. Logged `getMemberFamilyGroups` dead-line removal as a P3 ride-along for the next server deploy. `server.js` untouched; still byte-identical to live. | `server5_reference.js` (del), `patch_server.py` (del), `PROJECT_MEMORY.md`, `_recon_2026-07-03/RECON_REPORT.md`, `_recon_2026-07-03/STRAY_FILES.txt` | _this commit_ |
 | 2026-07-03 | T7 Q3 verification (read-only, no code): confirmed `WebRTCManager.addLocalVideo` creates exactly one video `RtpSender` per call via `pc.addTrack` (Unified Plan, called once at call setup, never recreated by `switchCamera`/`enableVideo`), separate from the audio sender, with no renegotiation machinery (`onRenegotiationNeeded` is a no-op, no repeat createOffer/setLocalDescription) — REUSABLE SENDER = YES. The camera `VideoTrack` is already retained (`localVideoTrack` field, for camera restore after sharing stops); the `RtpSender` itself isn't stored yet, but is obtainable via `peerConnection.senders`/`transceivers` filtered to video, or by capturing `addTrack`'s return value — a minimal addition at implementation time. | _none (read-only report)_ | _n/a_ |
+| 2026-07-03 | T7 design close-out — §7 resolved in spec, §8 implementation plan (Blocks A–E) added, board → In Progress. No code. | `T7_SCREEN_SHARE_SPEC.md`, `PROJECT_MEMORY.md` | _this commit_ |
