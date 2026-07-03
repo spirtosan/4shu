@@ -1,12 +1,14 @@
 package com.fshu.next.ui.call
 
 import android.Manifest
+import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.ColorStateList
 import android.graphics.Color
 import android.media.MediaPlayer
+import android.media.projection.MediaProjectionManager
 import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
@@ -14,6 +16,8 @@ import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
+import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
@@ -21,6 +25,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.lifecycle.lifecycleScope
 import com.google.gson.JsonObject
+import com.fshu.next.BuildConfig
 import com.fshu.next.R
 import com.fshu.next.data.remote.WebSocketClient
 import com.fshu.next.databinding.ActivityCallBinding
@@ -61,6 +66,28 @@ class CallActivity : AppCompatActivity() {
     private var sliderSpringBack: (() -> Unit)? = null
     private var pendingGranted: (() -> Unit)? = null
     private var pendingDenied: (() -> Unit)? = null
+
+    // T7 Block B — TEMP: DEBUG-only screen-share trigger, removed in Block C once the real
+    // toggle UX exists. registerForActivityResult must be called unconditionally (contract
+    // requirement, before STARTED); only its invocation site (the long-press below) is
+    // BuildConfig.DEBUG-gated.
+    private val screenCaptureLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val data = result.data
+        if (result.resultCode == Activity.RESULT_OK && data != null) {
+            // Order is critical: the mediaProjection FGS must be live before
+            // startScreenShare() triggers getMediaProjection() (Android 14 / targetSdk 34).
+            FshuService.promoteToMediaProjection()
+            vm.startScreenShare(data, onProjectionStopped = {
+                // Fires on OS-revoke; WebRTCManager has already swapped back to camera and
+                // disposed screen resources by this point (already on main thread).
+                FshuService.demoteFromMediaProjection()
+                if (BuildConfig.DEBUG) Toast.makeText(this, "Screen share stopped (OS revoke)", Toast.LENGTH_SHORT).show()
+            })
+        }
+        // RESULT_CANCELED / null data: no-op — real spring-back UI is Block C.
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -250,6 +277,22 @@ class CallActivity : AppCompatActivity() {
         binding.btnSpeaker.setOnClickListener { vm.toggleSpeaker() }
         binding.btnCamera.setOnClickListener { vm.toggleCamera() }
         binding.btnFlipCamera.setOnClickListener { vm.switchCamera() }
+
+        // T7 Block B — TEMP: DEBUG-only screen-share trigger (long-press flip-camera).
+        // Removed in Block C once the real "Share screen" toggle exists.
+        if (BuildConfig.DEBUG) {
+            binding.btnFlipCamera.setOnLongClickListener {
+                if (!vm.isScreenSharing) {
+                    val mpm = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+                    screenCaptureLauncher.launch(mpm.createScreenCaptureIntent())
+                } else {
+                    vm.stopScreenShare()
+                    FshuService.demoteFromMediaProjection()
+                    Toast.makeText(this, "Screen share stopped (debug)", Toast.LENGTH_SHORT).show()
+                }
+                true
+            }
+        }
 
         binding.btnSilence.setOnClickListener {
             FshuService.silenceEmergencyRamp(this)

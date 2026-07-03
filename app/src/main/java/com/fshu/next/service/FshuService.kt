@@ -4,6 +4,7 @@ import android.app.*
 import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.media.AudioAttributes
 import android.media.AudioManager
 import android.media.Ringtone
@@ -96,6 +97,21 @@ class FshuService : Service() {
 
         @Volatile private var activeCallNotifId = -1
 
+        // T7 Block B: the running instance, needed only for re-calling startForeground()
+        // with a different foregroundServiceType (promote/demote for screen share). Every
+        // other companion helper here operates on system services via Context and doesn't
+        // need it.
+        @Volatile private var runningInstance: FshuService? = null
+
+        // Mirrors the non-mediaProjection bits of AndroidManifest.xml's foregroundServiceType
+        // for FshuService. Kept in sync manually — there's no way to read the manifest value
+        // back out of ServiceInfo without a PackageManager round trip.
+        private const val CALL_FGS_TYPES =
+            ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC or
+            ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION or
+            ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE or
+            ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
+
         @Volatile private var activeRingtone: Ringtone? = null
         @Volatile private var activeVibrator: Vibrator? = null
         @Volatile private var volumeRampHandler: Handler? = null
@@ -172,10 +188,33 @@ class FshuService : Service() {
                 "allow"   to if (allow) 1 else 0
             ))
         }
+
+        /**
+         * T7 Block B: re-posts the existing call notification with mediaProjection added to
+         * the active foregroundServiceType. MUST be called (and complete — it's synchronous)
+         * before WebRTCManager.startScreenShare(), which triggers getMediaProjection() —
+         * that throws on Android 14 / targetSdk 34 if the mediaProjection FGS isn't already
+         * running. No-op if the service isn't running.
+         */
+        fun promoteToMediaProjection() {
+            runningInstance?.let {
+                it.startForeground(1, it.buildForegroundNotification(),
+                    CALL_FGS_TYPES or ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION)
+            }
+        }
+
+        /** Drops mediaProjection back off the active foregroundServiceType. Does not stop the
+         *  service — the call (if any) is still active. No-op if the service isn't running. */
+        fun demoteFromMediaProjection() {
+            runningInstance?.let {
+                it.startForeground(1, it.buildForegroundNotification(), CALL_FGS_TYPES)
+            }
+        }
     }
 
     override fun onCreate() {
         super.onCreate()
+        runningInstance = this
         serviceStartTime = System.currentTimeMillis()
         writeGroupDebug("=== FshuService started ===")
         scope.launch(Dispatchers.IO) { cleanGroupFilesCache() }
@@ -2305,6 +2344,7 @@ class FshuService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
+        if (runningInstance === this) runningInstance = null
         cancelCallNotif(this)
         unregisterNetworkCallback()
         wifiLock?.let { if (it.isHeld) it.release() }

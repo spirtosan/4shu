@@ -2,6 +2,7 @@ package com.fshu.next.ui.call
 
 import android.app.Application
 import android.content.Context
+import android.content.Intent
 import android.media.AudioAttributes
 import android.media.AudioFocusRequest
 import android.media.AudioManager
@@ -420,6 +421,18 @@ class CallViewModel(app: Application) : AndroidViewModel(app) {
         val front = !(isFrontCamera.value ?: true)
         isFrontCamera.value = front
         webRTC.switchCamera()
+    }
+
+    // T7 Block B: thin pass-throughs to WebRTCManager's Block A screen-share methods,
+    // mirroring switchCamera()'s wrapper pattern above (webRTC is private to this ViewModel).
+    val isScreenSharing: Boolean get() = webRTC.isScreenSharing
+
+    fun startScreenShare(mediaProjectionPermissionResultData: Intent, onProjectionStopped: () -> Unit) {
+        webRTC.startScreenShare(mediaProjectionPermissionResultData, onProjectionStopped)
+    }
+
+    fun stopScreenShare() {
+        webRTC.stopScreenShare()
     }
 
     fun toggleSpeaker() {
