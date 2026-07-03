@@ -1,6 +1,8 @@
 package com.fshu.next.service
 
 import android.content.Context
+import android.content.Intent
+import android.media.projection.MediaProjection
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
@@ -40,6 +42,15 @@ class WebRTCManager(
     @Volatile private var remoteVideoTrack: VideoTrack? = null
     @Volatile private var storedLocalRenderer: SurfaceViewRenderer? = null
     @Volatile private var storedRemoteRenderer: SurfaceViewRenderer? = null
+
+    // Screen share (T7 Block A — track creation only; unused until Block B wires MediaProjection/FGS)
+    private var videoSender: RtpSender? = null
+    private var screenCapturer: ScreenCapturerAndroid? = null
+    private var screenSurfaceTextureHelper: SurfaceTextureHelper? = null
+    private var screenVideoSource: VideoSource? = null
+    private var screenVideoTrack: VideoTrack? = null
+    @Volatile private var screenSharing = false
+    public val isScreenSharing get() = screenSharing
 
     init {
         PeerConnectionFactory.initialize(
@@ -208,7 +219,7 @@ class WebRTCManager(
         capturer.startCapture(1280, 720, 30)
 
         localVideoTrack = factory.createVideoTrack("video0", videoSource).also { track ->
-            pc.addTrack(track, listOf("stream0"))
+            videoSender = pc.addTrack(track, listOf("stream0"))
             mainHandler.post { storedLocalRenderer?.let { track.addSink(it) } }
         }
     }
@@ -276,6 +287,12 @@ class WebRTCManager(
             remoteDescriptionSet = false
             pendingCandidates.clear()
         }
+        if (screenSharing || screenCapturer != null || screenSurfaceTextureHelper != null ||
+            screenVideoSource != null || screenVideoTrack != null) {
+            // Tearing down, not stopping — no swap-back to camera needed.
+            disposeScreenResources()
+            screenSharing = false
+        }
         try { videoCapturer?.stopCapture() } catch (_: Exception) {}
         videoCapturer?.dispose()
         videoCapturer = null
@@ -290,6 +307,65 @@ class WebRTCManager(
         storedRemoteRenderer = null
         peerConnection?.close()
         peerConnection = null
+        videoSender = null
+    }
+
+    /**
+     * Starts screen-share by swapping the outgoing video RtpSender's track from the
+     * camera to a screen-capture track. Reuses the existing video m-line/transceiver —
+     * no SDP renegotiation (onRenegotiationNeeded is a no-op).
+     *
+     * PRECONDITION: caller MUST have started the mediaProjection foreground service
+     * BEFORE calling this — startCapture triggers getMediaProjection(), which throws on
+     * Android 14 / targetSdk 34 if the FGS isn't already running. (Enforced by Block B.)
+     */
+    fun startScreenShare(mediaProjectionPermissionResultData: Intent, onProjectionStopped: () -> Unit) {
+        if (!isVideoCall || videoSender == null || peerConnection == null || screenSharing) return
+
+        val callback = object : MediaProjection.Callback() {
+            override fun onStop() {
+                mainHandler.post {
+                    videoSender?.setTrack(localVideoTrack, false)
+                    disposeScreenResources()
+                    screenSharing = false
+                    onProjectionStopped()
+                }
+            }
+        }
+
+        val capturer = ScreenCapturerAndroid(mediaProjectionPermissionResultData, callback)
+            .also { screenCapturer = it }
+        val textureHelper = SurfaceTextureHelper.create("ScreenCaptureThread", eglBase.eglBaseContext)
+            .also { screenSurfaceTextureHelper = it }
+        val videoSource = factory.createVideoSource(capturer.isScreencast).also { screenVideoSource = it }
+        capturer.initialize(textureHelper, context, videoSource.capturerObserver)
+
+        val metrics = context.resources.displayMetrics
+        // TODO(Block E): tunable dims/fps
+        capturer.startCapture(metrics.widthPixels, metrics.heightPixels, 30)
+
+        screenVideoTrack = factory.createVideoTrack("screen0", videoSource)
+        videoSender?.setTrack(screenVideoTrack, false)
+        screenSharing = true
+    }
+
+    fun stopScreenShare() {
+        if (!screenSharing) return
+        videoSender?.setTrack(localVideoTrack, false)
+        disposeScreenResources()
+        screenSharing = false
+    }
+
+    private fun disposeScreenResources() {
+        try { screenCapturer?.stopCapture() } catch (_: Exception) {}
+        screenCapturer?.dispose()
+        screenCapturer = null
+        screenSurfaceTextureHelper?.dispose()
+        screenSurfaceTextureHelper = null
+        screenVideoTrack?.dispose()
+        screenVideoTrack = null
+        screenVideoSource?.dispose()
+        screenVideoSource = null
     }
 
     fun dispose() {
