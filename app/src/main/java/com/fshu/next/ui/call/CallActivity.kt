@@ -16,7 +16,6 @@ import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
-import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
@@ -25,7 +24,6 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.lifecycle.lifecycleScope
 import com.google.gson.JsonObject
-import com.fshu.next.BuildConfig
 import com.fshu.next.R
 import com.fshu.next.data.remote.WebSocketClient
 import com.fshu.next.databinding.ActivityCallBinding
@@ -67,10 +65,8 @@ class CallActivity : AppCompatActivity() {
     private var pendingGranted: (() -> Unit)? = null
     private var pendingDenied: (() -> Unit)? = null
 
-    // T7 Block B — TEMP: DEBUG-only screen-share trigger, removed in Block C once the real
-    // toggle UX exists. registerForActivityResult must be called unconditionally (contract
-    // requirement, before STARTED); only its invocation site (the long-press below) is
-    // BuildConfig.DEBUG-gated.
+    // T7 Block C: real "Share screen" toggle. registerForActivityResult must be called
+    // unconditionally (contract requirement, before STARTED) — reused verbatim from Block B.
     private val screenCaptureLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -83,10 +79,11 @@ class CallActivity : AppCompatActivity() {
                 // Fires on OS-revoke; WebRTCManager has already swapped back to camera and
                 // disposed screen resources by this point (already on main thread).
                 FshuService.demoteFromMediaProjection()
-                if (BuildConfig.DEBUG) Toast.makeText(this, "Screen share stopped (OS revoke)", Toast.LENGTH_SHORT).show()
+                updateScreenShareUi()
             })
+            updateScreenShareUi()
         }
-        // RESULT_CANCELED / null data: no-op — real spring-back UI is Block C.
+        // RESULT_CANCELED / null data: no-op — button was never flipped, nothing to revert.
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -151,9 +148,10 @@ class CallActivity : AppCompatActivity() {
 
             if (isVideoCall) {
                 binding.surfaceRemote.visibility = if (inCall) View.VISIBLE else View.GONE
-                // Camera and flip only shown for video calls while in-call
+                // Camera, flip, and screen-share only shown for video calls while in-call
                 binding.btnCamera.visibility = if (inCall) View.VISIBLE else View.GONE
                 binding.btnFlipCamera.visibility = if (inCall) View.VISIBLE else View.GONE
+                binding.btnScreenShare.visibility = if (inCall) View.VISIBLE else View.GONE
             }
 
             when (state) {
@@ -278,21 +276,21 @@ class CallActivity : AppCompatActivity() {
         binding.btnCamera.setOnClickListener { vm.toggleCamera() }
         binding.btnFlipCamera.setOnClickListener { vm.switchCamera() }
 
-        // T7 Block B — TEMP: DEBUG-only screen-share trigger (long-press flip-camera).
-        // Removed in Block C once the real "Share screen" toggle exists.
-        if (BuildConfig.DEBUG) {
-            binding.btnFlipCamera.setOnLongClickListener {
-                if (!vm.isScreenSharing) {
-                    val mpm = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
-                    screenCaptureLauncher.launch(mpm.createScreenCaptureIntent())
-                } else {
-                    vm.stopScreenShare()
-                    FshuService.demoteFromMediaProjection()
-                    Toast.makeText(this, "Screen share stopped (debug)", Toast.LENGTH_SHORT).show()
-                }
-                true
+        // T7 Block C: real "Share screen" toggle — never optimistic, state comes from
+        // vm.isScreenSharing via updateScreenShareUi() only.
+        binding.btnScreenShare.setOnClickListener {
+            if (!vm.isScreenSharing) {
+                val mpm = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+                screenCaptureLauncher.launch(mpm.createScreenCaptureIntent())
+            } else {
+                vm.stopScreenShare()
+                FshuService.demoteFromMediaProjection()
+                updateScreenShareUi()
             }
         }
+        // Initial sync — correct after rotation/activity recreation since the ViewModel
+        // (and WebRTCManager underneath it) survive config changes.
+        updateScreenShareUi()
 
         binding.btnSilence.setOnClickListener {
             FshuService.silenceEmergencyRamp(this)
@@ -329,6 +327,27 @@ class CallActivity : AppCompatActivity() {
                 else -> Unit
             }
         }
+    }
+
+    /**
+     * T7 Block C: single source of truth for the screen-share button's active/inactive
+     * visual and the self-preview placeholder. Reads vm.isScreenSharing directly (no
+     * LiveData backs it — WebRTCManager's isScreenSharing is a plain property) rather than
+     * an observer, so every state change (start, stop, OS-revoke, rebind) must call this
+     * explicitly instead of flipping the button optimistically.
+     */
+    private fun updateScreenShareUi() {
+        val sharing = vm.isScreenSharing
+        if (sharing) {
+            binding.btnScreenShare.setBackgroundResource(R.drawable.bg_call_button_active)
+            binding.btnScreenShare.imageTintList = ColorStateList.valueOf(Color.parseColor("#121224"))
+            binding.btnScreenShare.contentDescription = getString(R.string.call_stop_sharing)
+        } else {
+            binding.btnScreenShare.setBackgroundResource(R.drawable.bg_call_button)
+            binding.btnScreenShare.imageTintList = null
+            binding.btnScreenShare.contentDescription = getString(R.string.call_share_screen)
+        }
+        binding.panelScreenSharePlaceholder.visibility = if (sharing) View.VISIBLE else View.GONE
     }
 
     private fun setupIncomingSlider() {

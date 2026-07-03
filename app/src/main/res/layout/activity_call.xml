@@ -191,8 +191,8 @@
 
     <!--
         Bottom controls bar — shown when NOT incoming.
-        Single horizontal row: [mute | speaker | camera | flip] ··· [end call]
-        panel_controls (the first 4) are GONE until IN_CALL.
+        Single horizontal row: [mute | speaker | camera | flip | screen-share] ··· [end call]
+        panel_controls (the first 5) are GONE until IN_CALL.
     -->
     <LinearLayout
         android:id="@+id/panel_bottom_bar"
@@ -210,7 +210,7 @@
         app:layout_constraintEnd_toEndOf="parent">
 
         <!--
-            Control buttons: mute + speaker + camera + flip.
+            Control buttons: mute + speaker + camera + flip + screen-share.
             Collectively GONE until IN_CALL; fixed 56×56dp each, left-aligned.
         -->
         <LinearLayout
@@ -263,8 +263,21 @@
                 android:background="@drawable/bg_call_button"
                 android:src="@drawable/ic_flip_camera"
                 android:padding="14dp"
+                android:layout_marginEnd="12dp"
                 android:visibility="gone"
                 android:contentDescription="Flip Camera" />
+
+            <!-- Share screen — video calls only. Active/inactive conveyed via
+                 background+tint (see updateScreenShareUi), same mechanism as camera/mute. -->
+            <ImageButton
+                android:id="@+id/btn_screen_share"
+                android:layout_width="56dp"
+                android:layout_height="56dp"
+                android:background="@drawable/bg_call_button"
+                android:src="@drawable/ic_screen_share"
+                android:padding="14dp"
+                android:visibility="gone"
+                android:contentDescription="@string/call_share_screen" />
         </LinearLayout>
 
         <!-- Spacer pushes end call to the right -->
@@ -294,5 +307,39 @@
         android:layout_marginEnd="16dp"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
+
+    <!-- Screen-share self-preview placeholder: covers surface_local while sharing.
+         The camera renderer underneath is intentionally left live (Block A) — this is a
+         static overlay, not a detached/replaced renderer, so swap-back stays instant. -->
+    <LinearLayout
+        android:id="@+id/panel_screen_share_placeholder"
+        android:layout_width="120dp"
+        android:layout_height="160dp"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:background="#CC121224"
+        android:visibility="gone"
+        android:layout_marginTop="16dp"
+        android:layout_marginEnd="16dp"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <ImageView
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:src="@drawable/ic_screen_share"
+            android:importantForAccessibility="no" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:text="@string/call_self_preview_sharing"
+            android:textColor="#FFFFFF"
+            android:textSize="11sp"
+            android:gravity="center" />
+    </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
