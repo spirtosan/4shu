@@ -67,7 +67,7 @@ class CallViewModel(app: Application) : AndroidViewModel(app) {
      * Lazily created so [setVideoCall] can be called first to set the isVideoCall flag
      * before WebRTCManager is instantiated.
      */
-    private val webRTC: WebRTCManager by lazy {
+    private val webRTCDelegate = lazy {
         WebRTCManager(
             context = getApplication(),
             isVideoCall = _isVideoCall,
@@ -89,9 +89,11 @@ class CallViewModel(app: Application) : AndroidViewModel(app) {
                 }
                 endReason.postValue("disconnected")
                 state.postValue(State.ENDED)
+                viewModelScope.launch { webRTC.endCall() }
             }
         )
     }
+    private val webRTC: WebRTCManager by webRTCDelegate
 
     /** Must be called before any WebRTC operations and before accessing [eglBaseContext]. */
     fun setVideoCall(isVideo: Boolean) { _isVideoCall = isVideo }
@@ -348,6 +350,7 @@ class CallViewModel(app: Application) : AndroidViewModel(app) {
         stopRingback()
         ringingTimeoutJob?.cancel(); ringingTimeoutJob = null
         callEndSent = true
+        webRTC.endCall()
         endReason.value = "busy"
         state.value = State.ENDED
     }
@@ -623,6 +626,6 @@ class CallViewModel(app: Application) : AndroidViewModel(app) {
         stopRingback()
         ringingTimeoutJob?.cancel(); ringingTimeoutJob = null
         releaseAudioFocus()
-        webRTC.dispose()
+        if (webRTCDelegate.isInitialized()) webRTC.dispose()
     }
 }

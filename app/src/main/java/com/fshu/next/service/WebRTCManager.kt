@@ -34,10 +34,20 @@ class WebRTCManager(
     @Volatile private var remoteDescriptionSet = false
     private val pendingCandidates = mutableListOf<IceCandidate>()
     private var localAudioTrack: AudioTrack? = null
+    private var audioSource: AudioSource? = null
+
+    private val released = java.util.concurrent.atomic.AtomicBoolean(false)
+    private val fullyDisposed = java.util.concurrent.atomic.AtomicBoolean(false)
+
+    private inline fun step(name: String, block: () -> Unit) {
+        try { block(); Log.d("CallTeardown", "$name ok") }
+        catch (e: Exception) { Log.w("CallTeardown", "$name FAILED", e) }
+    }
 
     // Video
     private var videoCapturer: Camera2Capturer? = null
     private var surfaceTextureHelper: SurfaceTextureHelper? = null
+    private var cameraVideoSource: VideoSource? = null
     private var localVideoTrack: VideoTrack? = null
     @Volatile private var remoteVideoTrack: VideoTrack? = null
     @Volatile private var storedLocalRenderer: SurfaceViewRenderer? = null
@@ -201,8 +211,8 @@ class WebRTCManager(
     }
 
     private fun addLocalAudio(pc: PeerConnection) {
-        val audioSource = factory.createAudioSource(MediaConstraints())
-        localAudioTrack = factory.createAudioTrack("audio0", audioSource)
+        val source = factory.createAudioSource(MediaConstraints()).also { audioSource = it }
+        localAudioTrack = factory.createAudioTrack("audio0", source)
         pc.addTrack(localAudioTrack, listOf("stream0"))
     }
 
@@ -214,7 +224,7 @@ class WebRTCManager(
 
         val capturer = Camera2Capturer(context, cameraId, null).also { videoCapturer = it }
         surfaceTextureHelper = SurfaceTextureHelper.create("CaptureThread", eglBase.eglBaseContext)
-        val videoSource = factory.createVideoSource(capturer.isScreencast)
+        val videoSource = factory.createVideoSource(capturer.isScreencast).also { cameraVideoSource = it }
         capturer.initialize(surfaceTextureHelper, context, videoSource.capturerObserver)
         capturer.startCapture(1280, 720, 30)
 
@@ -282,32 +292,38 @@ class WebRTCManager(
     }
 
     fun endCall() {
-        iceDisconnectJob?.cancel(); iceDisconnectJob = null
-        synchronized(pendingCandidates) {
-            remoteDescriptionSet = false
-            pendingCandidates.clear()
-        }
-        if (screenSharing || screenCapturer != null || screenSurfaceTextureHelper != null ||
-            screenVideoSource != null || screenVideoTrack != null) {
-            // Tearing down, not stopping — no swap-back to camera needed.
-            disposeScreenResources()
-            screenSharing = false
-        }
-        try { videoCapturer?.stopCapture() } catch (_: Exception) {}
-        videoCapturer?.dispose()
-        videoCapturer = null
-        surfaceTextureHelper?.dispose()
-        surfaceTextureHelper = null
-        localVideoTrack?.dispose()
-        localVideoTrack = null
-        localAudioTrack?.dispose()
+        if (!released.compareAndSet(false, true)) return
+        step("iceJob")        { iceDisconnectJob?.cancel(); iceDisconnectJob = null }
+        step("candidates")    { synchronized(pendingCandidates) { remoteDescriptionSet = false; pendingCandidates.clear() } }
+        step("screenCapture") { screenCapturer?.stopCapture() }            // no swap-back — full teardown
+        step("cameraCapture") { videoCapturer?.stopCapture() }
+        step("pcDispose")     { peerConnection?.dispose() }                // close + free — THE key change
+        step("audioTrack")    { localAudioTrack?.dispose() }               // tolerate already-disposed-by-sender
+        step("videoTrack")    { localVideoTrack?.dispose() }
+        step("screenTrack")   { screenVideoTrack?.dispose() }
+        step("audioSource")   { audioSource?.dispose() }
+        step("videoSource")   { cameraVideoSource?.dispose() }
+        step("screenSource")  { screenVideoSource?.dispose() }
+        step("cameraDispose") { videoCapturer?.dispose() }
+        step("screenDispose") { screenCapturer?.dispose() }
+        step("surfaceHelper") { surfaceTextureHelper?.dispose() }
+        step("screenHelper")  { screenSurfaceTextureHelper?.dispose() }
+        peerConnection = null
         localAudioTrack = null
+        localVideoTrack = null
+        screenVideoTrack = null
+        audioSource = null
+        cameraVideoSource = null
+        screenVideoSource = null
+        videoCapturer = null
+        screenCapturer = null
+        surfaceTextureHelper = null
+        screenSurfaceTextureHelper = null
+        videoSender = null
         remoteVideoTrack = null
         storedLocalRenderer = null
         storedRemoteRenderer = null
-        peerConnection?.close()
-        peerConnection = null
-        videoSender = null
+        screenSharing = false
     }
 
     /**
@@ -320,11 +336,13 @@ class WebRTCManager(
      * Android 14 / targetSdk 34 if the FGS isn't already running. (Enforced by Block B.)
      */
     fun startScreenShare(mediaProjectionPermissionResultData: Intent, onProjectionStopped: () -> Unit) {
+        if (released.get()) return
         if (!isVideoCall || videoSender == null || peerConnection == null || screenSharing) return
 
         val callback = object : MediaProjection.Callback() {
             override fun onStop() {
                 mainHandler.post {
+                    if (released.get()) return@post
                     videoSender?.setTrack(localVideoTrack, false)
                     disposeScreenResources()
                     screenSharing = false
@@ -350,7 +368,7 @@ class WebRTCManager(
     }
 
     fun stopScreenShare() {
-        if (!screenSharing) return
+        if (released.get() || !screenSharing) return
         videoSender?.setTrack(localVideoTrack, false)
         disposeScreenResources()
         screenSharing = false
@@ -370,9 +388,10 @@ class WebRTCManager(
 
     fun dispose() {
         endCall()
-        scope.cancel()
-        factory.dispose()
-        eglBase.release()
+        if (!fullyDisposed.compareAndSet(false, true)) return
+        step("scopeCancel")    { scope.cancel() }
+        step("factoryDispose") { factory.dispose() }
+        step("eglRelease")     { eglBase.release() }
     }
 
     /**
@@ -405,6 +424,7 @@ class WebRTCManager(
 
             var tempPc: PeerConnection? = null
             var dummyTrack: AudioTrack? = null
+            var dummyAudioSource: AudioSource? = null
             try {
                 val relayFound = CompletableDeferred<Boolean>()
 
@@ -448,8 +468,8 @@ class WebRTCManager(
 
                 // Add a dummy audio track — TURN servers only allocate relay candidates
                 // when there is actual media to relay (a track-less PC may be ignored)
-                val audioSource = factory.createAudioSource(MediaConstraints())
-                dummyTrack = factory.createAudioTrack("test_audio", audioSource).also {
+                val source = factory.createAudioSource(MediaConstraints()).also { dummyAudioSource = it }
+                dummyTrack = factory.createAudioTrack("test_audio", source).also {
                     tempPc.addTrack(it, listOf("test_stream"))
                     dbg("dummy audio track added to trigger TURN allocation")
                 }
@@ -494,8 +514,10 @@ class WebRTCManager(
                 withContext(NonCancellable) {
                     dummyTrack?.dispose()
                     dummyTrack = null
-                    tempPc?.close()
-                    dbg("temp PeerConnection closed")
+                    dummyAudioSource?.dispose()
+                    dummyAudioSource = null
+                    tempPc?.dispose()
+                    dbg("temp PeerConnection disposed")
                     if (!resultDeferred.isCompleted) resultDeferred.complete(false)
                 }
             }
