@@ -2691,17 +2691,24 @@ wss.on('connection', (ws, req) => {
             case 'group-promote': {
                 const { groupId, username: target, role: newRole } = msg;
                 if (!groupId || !target || !['owner', 'admin', 'member'].includes(newRole)) break;
-                if (!stmt.getGroup.get(groupId)) break;
+                const group = stmt.getGroup.get(groupId);
+                if (!group) break;
                 const members = stmt.getGroupMembers.all(groupId);
                 const senderMem = members.find(m => m.username === username);
                 if (!senderMem) break;
                 const targetMem = members.find(m => m.username === target);
                 if (!targetMem) { send(ws, { type: 'group-error', groupId, reason: 'not-a-member' }); break; }
                 if (newRole === 'owner') {
-                    if (senderMem.role !== 'owner') { send(ws, { type: 'group-error', groupId, reason: 'unauthorized' }); break; }
-                    stmt.updateGroupMemberRole.run('admin', groupId, username);
-                    stmt.updateGroupOwner.run(target, groupId);
-                    stmt.updateGroupMemberRole.run('owner', groupId, target);
+                    if (!['owner', 'admin'].includes(senderMem.role)) { send(ws, { type: 'group-error', groupId, reason: 'unauthorized' }); break; }
+                    // Sender may be an admin, not the owner, so the demotion target must be
+                    // read from group state — never assume sender === current owner here.
+                    const currentOwner = group.owner || members.find(m => m.role === 'owner')?.username;
+                    if (!currentOwner) { send(ws, { type: 'group-error', groupId, reason: 'no-owner' }); break; }
+                    if (target !== currentOwner) {
+                        stmt.updateGroupMemberRole.run('admin', groupId, currentOwner);
+                        stmt.updateGroupOwner.run(target, groupId);
+                        stmt.updateGroupMemberRole.run('owner', groupId, target);
+                    }
                 } else {
                     if (!['owner', 'admin'].includes(senderMem.role)) { send(ws, { type: 'group-error', groupId, reason: 'unauthorized' }); break; }
                     stmt.updateGroupMemberRole.run(newRole, groupId, target);
