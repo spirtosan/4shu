@@ -454,12 +454,10 @@ const stmt = {
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`),
     getGroupHistory:       db.prepare('SELECT * FROM messages WHERE group_id = ? AND timestamp >= ? ORDER BY timestamp'),
 
-    getMemberFamilyGroups: db.prepare("SELECT 1 FROM groups g JOIN group_members gm ON g.group_id = gm.group_id WHERE gm.username = ? AND g.type = 'family' LIMIT 1"),
-
     getInvite:    db.prepare('SELECT * FROM invites WHERE token = ?'),
     createInvite: db.prepare('INSERT INTO invites (token, created_by, expires_at) VALUES (?, ?, ?)'),
     useInvite:    db.prepare('UPDATE invites SET used_by = ?, used_at = ? WHERE token = ?'),
-    listInvites:  db.prepare('SELECT token, created_by, expires_at, used_by, used_at FROM invites ORDER BY rowid DESC LIMIT 50'),
+    listInvites:  db.prepare('SELECT token, created_by, expires_at, used_by, used_at FROM invites WHERE used_at IS NULL AND (expires_at IS NULL OR expires_at > ?) ORDER BY rowid DESC LIMIT 50'),
     revokeInvite: db.prepare('DELETE FROM invites WHERE token = ? AND used_at IS NULL'),
 
     // Data-export / account-deletion
@@ -1271,7 +1269,7 @@ function handleHttp(req, res) {
                 <div class="field">
                   <label for="secret_answer">Answer</label>
                   <input type="text" id="secret_answer" name="secret_answer" placeholder="Your answer (case-insensitive)" required minlength="3" maxlength="200" />
-                  <small>Remember this answer exactly â it will be used to verify your identity.</small>
+                  <small>Remember this answer exactly — it will be used to verify your identity.</small>
                 </div>
                 <button type="submit">Create account</button>
             </form>
@@ -2380,7 +2378,7 @@ wss.on('connection', (ws, req) => {
             case 'admin-invite-list': {
                 if (!stmt.getUser.get(username)?.admin) break;
                 const baseUrl2 = config.publicUrl || 'https://shumkov.eu';
-                const invites = stmt.listInvites.all().map(inv => ({ ...inv, url: `${baseUrl2}/fshu5/invite/${inv.token}` }));
+                const invites = stmt.listInvites.all(Date.now()).map(inv => ({ ...inv, url: `${baseUrl2}/fshu5/invite/${inv.token}` }));
                 send(ws, { type: 'admin-invite-list', invites });
                 break;
             }
