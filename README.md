@@ -51,6 +51,7 @@
 
 ### Calls
 - **Audio & video calls** — WebRTC peer-to-peer, low latency
+- **Screen sharing** — share your screen with the other party during a call
 - **Emergency calls** — override silent mode and bypass the lock screen
 - **TURN relay** — automatic fallback when direct P2P is blocked
 
@@ -108,6 +109,7 @@ Android client (Kotlin, MVVM)
 ### Android App
 - Android 8.0 (API 26) or newer
 - Network access to your 4shu server
+- Native libraries are 16 KB page-size aligned, so the app also runs on newer devices that require it
 
 ---
 
