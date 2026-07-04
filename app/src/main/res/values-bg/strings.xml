@@ -122,6 +122,10 @@
     <string name="dialog_group_deleted_message">Тази група е изтрита.</string>
     <string name="toast_you_left_group">Напусна групата</string>
     <string name="dialog_remove_member_title">Премахни %s?</string>
+    <string name="dialog_make_admin_title">Направи %s администратор?</string>
+    <string name="dialog_remove_admin_title">Премахни %s като администратор?</string>
+    <string name="btn_make_admin">Направи администратор</string>
+    <string name="btn_remove_admin">Премахни администратор</string>
     <string name="dialog_delete_group_title">Изтрий \"%s\"?</string>
     <string name="dialog_delete_group_message">Това ще изтрие групата за всички членове.</string>
     <string name="dialog_leave_group_title">Напусни \"%s\"?</string>
@@ -132,10 +136,16 @@
     <string name="toast_group_key_not_available">Груповият ключ не е наличен</string>
     <string name="toast_cannot_invite_no_key">Не може да поканиш: публичният ключ на %s не е намерен</string>
     <string name="toast_no_contacts_to_add">Няма контакти за добавяне</string>
+    <string name="toast_no_other_members">Няма други членове за прехвърляне</string>
+    <string name="dialog_transfer_ownership_confirm_self">Направи %1$s собственик? Ти ще станеш администратор на тази група.</string>
+    <string name="dialog_transfer_ownership_confirm_other">Направи %1$s собственик? %2$s ще стане администратор на тази група.</string>
+    <string name="btn_transfer">Прехвърли</string>
     <string name="error_group_unauthorized">Нямаш разрешение</string>
     <string name="error_user_not_found">Потребителят не е намерен</string>
     <string name="error_already_member">Вече е член</string>
     <string name="error_owner_cannot_leave">Ти си собственикът на групата. Прехвърли собствеността или изтрий групата.</string>
+    <string name="error_not_a_member">Не е член на тази група</string>
+    <string name="error_no_owner">Тази група няма собственик</string>
     <string name="error_generic">Възникна грешка</string>
     <string name="error_username_empty">Потребителското име не може да е празно</string>
     <string name="label_location_shared_auto">📍 Местоположението е споделено автоматично</string>
@@ -252,6 +262,7 @@
     <string name="menu_set_nickname">Задай псевдоним</string>
     <string name="group_info_change_photo">Промени снимката на групата</string>
     <string name="group_info_rename">Преименувай групата</string>
+    <string name="group_info_transfer_ownership">Прехвърли собствеността</string>
     <string name="group_info_set_personal_photo">Задай личната ми снимка за тази група</string>
     <string name="dialog_rename_group_title">Преименувай групата</string>
     <string name="error_name_too_long">Името е твърде дълго (макс. 64 знака)</string>

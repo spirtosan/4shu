@@ -124,6 +124,10 @@
     <string name="dialog_group_deleted_message">This group was deleted.</string>
     <string name="toast_you_left_group">You left the group</string>
     <string name="dialog_remove_member_title">Remove %s?</string>
+    <string name="dialog_make_admin_title">Make %s an admin?</string>
+    <string name="dialog_remove_admin_title">Remove %s as admin?</string>
+    <string name="btn_make_admin">Make admin</string>
+    <string name="btn_remove_admin">Remove admin</string>
     <string name="dialog_delete_group_title">Delete \"%s\"?</string>
     <string name="dialog_delete_group_message">This will delete the group for all members.</string>
     <string name="dialog_leave_group_title">Leave \"%s\"?</string>
@@ -134,10 +138,16 @@
     <string name="toast_group_key_not_available">Group key not available</string>
     <string name="toast_cannot_invite_no_key">Cannot invite: public key not found for %s</string>
     <string name="toast_no_contacts_to_add">No contacts to add</string>
+    <string name="toast_no_other_members">No other members to transfer to</string>
+    <string name="dialog_transfer_ownership_confirm_self">Make %1$s the owner? You\'ll become an admin of this group.</string>
+    <string name="dialog_transfer_ownership_confirm_other">Make %1$s the owner? %2$s will become an admin of this group.</string>
+    <string name="btn_transfer">Transfer</string>
     <string name="error_group_unauthorized">Not authorized</string>
     <string name="error_user_not_found">User not found</string>
     <string name="error_already_member">Already a member</string>
     <string name="error_owner_cannot_leave">You are the group owner. Transfer ownership or delete the group first.</string>
+    <string name="error_not_a_member">Not a member of this group</string>
+    <string name="error_no_owner">This group has no owner</string>
     <string name="error_generic">An error occurred</string>
     <string name="error_username_empty">Username cannot be empty</string>
     <string name="label_location_shared_auto">📍 Location shared automatically</string>
@@ -266,6 +276,7 @@
     <string name="menu_set_nickname">Set nickname</string>
     <string name="group_info_change_photo">Change group photo</string>
     <string name="group_info_rename">Rename group</string>
+    <string name="group_info_transfer_ownership">Transfer ownership</string>
     <string name="group_info_set_personal_photo">Set my photo for this group</string>
     <string name="dialog_rename_group_title">Rename group</string>
     <string name="error_name_too_long">Name too long (max 64 characters)</string>

@@ -726,7 +726,16 @@ class ChatActivity : AppCompatActivity() {
                     }
                     "group-state" -> {
                         val stateId = json.get("groupId")?.asString
-                        if (stateId == groupId) runOnUiThread { loadGroupInfo() }
+                        if (stateId == groupId) runOnUiThread {
+                            loadGroupInfo()
+                            // Member roles may have just changed (promote/demote/transfer, or
+                            // a kick) — rebuild the open dialog from fresh Room data rather
+                            // than leaving stale rows/icons showing.
+                            if (groupInfoDialog?.isShowing == true) {
+                                groupInfoDialog?.dismiss()
+                                showGroupInfo()
+                            }
+                        }
                     }
                     "group-error" -> {
                         val gid = json.get("groupId")?.asString
@@ -738,6 +747,8 @@ class ChatActivity : AppCompatActivity() {
                                 "user-not-found"     -> getString(R.string.error_user_not_found)
                                 "already-member"     -> getString(R.string.error_already_member)
                                 "owner-cannot-leave" -> getString(R.string.error_owner_cannot_leave)
+                                "not-a-member"       -> getString(R.string.error_not_a_member)
+                                "no-owner"           -> getString(R.string.error_no_owner)
                                 else -> message.ifEmpty { getString(R.string.error_generic) }
                             }
                             runOnUiThread {
@@ -1867,6 +1878,17 @@ class ChatActivity : AppCompatActivity() {
                                 showGroupRenameDialog(gid, group.name)
                             }
                         })
+                        addView(TextView(this@ChatActivity).apply {
+                            text = getString(R.string.group_info_transfer_ownership)
+                            textSize = 13f
+                            setTextColor(0xFFE8711A.toInt())
+                            gravity = android.view.Gravity.CENTER
+                            setPadding(0, 0, 0, (2 * dp).toInt())
+                            setOnClickListener {
+                                groupInfoDialog?.dismiss()
+                                showTransferOwnershipDialog(gid, group.owner, members)
+                            }
+                        })
                     }
                     addView(TextView(this@ChatActivity).apply {
                         text = getString(R.string.group_info_set_personal_photo)
@@ -1921,6 +1943,36 @@ class ChatActivity : AppCompatActivity() {
                         textSize = 14f
                         layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
                     })
+                    if (myRole == "owner" && m.role != "owner" && m.username != me) {
+                        val isMemberAdmin = m.role == "admin"
+                        row.addView(Button(this@ChatActivity).apply {
+                            text = getString(if (isMemberAdmin) R.string.btn_remove_admin else R.string.btn_make_admin)
+                            textSize = 12f
+                            setTextColor(0xFFE8711A.toInt())
+                            background = null
+                            minHeight = 0
+                            minimumHeight = 0
+                            setOnClickListener {
+                                val newRole = if (isMemberAdmin) "member" else "admin"
+                                val title = if (isMemberAdmin)
+                                    getString(R.string.dialog_remove_admin_title, nick)
+                                else
+                                    getString(R.string.dialog_make_admin_title, nick)
+                                MaterialAlertDialogBuilder(this@ChatActivity)
+                                    .setTitle(title)
+                                    .setPositiveButton(getString(R.string.btn_ok)) { _, _ ->
+                                        com.fshu.next.data.remote.WebSocketClient.send(mapOf(
+                                            "type"    to "group-promote",
+                                            "groupId" to gid,
+                                            "username" to m.username,
+                                            "role"    to newRole
+                                        ))
+                                    }
+                                    .setNegativeButton(getString(R.string.btn_cancel), null)
+                                    .show()
+                            }
+                        })
+                    }
                     if (isOwnerOrAdmin && m.role != "owner" && m.username != me) {
                         row.addView(Button(this@ChatActivity).apply {
                             text = getString(R.string.btn_remove)
@@ -2059,6 +2111,49 @@ class ChatActivity : AppCompatActivity() {
                         "name"    to newName
                     ))
                 }
+            }
+            .setNegativeButton(getString(R.string.btn_cancel), null)
+            .show()
+    }
+
+    private fun showTransferOwnershipDialog(
+        groupId: String,
+        ownerUsername: String,
+        members: List<com.fshu.next.data.model.GroupMember>
+    ) {
+        val me = Prefs.getUsername(this)
+        val candidates = members.filter { it.username != ownerUsername }
+        if (candidates.isEmpty()) {
+            Toast.makeText(this, getString(R.string.toast_no_other_members), Toast.LENGTH_SHORT).show()
+            return
+        }
+        val names = candidates.map { m ->
+            Prefs.getContactNickname(this, m.username).ifEmpty { m.username }
+        }.toTypedArray()
+        MaterialAlertDialogBuilder(this)
+            .setTitle(getString(R.string.group_info_transfer_ownership))
+            .setItems(names) { _, index ->
+                val target = candidates[index]
+                val targetNick = names[index]
+                val confirmMsg = if (ownerUsername == me) {
+                    getString(R.string.dialog_transfer_ownership_confirm_self, targetNick)
+                } else {
+                    val ownerNick = Prefs.getContactNickname(this, ownerUsername).ifEmpty { ownerUsername }
+                    getString(R.string.dialog_transfer_ownership_confirm_other, targetNick, ownerNick)
+                }
+                MaterialAlertDialogBuilder(this)
+                    .setTitle(getString(R.string.group_info_transfer_ownership))
+                    .setMessage(confirmMsg)
+                    .setPositiveButton(getString(R.string.btn_transfer)) { _, _ ->
+                        com.fshu.next.data.remote.WebSocketClient.send(mapOf(
+                            "type"     to "group-promote",
+                            "groupId"  to groupId,
+                            "username" to target.username,
+                            "role"     to "owner"
+                        ))
+                    }
+                    .setNegativeButton(getString(R.string.btn_cancel), null)
+                    .show()
             }
             .setNegativeButton(getString(R.string.btn_cancel), null)
             .show()
