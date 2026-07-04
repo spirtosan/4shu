@@ -1376,7 +1376,6 @@ function handleHttp(req, res) {
                 <div class="field"><label>Email address</label><input name="email" type="email" required autocomplete="email"></div>
                 <button type="submit">Send reset link</button>
             </form>
-            <p style="text-align:center;color:#666;margin:24px 0 8px">??? or ???</p>
             <form method="POST" action="/fshu5/reset/question">
                 <div class="field"><label>Username</label><input name="username" type="text" required autocomplete="username"></div>
                 <button type="submit" style="background:#555">Reset via secret question</button>
