@@ -8,8 +8,11 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.fshu.next.data.local.dao.BlockDao
 import com.fshu.next.data.local.dao.ContactDao
+import com.fshu.next.data.local.dao.TrailDao
 import com.fshu.next.data.local.entities.Block
 import com.fshu.next.data.local.entities.Contact
+import com.fshu.next.data.local.entities.TrailPoint
+import com.fshu.next.data.local.entities.TrailUploadState
 import com.fshu.next.data.local.Mute
 import com.fshu.next.data.local.MuteDao
 import com.fshu.next.data.model.Group
@@ -17,7 +20,7 @@ import com.fshu.next.data.model.GroupMember
 import com.fshu.next.data.model.Message
 import com.fshu.next.data.model.PeerKey
 
-@Database(entities = [Message::class, PeerKey::class, Group::class, GroupMember::class, Contact::class, Block::class, Mute::class], version = 25, exportSchema = true)
+@Database(entities = [Message::class, PeerKey::class, Group::class, GroupMember::class, Contact::class, Block::class, Mute::class, TrailPoint::class, TrailUploadState::class], version = 26, exportSchema = true)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun messageDao(): MessageDao
     abstract fun peerKeyDao(): PeerKeyDao
@@ -26,6 +29,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun contactDao(): ContactDao
     abstract fun blockDao(): BlockDao
     abstract fun muteDao(): MuteDao
+    abstract fun trailDao(): TrailDao
 
     companion object {
         @Volatile private var INSTANCE: AppDatabase? = null
@@ -272,6 +276,44 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        // v26: trail_points + trail_upload_state (SPEC_T13.md Phase 1 Block A)
+        private val MIGRATION_25_26 = object : Migration(25, 26) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS trail_points (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        seq INTEGER NOT NULL,
+                        kind TEXT NOT NULL,
+                        ts INTEGER NOT NULL,
+                        lat REAL,
+                        lon REAL,
+                        acc REAL,
+                        alt REAL,
+                        spd REAL,
+                        brg REAL,
+                        prov TEXT,
+                        mock INTEGER,
+                        mot TEXT,
+                        batt INTEGER,
+                        chg INTEGER,
+                        net TEXT,
+                        cellsJson TEXT,
+                        wifiJson TEXT,
+                        ev TEXT,
+                        lastJson TEXT,
+                        uploaded INTEGER NOT NULL DEFAULT 0
+                    )
+                """.trimIndent())
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_trail_points_seq ON trail_points(seq)")
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS trail_upload_state (
+                        guardianDevice TEXT NOT NULL PRIMARY KEY,
+                        lastAckedSeq INTEGER NOT NULL
+                    )
+                """.trimIndent())
+            }
+        }
+
         fun getInstance(context: Context): AppDatabase =
             INSTANCE ?: synchronized(this) {
                 INSTANCE ?: Room.databaseBuilder(
@@ -284,7 +326,7 @@ abstract class AppDatabase : RoomDatabase() {
                     MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13,
                     MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19,
                     MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22,
-                    MIGRATION_22_23, MIGRATION_23_24, MIGRATION_24_25
+                    MIGRATION_22_23, MIGRATION_23_24, MIGRATION_24_25, MIGRATION_25_26
                 ).build().also { INSTANCE = it }
             }
     }

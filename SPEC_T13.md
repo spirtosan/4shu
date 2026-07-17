@@ -1,0 +1,394 @@
+# SPEC_T13 — "Trail": Continuous Location Logging for Emergencies
+
+> **Status:** v1, approved by Ivan 2026-07-17. **Priority: P1** (safety > T5; T5 Phase 2
+> parked at "Block C next" and resumes after Trail or when Ivan says so).
+> **Based on:** repo HEAD `eb3e078`. Planning chat drafted this without repo access —
+> every spot marked **MATCH EXISTING** must be resolved by Claude Code against the
+> actual code, never invented fresh.
+
+---
+
+## 0. Purpose, scope, non-goals
+
+A rolling, end-to-end-encrypted breadcrumb trail of a family member's phone, stored on
+the family's own server, readable only by guardians the tracked person chose. Goal: when
+someone goes missing, guardians always have the **last known position and the path
+leading to it**, with enough context (battery, cell towers, Wi-Fi, device events) to
+interpret how the trail ended — even if the phone has been dead or offline for months.
+
+**Non-goals (state honestly in UI and docs):**
+- Cannot locate a phone that is off. No app can. Trail's value is the *preserved path up
+  to* the last moment.
+- Not covert. Android forces a persistent notification for foreground location services;
+  we embrace it as the transparency indicator. Trail is a family-safety feature, not
+  surveillance-ware: consent invariants in §6 are non-negotiable.
+- v1 is Android-framework-only: **no Google Play Services APIs** (no
+  `FusedLocationProviderClient`, no Activity Recognition API). Consistent with project
+  constraints; framework equivalents specified below.
+
+---
+
+## 1. Locked decisions (do not revisit without Ivan)
+
+1. **E2E:** points encrypted client-side to each guardian; server stores ciphertext
+   only. Per-guardian fanout using the **existing DM message crypto** (X25519 ECDH +
+   HKDF + AES-256-GCM, per guardian device — MATCH EXISTING envelope). No new crypto
+   primitives, no shared "location key" (that variant deferred, §8).
+2. **Retention — frozen clock:** keep points newer than `MAX(ts) − 7 days` **measured
+   from the newest point of that user**, not from now. Uploads stop → window freezes →
+   trail of a missing person survives indefinitely. Config `locationRetentionDays: 7`.
+   No archive tier (rejected: breach surface, E2E guardian-set aging, second subsystem).
+3. **Incident preservation is client-side:** guardians' fetched copies + explicit trail
+   export (GPX/JSON) are the long-term record; server stays minimal.
+4. **Adaptive sampling:** GPS only while moving; stationary phones log cheap
+   context on a slow heartbeat (Ivan's requirement, §3.3).
+5. **Guardians:** mutual contacts only, chosen by the tracked person on their own
+   device, cap `trailMaxGuardians: 5`, guardian must accept, either side can revoke.
+   Separate from `auto_location` (different semantics; existing feature untouched).
+6. **Transparency:** every guardian fetch is server-logged and pushed to the tracked
+   person's devices. Not optional, no silent mode.
+7. **Collect maximally per point** (Ivan: "all possible info"): full field list §2.
+8. **Server work respects the drift rule:** additive-only surgical patches applied
+   identically to repo and `/opt/fshu5/server.js`, or after reconciliation (preferred).
+   Never wholesale deploy (standing rule from PROJECT_INSTRUCTIONS).
+
+---
+
+## 2. Wire format — LOCKED (Trail Block A.1)
+
+### 2.1 Point (plaintext JSON; lives only inside encrypted batches and local Room)
+
+```json
+{"seq":123,"kind":"fix","ts":1752741000000,
+ "lat":42.1354,"lon":24.7453,"acc":12.5,"alt":164.0,"spd":1.4,"brg":270.0,
+ "prov":"fused","mock":false,"mot":"moving",
+ "batt":63,"chg":false,"net":"cell",
+ "cells":[{"t":"lte","mcc":284,"mnc":3,"tac":21901,"ci":123456789,"pci":211,"sig":-97,"reg":true}],
+ "wifi":{"conn":{"b":"aa:bb:cc:dd:ee:ff","s":"HomeNet","r":-52,"f":5180},
+         "scan":[{"b":"11:22:33:44:55:66","s":"CafeX","r":-71,"f":2437}]}}
+```
+
+- `seq` — per-device monotonic counter (gap detection). `ts` — epoch ms, client clock.
+- `kind` — `"fix"` or `"event"`. Events carry `ev` + snapshot of last fix:
+
+```json
+{"seq":124,"kind":"event","ts":1752741600000,"ev":"shutdown",
+ "batt":57,"chg":false,
+ "last":{"lat":42.1354,"lon":24.7453,"acc":12.5,"ts":1752741000000}}
+```
+
+`ev` ∈ `shutdown | boot | airplane_on | airplane_off | loc_off | loc_on | sim_changed |
+batt_low | charge_on | charge_off | svc_restart`. Events are the interpretation layer:
+trail ending at `batt:2` = phone died; ending at `batt:74` + `shutdown` = powered off
+deliberately; `svc_restart` gaps = OEM killer (doubles as the diagnostic for the
+deferred OEM keep-alive item).
+
+- Nullable fields omitted when unavailable (no GPS fix → event-only heartbeat with
+  cells/wifi and no lat/lon is valid).
+- `mock` — `Location.isMock()` (API 31+; `isFromMockProvider` fallback): spoof flag.
+- Cell fields: `getAllCellInfo()`, all visible cells, `reg:true` marks the serving
+  cell; `sig` = RSRP (LTE/NR) or RSSI (WCDMA/GSM), dBm.
+- `wifi.conn` — currently connected AP (free, no scan, high value). `wifi.scan` —
+  latest scan results; scans are opportunistic and throttle-aware (§3.4).
+
+### 2.2 Client → server
+
+```json
+{"type":"trail-batch","batchId":"<uuid>","device":"<deviceId>",
+ "seqLo":101,"seqHi":123,"tsLo":1752740000000,"tsHi":1752741600000,
+ "for":[{"g":"maria","dev":"<guardianDeviceId>","iv":"<b64>","ct":"<b64>"}]}
+```
+`ct` = AES-256-GCM over the JSON array of points, key derived exactly as the existing
+DM path (MATCH EXISTING: field names `iv`/`ct`/key-derivation/device fanout must mirror
+the current message envelope — if DMs encrypt per guardian *device*, so does Trail).
+Server ack: `{"type":"trail-batch-ack","batchId":"...","seqHi":123}`.
+
+```json
+{"type":"trail-grant","guardian":"maria"}
+{"type":"trail-accept","user":"kid"}            // sent by guardian
+{"type":"trail-revoke","guardian":"maria"}      // or by guardian: {"user":"kid"}
+{"type":"trail-fetch","user":"kid","fromTs":0,"toTs":9999999999999}
+{"type":"trail-wipe"}                            // tracked user: delete all my batches
+```
+
+### 2.3 Server → client
+
+```json
+{"type":"trail-data","user":"kid",
+ "batches":[{"device":"...","seqLo":101,"seqHi":123,"tsLo":...,"tsHi":...,
+             "serverTs":...,"iv":"...","ct":"..."}]}
+{"type":"trail-accessed","by":"maria","fromTs":...,"toTs":...,"ts":...}
+{"type":"trail-guardian-changed","user":"kid","guardian":"maria","state":"granted|accepted|revoked"}
+{"type":"trail-stale","user":"kid","lastTs":...}   // optional alert, §4.4
+```
+
+---
+
+## 3. Android client
+
+### 3.1 Service
+`TrailService`: foreground service, `foregroundServiceType="location"`, dedicated
+notification channel, low-importance but honest text ("4shu — location trail active").
+Started by the consent toggle (§6), restarted on `BOOT_COMPLETED`, survives via
+battery-optimization exemption request. **MATCH EXISTING** foreground-service and
+notification patterns from the current call/emergency services.
+
+### 3.2 Location sources — framework only
+- API 31+: `LocationManager.FUSED_PROVIDER` (platform fused, exists since 31 — fits
+  the Android 12+ policy). Below 31 (minSdk 26 still in force): `GPS_PROVIDER` +
+  `NETWORK_PROVIDER` directly.
+- `PASSIVE_PROVIDER` listener **always registered**: free extra points whenever any
+  other app requests location, zero battery cost.
+
+### 3.3 Sampling state machine (Ivan's GPS rule)
+
+| State | Interval | Sources | GPS? |
+|---|---|---|---|
+| MOVING | 2–5 min | fused/GPS, high accuracy | yes |
+| STILL | 15–30 min heartbeat | network/passive + cells/wifi only | **no** |
+| PANIC | 20–30 s | GPS, max accuracy, per-point flush | yes |
+
+- STILL entry: 3 consecutive fixes within 100 m of anchor, or 20 min without
+  significant motion. STILL heartbeat still logs a full enrichment point (cells, wifi,
+  batt) — position inferred from anchor.
+- STILL exit: `TYPE_SIGNIFICANT_MOTION` sensor (framework `SensorManager`) fires, or a
+  passive fix lands >150 m from anchor → MOVING.
+- PANIC: engaged by SOS (existing emergency actions — MATCH EXISTING hook), ignores
+  STILL, ignores batching, flushes each point immediately.
+
+### 3.4 Enrichment collectors
+- Battery: `ACTION_BATTERY_CHANGED` sticky (pct + charging).
+- Cells: `TelephonyManager.getAllCellInfo()` per point (needs fine location).
+- Wi-Fi: connected AP via `WifiManager.connectionInfo` every point (free); active
+  scans opportunistic — trigger at most once per MOVING point, reuse system scan cache
+  (`getScanResults`) otherwise; respect the platform throttle (~4 scans/2 min
+  foreground) — at our intervals it never binds.
+- Events: receivers for `ACTION_SHUTDOWN` (log event; last-gasp flush comes in
+  Block J), boot, airplane mode, location toggle, SIM state, battery low.
+
+### 3.5 Storage — Room v25 → v26
+New entity `TrailPoint` (mirrors §2.1, cells/wifi as JSON columns, plus `uploaded`
+bookkeeping) + `TrailUploadState(guardianDevice, lastAckedSeq)` watermark table +
+DAO. Local copy obeys the same frozen-clock 7-day purge (WorkManager daily). Trail
+data joins the existing GDPR on-device export. `trail-wipe` + local wipe on disable.
+
+### 3.6 Permissions (staged flow in Block D)
+`ACCESS_FINE_LOCATION` → `ACCESS_BACKGROUND_LOCATION` (API 30+: user must pick "Allow
+all the time" in Settings — guided walkthrough screen) → `FOREGROUND_SERVICE_LOCATION`
+(API 34 manifest) → `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` prompt → `RECEIVE_BOOT_COMPLETED`.
+Wi-Fi scan results require fine location (already granted). Cell info likewise.
+Motorola note: G60s are aggressive app-killers; the exemption prompt + `svc_restart`
+events give us ground truth on kills.
+
+---
+
+## 4. Server
+
+> **Drift rule applies (§1.8).** All changes additive: new tables, new handlers, new
+> config keys. Zero edits to existing message paths. Apply identically to repo and
+> live, or land after the reconciliation session (preferred if it happens first).
+
+### 4.1 Tables
+```sql
+CREATE TABLE trail_guardians(user TEXT, guardian TEXT, granted_ts INTEGER,
+  accepted_ts INTEGER, PRIMARY KEY(user, guardian));
+CREATE TABLE trail_batches(id INTEGER PRIMARY KEY, user TEXT, device TEXT,
+  guardian TEXT, seq_lo INTEGER, seq_hi INTEGER, ts_lo INTEGER, ts_hi INTEGER,
+  server_ts INTEGER, iv TEXT, ct TEXT);
+CREATE TABLE trail_access_log(id INTEGER PRIMARY KEY, user TEXT, guardian TEXT,
+  fetch_ts INTEGER, from_ts INTEGER, to_ts INTEGER);
+```
+`server_ts` = arrival time: free cross-check against client clock drift.
+
+### 4.2 Config (`data/config.json`)
+`locationRetentionDays: 7`, `trailMaxGuardians: 5`, `trailStaleAlertHours: 0` (0 =
+off). **Update `install-fshu-next.sh`** per standing rule (its canonical home is an
+open reconciliation question — flag, don't block).
+
+### 4.3 Handlers
+- `trail-batch`: verify sender session; verify each `for[].g` is an accepted guardian;
+  insert one row per guardian; ack. Reject rows for non-guardians silently (drop, log).
+- `trail-fetch`: verify requester is accepted guardian of `user`; return that
+  guardian's rows in range; insert access-log row; push `trail-accessed` to all of
+  `user`'s devices (queue if offline — MATCH EXISTING offline queue).
+- `trail-grant/accept/revoke`: maintain `trail_guardians`, enforce mutual-contact +
+  cap, notify both sides. Revoke (either direction) deletes that guardian's future
+  access; their existing ciphertext rows age out naturally (≤7 days).
+- `trail-wipe`, account deletion, trail disable → delete user's batches immediately.
+
+### 4.4 Purge — frozen clock (+ optional stale alert)
+Daily, alongside existing retention jobs:
+```sql
+DELETE FROM trail_batches WHERE user=@u AND
+  ts_hi < (SELECT MAX(ts_hi) FROM trail_batches WHERE user=@u) - @retentionMs;
+```
+Stale alert (only if `trailStaleAlertHours > 0`): newest `ts_hi` older than threshold →
+one `trail-stale` push to guardians (existing push/FCM path), re-armed when uploads
+resume. This is the "trail went silent" tripwire — the earliest possible signal that a
+search should start. Metadata-only; server never reads positions.
+
+---
+
+## 5. E2E scheme
+
+- Per-batch, per-guardian(-device) fanout with the existing DM derivation. Server =
+  ciphertext post office, same promise as messages.
+- **Re-encrypt on grant:** when a new guardian accepts, the tracked device re-uploads
+  its current local 7-day window encrypted to them — new guardians get history
+  immediately, without any server-side re-encryption ability. (This is why the local
+  Room copy matters.)
+- Revoked guardian: no new ciphertext; old rows age out in ≤7 days; nothing to rotate.
+- Account-recovery note: secret-question reset yields a *new* device without old keys —
+  a hijacker cannot decrypt existing trail ciphertext. Guardian grant/accept happens
+  only on the tracked person's device. Document, don't "fix".
+
+---
+
+## 6. Consent & transparency invariants (UI copy in EN + BG)
+
+1. Off by default. Enabled only from the tracked person's own device, behind the full
+   staged-permission flow (no dark patterns; each screen says what's collected and who
+   can see it).
+2. Guardian list visible at all times in Trail settings; add = grant + guardian
+   accept; remove = one tap, either side.
+3. Persistent notification whenever collecting (Android enforces; we word it clearly).
+4. Every fetch → `trail-accessed` notification + permanent access-log screen ("Maria
+   viewed your trail, Jul 17 14:02, last 24 h").
+5. Disable = stop service + local wipe + `trail-wipe` server-side, immediate.
+6. Status card in settings: collecting since / points held / oldest–newest / last
+   upload / service-health (restart count surfaced honestly).
+
+---
+
+## 7. Phases & blocks — session stopping points
+
+Rules of engagement (unchanged from T5): **one block per prompt** to Claude Code; each
+block ends with build-green + commit + `PROJECT_MEMORY.md` update + stop-and-report.
+Push at session end. Every block boundary is a safe place for Ivan's session budget to
+run out.
+
+### Phase 1 — the phone collects (no server dependency; Ivan's "prepare the phone")
+- **Block A — data model.** Room 25→26: `TrailPoint`, `TrailUploadState`, DAO,
+  migration, point↔JSON serialization exactly per §2.1 + unit tests. *Accept: app
+  builds, migration runs on a v25 DB, serialization round-trips.*
+- **Block B — service + fix pipeline.** `TrailService`, providers (31+ fused /
+  fallback / passive), MOVING↔STILL state machine, debug-only start toggle + manual
+  permission grant (real UX in D). *Accept: G60 logs fixes to Room; STILL provably
+  stops GPS (provider registration logged); walking flips it back.*
+- **Block C — enrichment + events.** Battery, mock flag, net type, connected AP, cell
+  list, throttle-aware scans; all §2.1 event receivers (shutdown = log only, flush
+  later). *Accept: points on both G60s carry cells + wifi + batt; toggling airplane
+  mode produces events.*
+- **Block D — consent UI.** Trail settings screen: staged permission walkthrough,
+  master toggle, guardian picker (UI only, contacts-backed, grant wire comes in
+  Phase 2/3), status card, disable+wipe. Strings EN + BG. *Accept: clean-install
+  enable flow end-to-end on Android 12.*
+- **Block E — my-trail viewer + GDPR.** Local timeline list with per-point detail
+  sheet (map reuse deferred to Block K), wipe button, trail in GDPR export. *Accept:
+  own trail browsable; export contains it.* **← Phase 1 done: phone fully collects.**
+
+### Phase 2 — the server stores (drift rule §1.8 governs when/how it lands)
+- **Block F — schema + config + install script.** §4.1 tables, §4.2 keys. *Accept:
+  fresh install and existing DB both get tables; config documented.*
+- **Block G — handlers.** §4.3 messages + auth checks + transparency push. *Accept:
+  scripted WS session exercises grant→accept→batch→fetch→access-log→revoke.*
+- **Block H — purge + stale alert.** §4.4. *Accept: synthetic data proves the frozen
+  clock (old points survive when uploads stop); alert fires once and re-arms.*
+
+### Phase 3 — sync + guardians
+- **Block I — upload queue + E2E.** Batching (10 pts / 5 min / network-regain),
+  per-guardian encryption (MATCH EXISTING), watermarks, offline durability,
+  re-encrypt-on-grant. *Accept: airplane-mode hour → reconnect → backlog lands; new
+  guardian sees the past week.*
+- **Block J — last-gasp + panic.** `ACTION_SHUTDOWN` best-effort synchronous flush;
+  SOS engages PANIC (interval, accuracy, per-point flush). *Accept: graceful
+  power-off delivers a final shutdown event when network allows; SOS visibly
+  accelerates cadence.*
+- **Block K — guardian trail viewer.** Fetch, decrypt, merge multi-device, timeline +
+  map (MATCH EXISTING map approach from location sharing), event/gap annotations,
+  battery badge on last point, "last known" card, GPX + JSON export to Downloads
+  (police handoff), tracked-side access-log screen. *Accept: guardian G60 reconstructs
+  the other G60's day and exports it.*
+- **Block L — polish.** Notification/strings sweep EN + BG, README feature blurb,
+  PROJECT_MEMORY final update, verify deferred list (§8) recorded.
+
+### Suggested first prompt to Claude Code (copy-paste)
+```
+Read PROJECT_KNOWLEDGE.md, PROJECT_MEMORY.md and SPEC_T13.md. T5 is parked
+(memory board: T5 paused after Block D.1, resumes later). Implement SPEC_T13
+Phase 1 Block A only. Follow all project rules: update PROJECT_MEMORY.md
+(changelog + board: add T13 as P1 IN PROGRESS, mark T5 PARKED), commit
+alongside the change. Resolve every MATCH EXISTING marker against the real
+code and record what you matched in an "Implementation notes" appendix at the
+bottom of SPEC_T13.md. Stop and report when Block A builds.
+```
+Subsequent prompts: same shape, next block letter. If a session must end mid-block:
+"commit what builds, report state, stop."
+
+---
+
+## 8. Deferred (record, don't build)
+- Shared-location-key crypto (single ciphertext + key wrapping) — only if guardian
+  fanout ever hurts (it won't at ≤5).
+- Geofence alerts ("left school zone"), Wi-Fi RTT ranging, BLE beacons.
+- Server push "trail-stale" richer policies (per-guardian thresholds).
+- Copied-poll text + T12 list-bubble reactions (pre-existing T5 notes, unchanged).
+- iOS. Desktop remains out per project rules.
+
+## 9. Next planning session — what Ivan uploads
+1. `PROJECT_MEMORY.md` (as updated by Claude Code — board + changelog tell me where
+   Trail stands).
+2. `SPEC_T13.md` as committed (with Claude Code's "Implementation notes" appendix —
+   the resolved MATCH EXISTING decisions).
+3. Paste of Claude Code's last stop-and-report output.
+
+`PROJECT_KNOWLEDGE.md` / `PROJECT_INSTRUCTIONS.md` only if they changed. No source
+files needed unless a block gets stuck — then just the files the report names.
+
+---
+
+## Implementation notes (Claude Code)
+
+### Phase 1 Block A — 2026-07-18
+
+**Stale-premise flag (not a MATCH EXISTING marker, but worth recording):** this spec's
+header assumes T5 Phase 2 was parked at "Block C next." Per the repo's own
+`PROJECT_MEMORY.md` (authoritative), T5 Phase 2 was already **complete** (Blocks A–F)
+before this session started — nothing needed parking. Board left as-is; T13 added to
+"In Progress" as P1.
+
+**MATCH EXISTING resolutions:**
+
+1. **Entity file location.** Repo has two conventions: older entities live in
+   `data/model/` (`Message`, `PeerKey`, `Group`, `GroupMember`), newer ones in
+   `data/local/entities/` (`Contact`, `Block`). Matched the newer convention:
+   `TrailPoint`/`TrailUploadState` → `data/local/entities/`.
+2. **DAO file location.** Same split: older DAOs sit directly in `data/local/`
+   (`MessageDao`, `GroupDao`, `PeerKeyDao`), newer ones in `data/local/dao/`
+   (`ContactDao`, `BlockDao`). Matched the newer convention: `TrailDao` →
+   `data/local/dao/`.
+3. **JSON serialization approach.** The app has two JSON idioms: hand-built
+   `JsonObject`s for outbound WS envelopes (`FshuService`, `WebSocketClient`), and
+   `PollParser`'s manual `JsonObject` walk for reading heterogeneous list-item kinds.
+   Neither fits a single fixed-shape point. Used plain Gson data-class mapping
+   instead (`TrailPointCodec`) — Gson omits null fields by default, which already
+   satisfies §2.1's "nullable fields omitted when unavailable" rule with no custom
+   JSON-building code.
+4. **cells/wifi/last storage.** Per §3.5's explicit instruction, stored as JSON-string
+   Room columns (`cellsJson`, `wifiJson`, `lastJson`) rather than embedded/nested
+   Room objects, with `TrailPointMapper.kt` converting to/from the pure
+   `TrailPointData` wire model (itself holding real nested objects, not strings).
+5. **Migration/version numbering.** Repo was at Room schema version 25 (not 24 as
+   `PROJECT_KNOWLEDGE.md`'s "Current State" section states — that doc is a snapshot,
+   `PROJECT_MEMORY.md`/`AppDatabase.kt` are authoritative). Bumped to 26.
+
+**Deliberately deferred to later blocks (not built now):** upload-queue / mark-
+uploaded DAO methods, watermark consumption logic, event-receiver wiring, the
+`ev` enum (kept as a plain `String` on `TrailPointData` since Block C is what actually
+produces values for it) — all per Block A's stated scope (data model only).
+
+**Verification status:** could not run `./gradlew` (project rule: Claude Code never
+runs Gradle/adb). Migration is additive-only SQL (two `CREATE TABLE IF NOT EXISTS` +
+one unique index, zero edits to existing tables), and the round-trip unit tests pass
+by inspection of the Gson mapping, but "app builds, migration runs on a v25 DB" per
+the Accept criteria needs Ivan's Android Studio build + `./gradlew test` to confirm.
