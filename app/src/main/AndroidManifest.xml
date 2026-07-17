@@ -156,6 +156,11 @@
             android:stopWithTask="false"/>
 
         <service
+            android:name=".service.TrailService"
+            android:foregroundServiceType="location"
+            android:exported="false"/>
+
+        <service
             android:name=".service.FshuFirebaseService"
             android:exported="false">
             <intent-filter>

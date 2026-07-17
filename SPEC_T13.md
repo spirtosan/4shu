@@ -387,8 +387,107 @@ uploaded DAO methods, watermark consumption logic, event-receiver wiring, the
 `ev` enum (kept as a plain `String` on `TrailPointData` since Block C is what actually
 produces values for it) — all per Block A's stated scope (data model only).
 
-**Verification status:** could not run `./gradlew` (project rule: Claude Code never
-runs Gradle/adb). Migration is additive-only SQL (two `CREATE TABLE IF NOT EXISTS` +
-one unique index, zero edits to existing tables), and the round-trip unit tests pass
-by inspection of the Gson mapping, but "app builds, migration runs on a v25 DB" per
-the Accept criteria needs Ivan's Android Studio build + `./gradlew test` to confirm.
+**Verification status (updated 2026-07-18):** Ivan confirms Gradle build SUCCESSFUL
+(52s) — compiles clean, `26.json` schema export generated and committed. Unit tests
+not yet executed (plain build, no test task run). On-device v25→v26 migration
+verification deliberately deferred — Ivan will batch-test all of Phase 1 on the G60s
+after Block E, installing as an UPDATE over the current v25 app, rather than a
+piecemeal per-block device pass. See "Phase 1 device-test checklist" below.
+
+### Phase 1 Block B — 2026-07-18
+
+**MATCH EXISTING resolutions:**
+
+1. **Foreground service + notification pattern.** Matched `FshuService`'s style:
+   `NotificationCompat.Builder(this, CHANNEL_ID).setContentTitle(...).setContentText(...)
+   .setSmallIcon(R.drawable.ic_notification).setOngoing(true)`, channel created via
+   `getSystemService(NotificationManager::class.java).createNotificationChannel(...)`
+   at `IMPORTANCE_LOW` (mirrors `FshuService`'s own `CHANNEL_ID = "fshu_fg"` channel,
+   used for its own persistent "service running" notification — the closest existing
+   analog to Trail's "collecting" notification). New channel: `fshu_trail`.
+2. **Own service, not folded into `FshuService`.** §3.1 names `TrailService` as its
+   own service with a dedicated channel. Considered T7 Block B's precedent (adding
+   `mediaProjection` to `FshuService`'s existing multi-type foreground service instead
+   of a separate `ScreenCaptureService`) but did not extend that pattern here — T7's
+   reuse was specifically because screen-share is tied to an active call already
+   running inside `FshuService`/`CallViewModel`; Trail is an independent, long-running
+   collector with its own lifecycle, unrelated to calls or the WS connection. Matches
+   the spec's explicit naming, not T7's reuse decision.
+3. **Location provider — deliberate non-match.** The existing location code
+   (`util/LocationHelper.kt`, used by location-sharing/emergency-location) uses
+   `LocationServices.getFusedLocationProviderClient` (Google Play Services). SPEC_T13.md
+   §0 non-goal #3 explicitly forbids Play Services APIs for Trail v1. Used platform
+   `android.location.LocationManager` instead (`LocationManager.FUSED_PROVIDER` on
+   API 31+, `GPS_PROVIDER`+`NETWORK_PROVIDER` fallback below it, `PASSIVE_PROVIDER`
+   always-on) — a deliberate deviation from the app's usual location convention, per
+   the spec overriding it for this feature specifically.
+4. **`getSystemService` style.** Matched the `getSystemService(Foo::class.java)` form
+   used throughout `FshuService`/`SettingsFragment`/`ChatActivity`, not the older
+   `getSystemService(Context.X_SERVICE) as Foo` cast style.
+5. **Debug-only start toggle.** Matched `CallActivity`'s T7 Block D precedent
+   (`BuildConfig.DEBUG`-gated long-press on an existing, gesture-free view; a "TEMP —
+   remove at Block [x]" comment marking it for deletion once the real UI lands).
+   Placed on `SettingsFragment`'s `tvVersion` line (already present, no existing
+   gesture) rather than adding new UI ahead of Block D's real consent screen.
+6. **Manifest permissions.** No new `<uses-permission>` entries — `ACCESS_FINE_LOCATION`,
+   `ACCESS_COARSE_LOCATION`, `FOREGROUND_SERVICE_LOCATION`, `FOREGROUND_SERVICE` were
+   already declared (added for the existing location-sharing feature). The debug
+   toggle's runtime grant reuses the same permission pair `PermissionSetupActivity`
+   already requests at onboarding step 3 ("Allow Location", skippable) — if that was
+   skipped, the toggle requests it itself via `RequestMultiplePermissions` before
+   starting the service.
+7. **`ACCESS_BACKGROUND_LOCATION` deliberately not requested yet.** A foreground
+   service actively showing a notification is treated as "foreground" for location
+   delivery on every supported API level (26–34) — not required for Block B's fix
+   pipeline. Real background-location UX is explicitly Block D's staged walkthrough
+   (§3.6).
+
+**Deliberately deferred to later blocks (not built now):** battery/mock-elsewhere/
+cell/wifi/event enrichment beyond the bare fix fields (Block C); `BOOT_COMPLETED`
+restart + battery-optimization-exemption request for `TrailService` itself (§3.1
+lists these, but they belong with the real always-on, consent-driven service in
+Block D — the debug toggle is manually started per test session, not meant to survive
+reboots); PANIC state (Block J); the real staged consent/permission UI (Block D) —
+Block B reuses the existing onboarding location-permission step plus its own debug
+toggle only.
+
+**Sampling constants chosen (spec gives bands, not exact numbers):** MOVING interval
+3 min (of the 2–5 min band), STILL heartbeat 20 min (of the 15–30 min band), STILL
+entry radius 100 m / 3 consecutive fixes / 20 min timeout, STILL exit radius 150 m —
+all exactly the values named in §3.3, no invented numbers.
+
+**Verification status:** could not run Gradle/adb (project rule). Provider
+registration/deregistration and state transitions are logged (`Log.i`, tag
+`TrailService`) specifically so the G60 batch test (below) can confirm STILL
+provably drops GPS/FUSED registration, per the block's Accept criterion.
+
+---
+
+## Phase 1 device-test checklist (batch test, on the G60s, after Block E)
+
+Seeded by Block A and Block B; each later block appends its own subsection below.
+
+### Block A
+- [x] App builds (Gradle) — confirmed by Ivan, SUCCESSFUL (52s), 2026-07-18.
+- [ ] `./gradlew test` passes (`TrailPointCodecTest`, `TrailPointMapperTest`).
+- [ ] Migration 25→26 runs cleanly installing as an UPDATE over a v25 app — no data
+      loss on existing tables (messages/contacts/groups/etc. still intact after).
+
+### Block B
+- [ ] Long-press the version line in Settings (debug build): grants location
+      permission if missing, then starts `TrailService`.
+- [ ] Persistent low-importance "4shu — location trail active" notification appears
+      while running.
+- [ ] Logcat (`TrailService` tag) shows `provider registered: fused ...` (or the
+      `gps`/`network` fallback below API 31) and `provider registered: passive` on start.
+- [ ] Walking around for several minutes produces MOVING fixes in `trail_points`
+      (`mot='moving'`, non-null lat/lon) roughly every ~3 min.
+- [ ] Leaving the phone stationary (~20 min, or 3 consecutive fixes within 100 m)
+      triggers STILL: logcat shows `state -> STILL` and `provider unregistered:
+      fused/gps/network`, confirming GPS/FUSED registration is provably gone.
+- [ ] While STILL, `trail_points` still gets occasional heartbeat rows via `network`
+      — no `gps`/`fused`-provider rows land during this window.
+- [ ] Walking away from the STILL anchor flips back to MOVING (logcat `-> MOVING`),
+      via either the passive->150 m check or the significant-motion sensor firing.
+- [ ] Long-press again stops the service; notification clears; logcat shows all
+      providers unregistered.

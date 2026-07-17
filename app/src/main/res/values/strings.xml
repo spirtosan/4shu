@@ -288,6 +288,9 @@
     <string name="notif_channel_messages_desc">Incoming message notifications</string>
     <string name="notif_channel_calls">Calls</string>
     <string name="notif_channel_groups">Groups</string>
+    <string name="notif_channel_trail">Location trail</string>
+    <string name="notif_trail_title">4shu — Trail</string>
+    <string name="notif_trail_text">4shu — location trail active</string>
     <string name="connection_test_testing_with">Testing with %s</string>
     <string name="connection_test_peer_label">Server → %s</string>
     <string name="permission_step_indicator">Step %1$d of %2$d</string>

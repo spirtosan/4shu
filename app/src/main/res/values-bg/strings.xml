@@ -273,6 +273,9 @@
     <string name="notif_channel_messages">Съобщения</string>
     <string name="notif_channel_messages_desc">Известия за входящи съобщения</string>
     <string name="notif_channel_calls">Повиквания</string>
+    <string name="notif_channel_trail">Проследяване на местоположение</string>
+    <string name="notif_trail_title">4shu — Проследяване</string>
+    <string name="notif_trail_text">4shu — проследяването на местоположение е активно</string>
     <string name="connection_test_testing_with">Тест с %s</string>
     <string name="connection_test_peer_label">Сървър → %s</string>
     <string name="permission_step_indicator">Стъпка %1$d от %2$d</string>
