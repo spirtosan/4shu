@@ -19,8 +19,8 @@ secret.key
 *.db
 *.db-shm
 *.db-wal
-avatars/
-files/
+/avatars/
+/files/
 *.bak
 *.bak*
 
