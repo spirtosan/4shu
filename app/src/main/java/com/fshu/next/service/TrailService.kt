@@ -252,39 +252,63 @@ class TrailService : Service() {
         Log.i(TAG, "provider unregistered: fused/gps/network (entering STILL, no GPS while stationary)")
         registerStillHeartbeat()
         registerSignificantMotion()
-        Log.i(TAG, "state -> STILL anchor=(${anchorFix.latitude},${anchorFix.longitude})")
+        // B.1.3: log the anchor's own accuracy -- a timeout-path entry with no
+        // candidate anchor ever set falls back to the triggering fix as-is, which may
+        // be coarse; this makes that visible on-device rather than silent.
+        val accStr = if (anchorFix.hasAccuracy()) "${anchorFix.accuracy}m" else "?"
+        Log.i(TAG, "state -> STILL anchor=(${anchorFix.latitude},${anchorFix.longitude}) acc=$accStr")
     }
 
     private fun evaluateStillEntry(location: Location) {
-        // B.1.2: a fix may only drive this state decision if its own reported accuracy
-        // is smaller than the radius it's tested against -- a coarse network/cell fix
-        // (accuracy commonly 300-1500 m with Wi-Fi off) landing "300 m away" from a
-        // phone that hasn't moved would otherwise thrash the anchor AND reset the
-        // 20-min timeout, via B.1's newly passive-fed zero-throttle path (pre-B.1 this
-        // branch only ever saw GPS-accurate active MOVING fixes, so the blindness was
-        // latent). Ignored entirely for state purposes if missing/too coarse -- this
-        // makes the 20-min timeout the workhorse in coarse-only environments, which is
-        // its job. Persistence (recordFix/isDuplicateFix) is untouched by this: locked
-        // decision 7 (collect maximally) governs storage, this governs transitions only.
-        if (!location.hasAccuracy() || location.accuracy > STILL_ENTRY_RADIUS_M) return
-
         val now = System.currentTimeMillis()
-        val candidate = stillCandidateAnchor
-        if (candidate == null || location.distanceTo(candidate) > STILL_ENTRY_RADIUS_M) {
-            stillCandidateAnchor = location
-            stillCandidateCount = 1
-            lastCountedFixTs = now
-            lastSignificantMotionTs = now
-        } else if (now - lastCountedFixTs >= STILL_ENTRY_MIN_SPACING_MS) {
-            // B.1.1: within radius, but only count it if it's spaced out from the last
-            // counted fix -- a burst of zero-throttle passive deliveries within the
-            // radius must not satisfy "3 consecutive" in seconds. Doesn't touch
-            // lastSignificantMotionTs: staying within the anchor radius isn't motion.
-            stillCandidateCount++
-            lastCountedFixTs = now
+
+        // B.1.2: a fix may only drive the anchor/count/lastSignificantMotionTs
+        // bookkeeping below if its own reported accuracy is smaller than the radius
+        // it's tested against -- a coarse network/cell fix (accuracy commonly
+        // 300-1500 m with Wi-Fi off) landing "300 m away" from a phone that hasn't
+        // moved would otherwise thrash the anchor AND reset the 20-min timeout, via
+        // B.1's newly passive-fed zero-throttle path (pre-B.1 this branch only ever
+        // saw GPS-accurate active MOVING fixes, so the blindness was latent).
+        // B.1.3: this gate must NOT also block the timedOut check below (it did in the
+        // original B.1.2 patch, which early-returned the whole function) -- the
+        // timeout is delivery-driven with no other call site, so in a coarse-only
+        // environment nothing would ever reach it and STILL entry would become
+        // impossible, GPS sampling forever -- the exact failure B.1.2 was trying to
+        // prevent. See SPEC_T13.md's Block B.1.3 addendum. Persistence
+        // (recordFix/isDuplicateFix) is untouched by any of this: locked decision 7
+        // (collect maximally) governs storage, this function governs transitions only.
+        if (location.hasAccuracy() && location.accuracy <= STILL_ENTRY_RADIUS_M) {
+            val candidate = stillCandidateAnchor
+            if (candidate == null || location.distanceTo(candidate) > STILL_ENTRY_RADIUS_M) {
+                stillCandidateAnchor = location
+                stillCandidateCount = 1
+                lastCountedFixTs = now
+                lastSignificantMotionTs = now
+            } else if (now - lastCountedFixTs >= STILL_ENTRY_MIN_SPACING_MS) {
+                // B.1.1: within radius, but only count it if it's spaced out from the last
+                // counted fix -- a burst of zero-throttle passive deliveries within the
+                // radius must not satisfy "3 consecutive" in seconds. Doesn't touch
+                // lastSignificantMotionTs: staying within the anchor radius isn't motion.
+                stillCandidateCount++
+                lastCountedFixTs = now
+            }
         }
+
+        // B.1.3: runs on EVERY delivery, coarse or fine, gate above or not -- the
+        // 20-min no-motion timeout is §3.3's OR'd fallback criterion specifically for
+        // when the 3-consecutive-fixes count can't be satisfied (e.g. an all-coarse
+        // window where the block above never fires).
         val timedOut = now - lastSignificantMotionTs >= STILL_ENTRY_TIMEOUT_MS
         if (stillCandidateCount >= STILL_ENTRY_FIX_COUNT || timedOut) {
+            // B.1.3: if the timeout fired with no candidate anchor ever set (an
+            // all-coarse window, no fix ever cleared the accuracy gate above), anchor
+            // STILL at this triggering fix -- honest about possibly being coarse (up to
+            // ~1 km off) rather than reaching for a stale pre-reset position from before
+            // whatever put us back in MOVING last (startup or a genuine STILL exit,
+            // neither of which makes an old position more trustworthy than a fresh
+            // coarse one). Location.accuracy travels with the anchor either way, so
+            // downstream consumers (the STILL-exit distance test, logs) can still see
+            // it's coarse rather than silently treating it as precise.
             enterStill(stillCandidateAnchor ?: location)
         }
     }

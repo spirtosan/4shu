@@ -1006,6 +1006,15 @@ stored, this block governs transitions only, per instruction.
    fix ever clears the bar), the 20-min `STILL_ENTRY_TIMEOUT_MS` timeout becomes the
    sole path into STILL — which is exactly its designed job as the OR'd fallback
    criterion in §3.3, not a gap being papered over.
+   **CORRECTED in Block B.1.3 below (found before Ivan's build):** this paragraph is
+   wrong about the timeout actually firing. The accuracy gate was written as an
+   early-`return` at the very top of the whole function, and the `timedOut` check sat
+   *after* it in the same function with no other call site — so in exactly the
+   coarse-only environment this paragraph describes as the timeout's moment to shine,
+   the gate returns before the timeout check is ever reached, and STILL entry becomes
+   permanently unreachable instead. See Block B.1.3's addendum for the fix
+   (restructured so the gate gates only the anchor/count bookkeeping, not the timeout
+   check) — left un-rewritten here per the standing don't-rewrite-history rule.
 2. Symmetrically, the pre-existing STILL-exit check in `passiveListener` (the >150 m
    `STILL_EXIT_RADIUS_M` test) now also requires
    `location.hasAccuracy() && location.accuracy <= STILL_EXIT_RADIUS_M` before it can
@@ -1037,6 +1046,85 @@ stationary... triggers STILL" and "walking away... flips back to MOVING" items a
 cover the affected paths; a coarse-environment (Wi-Fi off, cellular-only) pass isn't
 separately scripted here, left to Ivan's judgment on whether it's worth a dedicated
 test given the G60s' typical test conditions.
+
+### Block B.1.3 — timeout path made unreachable by B.1.2's gate — 2026-07-19
+
+**Finding, confirmed by reading the code before touching anything.** B.1.2's accuracy
+gate was written as `if (!location.hasAccuracy() || location.accuracy >
+STILL_ENTRY_RADIUS_M) return` at the very top of `evaluateStillEntry()`. The `timedOut`
+check (`now - lastSignificantMotionTs >= STILL_ENTRY_TIMEOUT_MS`) sits at the *bottom*
+of that same function, with no other call site anywhere in `TrailService`. The
+function only ever runs when a location is delivered — so the timeout is
+delivery-driven, not a standing timer. Put together: in exactly the environment
+B.1.2's own notes named as the timeout's moment to shine — stationary phone, Wi-Fi
+off, every delivered fix coarse (network/cell, accuracy > 100 m) — B.1.2's gate
+returns on *every single delivery* before the `timedOut` line is ever reached. The
+20-min no-motion fallback criterion, §3.3's OR'd second path into STILL, became
+permanently unreachable in that scenario: `stillCandidateCount` can't climb (gated
+out) and `timedOut` never gets evaluated (gated out even harder, before its own line
+runs) — STILL entry becomes impossible and the active/fused provider samples GPS
+indefinitely. The precise battery/trail-longevity failure B.1.2 set out to prevent,
+reintroduced by B.1.2's own fix, in the same breath. The B.1.2 notes' claim above
+("the 20-min timeout becomes the workhorse") is corrected in place with a pointer to
+this section, left un-rewritten per the standing rule.
+
+**Restructure, `TrailService` only:**
+1. The accuracy gate now wraps *only* the anchor/count/`lastSignificantMotionTs`
+   bookkeeping block — B.1.2's correct core (a coarse fix must not thrash the anchor or
+   reset the motion timer) is unchanged, just scoped narrower.
+2. The `timedOut` comparison and the `stillCandidateCount >= STILL_ENTRY_FIX_COUNT ||
+   timedOut` → `enterStill(...)` trigger now run unconditionally on every delivery,
+   coarse or fine, gate above taken or not — restoring §3.3's OR'd fallback to
+   actually reachable in a coarse-only window.
+3. **Anchor question this exposes, decided:** when the timeout fires and
+   `stillCandidateAnchor` is still `null` (an all-coarse window — no fix ever cleared
+   the gate above), what position anchors STILL? Three options were on the table: (a)
+   the triggering (possibly coarse, up to ~1 km off) location itself; (b)
+   `lastFixSnapshot` (the §2.1 event "last fix" snapshot, updated on every *persisted*
+   fix — but persistence is accuracy-agnostic per locked decision 7, so it carries no
+   better a guarantee than option (a), and during a MOVING-state passive-only run
+   (B.1's change 1) it isn't even updated by the triggering delivery at all, since
+   passive fixes aren't persisted while MOVING); (c) a separately tracked
+   "last-fine-fix" field surviving across state resets, falling back to the triggering
+   location if none was ever seen. **Chose (a), the triggering location, unchanged
+   code (`stillCandidateAnchor ?: location`, same expression already there — only its
+   position in the function moved).** Reasoning: `stillCandidateAnchor` is reset to
+   `null` only on `enterMoving()` (initial startup, or a genuine STILL→MOVING exit via
+   the significant-motion sensor or a >150 m passive fix) — in both cases the reset
+   exists *because* we just learned the old position is stale or we don't have one
+   yet, so a separately-tracked pre-reset "last fine fix" (option c) would be reaching
+   for data that's stale for the same reason the reset happened, not obviously better
+   than the freshest fix actually in hand. Option (a) needs no new field, keeps the
+   existing `enterStill(stillCandidateAnchor ?: location)` call site's meaning
+   unchanged (just reachable now), and is honest rather than falsely precise: the
+   `Location` object carries its own `accuracy` regardless of which option is chosen,
+   so the anchor's coarseness is never hidden from downstream consumers (the
+   STILL-exit distance test in `passiveListener`, already accuracy-gated per B.1.2
+   item 2; and now also the `enterStill()` log line itself, which gained an `acc=...m`
+   field this block specifically so a timeout-path, coarse-anchored STILL entry is
+   visible on-device rather than silently indistinguishable from a fine one).
+4. **Known pre-existing envelope, recorded, no code change:** the timeout has been
+   delivery-driven since original Block B shipped it — `evaluateStillEntry()` only
+   runs when *some* provider delivers a location. A true zero-delivery environment
+   (every registered provider fails to resolve at all — no fused/GPS/network fix, no
+   passive echo, nothing) still never times out, because nothing ever calls the
+   function to check the clock. This is not a B.1/B.1.1/B.1.2/B.1.3 regression — it
+   predates all of them — flagged here specifically so a future session doesn't
+   mistake it for one when reviewing this block's diff. Genuinely fixing it (a
+   standing `Handler`/`WorkManager` timer independent of delivery) is out of scope for
+   a micro-block hotfix and not requested.
+5. **New Block B checklist item** (below): with Wi-Fi off (coarse-only fixes) and the
+   phone stationary, logcat should show `state -> STILL` within ~20–25 min via the
+   timeout path — this exact regression class has now been brushed against twice in a
+   row (B.1.2 introduced the gate, B.1.3 fixes the gate blocking its own escape
+   valve), so it gets an explicit on-device check rather than staying implicit.
+
+**Build type: UPDATE, unchanged.** No new permissions, no schema change — pure
+control-flow restructuring inside `evaluateStillEntry()` plus one log-line addition in
+`enterStill()`.
+
+**Verification status:** could not run Gradle/adb (project rule). Needs Ivan's build +
+the new Block B checklist item below.
 
 ---
 
@@ -1083,6 +1171,13 @@ Seeded by Blocks A/B/C; each later block appends its own subsection below.
       occurrence (depends entirely on what other apps happen to be running).
 - [ ] Walking away from the STILL anchor flips back to MOVING (logcat `-> MOVING`),
       via either the passive->150 m check or the significant-motion sensor firing.
+- [ ] **B.1.3:** with Wi-Fi off (so fixes resolve coarse, network/cell-based, accuracy
+      commonly >100 m) and the phone stationary, logcat shows `state -> STILL` within
+      ~20–25 min via the 20-min timeout path (not the 3-consecutive-fix path, which
+      the coarse fixes can't satisfy) — confirms the timeout fallback actually fires
+      in a coarse-only environment rather than being silently gated out. The
+      `state -> STILL anchor=(...) acc=...m` log line's `acc` value will be large
+      (coarse) in this scenario — expected, not a bug (see Block B.1.3 above).
 - [ ] Long-press again stops the service; notification clears; logcat shows all
       providers unregistered.
 
