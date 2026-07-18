@@ -34,7 +34,7 @@ Private, self-hosted, end-to-end encrypted messenger.
   - `versionName 0.1.0-next`, `versionCode 1`
   - `compileSdk 34`, `targetSdk 34`, **`minSdk 26`** ⟵ _policy target is 31; not yet applied (see §4)_
   - Build script: **Groovy** (`build.gradle`, not `.kts`). Language: **Kotlin**.
-- **Room (Android) schema version: 25**
+- **Room (Android) schema version: 26** (as of T13 Block A, 2026-07-18)
   - Entities: `Message, PeerKey, Group, GroupMember, Contact, Block, Mute`
 - **Server:** `/opt/fshu5/` on `192.168.212.105`, port **8083**, systemd **`fshu5`** (active)
   - **Node v20.20.2**, runs `node server.js` directly (no `start` script)
