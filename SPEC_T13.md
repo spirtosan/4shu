@@ -853,11 +853,14 @@ could not be confirmed or ruled out from static code reading alone — the legac
 5-arg `requestLocationUpdates(provider, minTimeMs, minDistanceM, listener, looper)`
 overload used here doesn't request batching explicitly, but OEM location stacks can
 still deliver batched callbacks through it. Handled defensively per instruction
-(item 4 below) rather than asserted as the live mechanism; the on-device
-`dup suppressed: prov=...` logcat line (device-test checklist, Block B) is what will
-tell us empirically whether any suppressed row's `prov` pattern looks like batching
-(many suppressions from the *same* listener back-to-back) versus the confirmed
-passive-echo mechanism (alternating `fused`/`passive`).
+(item 4 below) rather than asserted as the live mechanism.
+**Corrected in B.1.1 (see below):** the original text here claimed the on-device
+`dup suppressed: prov=...` logcat line would let us distinguish passive-echo from
+batching by whether `prov` alternates `fused`/`passive` during MOVING. That's wrong —
+change 1 below filters MOVING-state passive deliveries out *before* they ever reach
+`recordFix()`/the dup guard, so a `prov=passive` suppression during MOVING is
+structurally impossible; the logs can't show what this paragraph claimed. See B.1.1's
+addendum for what the logs actually can show.
 
 **Change, `TrailService` only:**
 1. **MOVING:** `passiveListener` deliveries now feed only `evaluateStillEntry()` (the
@@ -897,7 +900,78 @@ logic change inside `TrailService`.
 
 **Verification status:** could not run Gradle/adb (project rule). Needs Ivan's build +
 the updated Block B device-test checklist items above (single row per ~3-min MOVING
-mark, `dup suppressed` logcat line present).
+mark; `dup suppressed` logcat lines are opportunistic during STILL, not expected
+during MOVING — see B.1.1 below).
+
+### Block B.1.1 — review-finding addendum — 2026-07-19
+
+Two findings raised against B.1 (`1f4eab2`) before Ivan's build, both actioned here.
+
+**Finding 1 — STILL-entry feed rate (patched).** B.1 change 1 routes MOVING-state
+`passiveListener` deliveries into `evaluateStillEntry()` (the §3.3 "3 consecutive
+fixes within 100 m" STILL-entry logic). Read `evaluateStillEntry()` before touching
+anything: it had **no minimum time spacing** between fixes that advance
+`stillCandidateCount` — any delivery landing within `STILL_ENTRY_RADIUS_M` (100 m) of
+the current candidate anchor counted, regardless of how quickly it arrived. §3.3's "3
+consecutive fixes" criterion was implicitly calibrated to the ~3-min active MOVING
+cadence (the only source that fed it pre-B.1); B.1 newly feeds it from
+`PASSIVE_PROVIDER`, which runs at zero throttle (`minTimeMs=0`/`minDistanceM=0` — as
+often as any app on the phone requests location, easily ~1/s with a nav app running).
+Confirmed exploitable: a car stopped at a red light with a navigation app active could
+land 3 passive fixes within 100 m in a few seconds, satisfying the criterion and
+flipping MOVING→STILL mid-drive — which unregisters the active/fused provider exactly
+while the vehicle is (mostly) still moving. **Fixed, spacing approach (not the pure
+no-op fallback — the structure stayed clean, no need to fall back):** new companion
+constant `STILL_ENTRY_MIN_SPACING_MS = 60_000L` (60 s, comment-tagged B.1.1) and a new
+field `lastCountedFixTs`, distinct from the pre-existing `lastSignificantMotionTs`
+(which drives the independent "20 min without motion" timeout criterion and is
+deliberately untouched by this — staying within the anchor radius isn't "significant
+motion" either way). `evaluateStillEntry()`'s within-radius branch now only increments
+`stillCandidateCount` (and advances `lastCountedFixTs`) if at least
+`STILL_ENTRY_MIN_SPACING_MS` has passed since the last counted fix; a within-radius
+fix arriving sooner is silently ignored for counting purposes (not a reset — the
+candidate anchor and count are untouched). The ~3-min active MOVING cadence clears 60 s
+trivially, so this doesn't change STILL-entry behavior for the pre-B.1 active-fix-only
+path at all — it only throttles the newly-added zero-throttle passive path down to a
+sane sampling rate for this specific criterion. `enterMoving()` resets
+`lastCountedFixTs` alongside the pre-existing anchor/count/`lastSignificantMotionTs`
+resets, for cleanliness (not strictly required — `stillCandidateAnchor == null` alone
+already forces the reset branch on the next call).
+
+**Finding 2 — checklist/notes contradiction (docs-only, certain).** B.1's own change 1
+filters MOVING-state `passiveListener` deliveries out *before* they ever reach
+`recordFix()`/`isDuplicateFix()` — silently, by design (that's the whole point of the
+change: MOVING passive feeds the state machine only, never persists). That means a
+`dup suppressed: prov=passive ...` line **cannot** appear during MOVING on a correctly
+working build — B.1's own checklist item claiming these lines should appear "while
+walking/at each MOVING fix" was self-contradicting its own change 1, and the
+accompanying implementation-notes claim that suppression-log `prov` patterns could
+distinguish passive-echo from batching *during MOVING* is wrong for the identical
+reason (there's no passive-echo path left to observe there). **What the logs actually
+can show, corrected:** during **STILL**, a `prov=passive` suppression is a real,
+expected-but-opportunistic signal — the heartbeat's own persisted fix plus a
+coincident third-party app request landing within 10 m/5 s of it, exactly the
+passive-echo mechanism this hotfix targets, still live in that state. During
+**MOVING**, any suppression that *does* appear can only come from the active
+`fixListener` path itself — either a batched `onLocationChanged(List<Location>)`
+delivery (item 4 of B.1) or, on a below-31 device, the dual GPS+NETWORK registration
+landing two fixes close together — and would show `prov=fused`/`gps`/`network`, never
+`prov=passive`. So: zero suppression lines while walking on the G60s (API 31,
+FUSED_PROVIDER-only) is the **correct, expected** result, not a sign B.1 isn't
+running; occasional `prov=passive` lines during STILL are a bonus confirmation when
+they happen to occur. Checklist reworded above (MOVING item now states the
+no-lines-expected fact explicitly; the dup-suppressed check moved to a new
+opportunistic bullet under STILL). The B.1 implementation-notes paragraph making the
+wrong claim is corrected in place above with a pointer to this addendum, left
+un-rewritten rather than silently deleted, per the standing don't-rewrite-history rule.
+
+**Build type: UPDATE, unchanged.** No new permissions, no schema change — pure logic
+addition (one constant, one field) plus docs.
+
+**Verification status:** could not run Gradle/adb (project rule). Needs Ivan's build;
+the reworded Block B checklist above is what confirms both findings on-device (no
+false STILL flip while briefly stopped with another location app running; no
+dup-suppressed lines while walking, some possible while STILL).
 
 ---
 
@@ -927,16 +1001,21 @@ Seeded by Blocks A/B/C; each later block appends its own subsection below.
       `gps`/`network` fallback below API 31) and `provider registered: passive` on start.
 - [ ] Walking around for several minutes produces MOVING fixes in `trail_points`
       (`mot='moving'`, non-null lat/lon) — **exactly one row per ~3-min mark** (not
-      2–6, per the B.1 dup-suppression hotfix — see Block B.1 below).
-- [ ] Logcat (`TrailService` tag) shows `dup suppressed: prov=... d=...m dt=...ms`
-      lines while walking/at each MOVING fix (the FUSED_PROVIDER fix's own
-      PASSIVE_PROVIDER echo, and any other app's coincident request, being
-      suppressed) — confirms B.1 is actually firing on-device, not just compiling.
+      2–6, per the B.1 dup-suppression hotfix — see Block B.1 below). **`dup
+      suppressed` logcat lines are NOT expected here** — B.1.1 confirmed
+      MOVING-state passive deliveries are filtered out *before* they ever reach the
+      dup guard (they feed only the STILL-entry state machine, per B.1 change 1), so
+      their absence while walking is correct and does not mean B.1 isn't working. A
+      line *would* be notable here (see Block B.1.1 below for what it'd mean).
 - [ ] Leaving the phone stationary (~20 min, or 3 consecutive fixes within 100 m)
       triggers STILL: logcat shows `state -> STILL` and `provider unregistered:
       fused/gps/network`, confirming GPS/FUSED registration is provably gone.
 - [ ] While STILL, `trail_points` still gets occasional heartbeat rows via `network`
       — no `gps`/`fused`-provider rows land during this window.
+- [ ] **(opportunistic)** While STILL, if another app on the phone requests location
+      around the same time as a heartbeat, logcat may show a `dup suppressed:
+      prov=passive d=...m dt=...ms` line — a deduplicated bonus point, not a required
+      occurrence (depends entirely on what other apps happen to be running).
 - [ ] Walking away from the STILL anchor flips back to MOVING (logcat `-> MOVING`),
       via either the passive->150 m check or the significant-motion sensor firing.
 - [ ] Long-press again stops the service; notification clears; logcat shows all

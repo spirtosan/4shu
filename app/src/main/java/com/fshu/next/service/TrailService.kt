@@ -85,6 +85,11 @@ class TrailService : Service() {
     private var stillCandidateCount = 0
     private var lastSignificantMotionTs = 0L
 
+    // B.1.1: last fix that actually advanced stillCandidateCount -- see
+    // STILL_ENTRY_MIN_SPACING_MS. Distinct from lastSignificantMotionTs (which tracks
+    // the anchor-reset/20-min-timeout criterion, untouched by this).
+    private var lastCountedFixTs = 0L
+
     // STILL exit: TYPE_SIGNIFICANT_MOTION fires, or a passive fix lands outside
     // STILL_EXIT_RADIUS_M of the anchor (§3.3). anchor is the position STILL was entered at.
     private var anchor: Location? = null
@@ -124,6 +129,17 @@ class TrailService : Service() {
         private const val STILL_ENTRY_FIX_COUNT = 3
         private const val STILL_ENTRY_TIMEOUT_MS = 20 * 60 * 1000L
         private const val STILL_EXIT_RADIUS_M = 150f
+
+        // B.1.1: §3.3's "3 consecutive fixes within 100 m" was implicitly calibrated to
+        // the ~3-min active MOVING cadence. B.1 now also feeds MOVING-state passive
+        // deliveries (zero-throttle, ~1/s while e.g. a nav app runs) into this same
+        // consecutive-count logic -- without a floor, 3 passive fixes within 100 m can
+        // land in seconds (a car stopped at a red light with a nav app running),
+        // falsely satisfying the criterion and flipping MOVING->STILL mid-drive
+        // (unregistering the active/fused provider). A fix only advances the count if
+        // at least this long after the last counted fix; anchor-reset and the
+        // independent 20-min-no-motion timeout are unaffected.
+        private const val STILL_ENTRY_MIN_SPACING_MS = 60_000L
 
         // B.1: near-duplicate persist guard. PASSIVE_PROVIDER is registered at zero
         // throttle (0ms/0m) and echoes every location delivered to ANY registered
@@ -222,6 +238,7 @@ class TrailService : Service() {
         stillCandidateAnchor = null
         stillCandidateCount = 0
         lastSignificantMotionTs = System.currentTimeMillis()
+        lastCountedFixTs = 0L
         registerActiveProviders(MOVING_INTERVAL_MS)
         Log.i(TAG, "state -> MOVING")
     }
@@ -239,15 +256,22 @@ class TrailService : Service() {
     }
 
     private fun evaluateStillEntry(location: Location) {
+        val now = System.currentTimeMillis()
         val candidate = stillCandidateAnchor
         if (candidate == null || location.distanceTo(candidate) > STILL_ENTRY_RADIUS_M) {
             stillCandidateAnchor = location
             stillCandidateCount = 1
-            lastSignificantMotionTs = System.currentTimeMillis()
-        } else {
+            lastCountedFixTs = now
+            lastSignificantMotionTs = now
+        } else if (now - lastCountedFixTs >= STILL_ENTRY_MIN_SPACING_MS) {
+            // B.1.1: within radius, but only count it if it's spaced out from the last
+            // counted fix -- a burst of zero-throttle passive deliveries within the
+            // radius must not satisfy "3 consecutive" in seconds. Doesn't touch
+            // lastSignificantMotionTs: staying within the anchor radius isn't motion.
             stillCandidateCount++
+            lastCountedFixTs = now
         }
-        val timedOut = System.currentTimeMillis() - lastSignificantMotionTs >= STILL_ENTRY_TIMEOUT_MS
+        val timedOut = now - lastSignificantMotionTs >= STILL_ENTRY_TIMEOUT_MS
         if (stillCandidateCount >= STILL_ENTRY_FIX_COUNT || timedOut) {
             enterStill(stillCandidateAnchor ?: location)
         }
