@@ -70,12 +70,29 @@ class TrailSettingsActivity : AppCompatActivity() {
         }
 
         binding.btnAddGuardian.setOnClickListener { showGuardianPicker() }
+
+        binding.rowViewTrail.setOnClickListener {
+            startActivity(Intent(this, TrailViewerActivity::class.java))
+        }
     }
 
     override fun onResume() {
         super.onResume()
         binding.switchTrailEnabled.isChecked = Prefs.isTrailEnabled(this)
         refreshStatusSection()
+        refreshViewTrailRow()
+    }
+
+    // Block E: "View my trail" stays visible whenever Trail is enabled, or points
+    // still exist locally (e.g. left over from a prior debug/collection session).
+    private fun refreshViewTrailRow() {
+        lifecycleScope.launch(Dispatchers.IO) {
+            val hasPoints = db.trailDao().getCount() > 0
+            withContext(Dispatchers.Main) {
+                binding.cardViewTrail.visibility =
+                    if (Prefs.isTrailEnabled(this@TrailSettingsActivity) || hasPoints) View.VISIBLE else View.GONE
+            }
+        }
     }
 
     private fun enableTrail() {
@@ -107,6 +124,7 @@ class TrailSettingsActivity : AppCompatActivity() {
             withContext(Dispatchers.Main) {
                 Toast.makeText(this@TrailSettingsActivity, getString(R.string.toast_trail_disabled), Toast.LENGTH_SHORT).show()
                 refreshStatusSection()
+                refreshViewTrailRow()
             }
         }
     }

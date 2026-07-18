@@ -151,6 +151,10 @@
             android:exported="false"/>
 
         <activity
+            android:name=".ui.trail.TrailViewerActivity"
+            android:exported="false"/>
+
+        <activity
             android:name=".ui.MessagePopupActivity"
             android:showOnLockScreen="true"
             android:showWhenLocked="true"

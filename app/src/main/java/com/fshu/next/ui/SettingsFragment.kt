@@ -51,6 +51,8 @@ import com.fshu.next.util.Prefs
 import com.fshu.next.ui.BackgroundBottomSheet
 import com.fshu.next.ui.ConnectionTestSheet
 import com.fshu.next.ui.ThemeManager
+import com.fshu.next.trail.TrailPointCodec
+import com.fshu.next.trail.toData
 import com.google.gson.JsonObject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
@@ -639,6 +641,15 @@ class SettingsFragment : Fragment() {
                     groupArray.put(grpObj)
                 }
                 exportObj.put("groups", groupArray)
+
+                // T13 Block E: trail export (§7 "GDPR export... append the full trail as
+                // wire-format JSON via TrailPointCodec"). Same TrailPointCodec used for the
+                // trail-batch wire format — each point serialized exactly as it would be sent.
+                val trailArray = org.json.JSONArray()
+                for (trailPoint in db.trailDao().getAll()) {
+                    trailArray.put(org.json.JSONObject(TrailPointCodec.toJson(trailPoint.toData())))
+                }
+                exportObj.put("trail", trailArray)
 
                 val fileName = "fshu_export_${me}_${
                     SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())}.json"

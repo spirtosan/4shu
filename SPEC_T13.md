@@ -627,6 +627,89 @@ same open item.
 **Verification status:** could not run Gradle/adb (project rule). Needs Ivan's build +
 the device-test checklist below.
 
+### Phase 1 Block E — 2026-07-18
+
+**MATCH EXISTING resolutions:**
+
+1. **Grouped RecyclerView list — matched `MediaGalleryActivity` (T8), the app's only
+   existing precedent for a day-grouped list.** Same shape: a sealed `TrailItem`
+   class (`Header`/`Fix`/`Event`, mirroring `GalleryItem.Header`/`Image`), an
+   `Int`-keyed `getItemViewType`, and the identical Today/Yesterday/`"MMMM yyyy"`
+   day-label helper (`buildTrailItems`/`sameDay`, copied verbatim from
+   `buildGalleryItems`/`sameDay`). Day grouping was "cheap" exactly per the block's
+   own instruction — no new idiom invented. Day headers reuse `item_media_header.xml`
+   directly (a generic bold/secondary-colored `TextView` row, not gallery-specific in
+   practice) rather than duplicating an identical layout under a `trail`-prefixed name.
+2. **Fix vs. event rows — visually distinct via new `item_trail_fix.xml` /
+   `item_trail_event.xml`,** not a shared row with a type flag: fixes show
+   `ic_location` (already brand-colored via its own hardcoded `?attr/colorPrimary`
+   fill) with primary/secondary text in the normal text colors; events show a new
+   `ic_event.xml` (Material "info" glyph, `@color/color_star` amber fill — the same
+   semantic amber already used for favorites/stars) with bold amber primary text.
+   Both rows keep the existing `item_trail_guardian.xml`-style 56dp-ish row shape and
+   a trailing `ic_chevron_right` (already used elsewhere, e.g. Trail settings' own
+   rows) to signal tappability into the detail sheet.
+3. **Detail sheet — `BottomSheetDialogFragment`, matching `ConnectionTestSheet`**
+   (the app's only existing bottom-sheet detail screen), not a new full-screen
+   `Activity`. Point data crosses the fragment-args boundary as a `TrailPointCodec`
+   JSON string (`TrailPointData` isn't `Parcelable`; re-using the wire codec for
+   this avoids adding parcelization to a Block A model whose whole point was staying
+   wire-shape-only) rather than a DB row id — no new `TrailDao.getById` needed either.
+   Field rows render dynamically into a plain `LinearLayout` (`item_trail_detail_row.xml`,
+   a two-column label/value row) rather than a `RecyclerView` — the sheet's *rows*
+   aren't the "RecyclerView convention" the instruction meant (that's the outer list,
+   §1 above); a fixed, short, per-point field set has no need for a recycler.
+4. **Nullable fields omitted, not shown as placeholders.** Matches §2.1's own "nullable
+   fields omitted when unavailable" philosophy: a row is only added if its value is
+   non-null (helper `row(labelRes, value)` no-ops on `null`), so a STILL heartbeat
+   with no cell signal simply shows fewer rows rather than a wall of "—" placeholders.
+   Exception: `trail_value_none`/`trail_value_yes`/`trail_value_no` strings exist for
+   the few fields (mock, connected-AP SSID) where a present-but-empty value is itself
+   meaningful and worth spelling out.
+5. **Raw JSON view — `org.json`, not a new Gson-pretty-print idiom.** First pass used
+   `GsonBuilder().setPrettyPrinting()`; switched to
+   `org.json.JSONObject(TrailPointCodec.toJson(point)).toString(2)` to match
+   `SettingsFragment.performLocalExport`'s existing `exportObj.toString(2)`
+   pretty-print convention (the file this same block also edits, for the GDPR export)
+   rather than introducing a second JSON-formatting idiom for one screen. "Only if
+   cheap" per instruction — this is a one-line call behind a toggle button, using the
+   same `TrailPointCodec` already required for the wire format.
+6. **Copy-to-clipboard — matched `ChatActivity`'s pattern** (`getSystemService(ClipboardManager::class.java)`
+   + `ClipData.newPlainText(...)` + reused `R.string.toast_copied`), the app's only
+   existing clipboard-copy precedent, for the raw-JSON "Copy" button.
+7. **"View my trail" entry placement — new row in `TrailSettingsActivity`,** not a
+   separate Settings-root entry point. Per instruction ("visible when Trail is enabled
+   or points exist"), it's a `MaterialCardView` row matching the screen's existing
+   toggle-row visual language, gone by default and shown by a DB point-count check
+   (`TrailDao.getCount()`) OR'd with `Prefs.isTrailEnabled` — covers the edge case of
+   leftover points from a prior debug/collection session with Trail currently off.
+8. **Wipe action — same confirm + `TrailDao.deleteAll()` as `TrailSettingsActivity`'s
+   disable flow, deliberately not calling `stopService`/`Prefs.setTrailEnabled(false)`**
+   (per instruction: "without disabling Trail") — lives in `TrailViewerActivity`'s
+   toolbar overflow menu (`menu_trail_viewer.xml`, matching `MediaViewerActivity`'s
+   `onCreateOptionsMenu`/`R.menu.*` convention) rather than in Trail settings itself,
+   since wiping while browsing the trail is the natural place for it.
+9. **GDPR export — trail lands as a new top-level `"trail"` array in the same export
+   JSON object `SettingsFragment.performLocalExport` already builds**, alongside the
+   existing `"conversations"`/`"groups"` keys, inserted right after `"groups"` is set
+   and before the file is written. Each element is `TrailPointCodec.toJson(point)`
+   parsed back through `org.json.JSONObject` (so it nests as real JSON, not an escaped
+   string) — the exact wire shape per §2.1, not a bespoke export-only shape.
+10. **Shared label-mapping helper (`TrailLabels.kt`), not duplicated logic.** The
+    viewer's list-row rendering and the detail sheet both need the same §2.1
+    enum-to-readable-string mappings (event names, motion, network, provider, cell
+    type/signal). Factored into one `object TrailLabels` in `ui/trail` rather than two
+    private copies — avoids the kind of drift that bit `PollParser`'s multi-site "Todo
+    list" label bug (T5 Block D.1, see Changelog) if one copy were fixed and the other
+    missed later.
+
+**Deliberately deferred (not built now):** map view of the trail (§7 Block E's own
+note: "map reuse deferred to Block K"); anything guardian-facing (grant/accept wire,
+guardian trail viewer) — Phase 2/3, unrelated to this device's own local viewer.
+
+**Verification status:** could not run Gradle/adb (project rule). Needs Ivan's build +
+the device-test checklist below (Block E subsection appended).
+
 ---
 
 ## Phase 1 device-test checklist (batch test, on the G60s, after Block E)
@@ -720,3 +803,32 @@ Seeded by Blocks A/B/C; each later block appends its own subsection below.
 - [ ] Confirm the batch test installed this build as an UPDATE over the v25 app (new
       `ACCESS_BACKGROUND_LOCATION` permission; per the amended `CLAUDE.md` build-type
       rule, resolved 2026-07-18 — same as Blocks A/C, all UPDATE-installable now).
+
+### Block E
+- [ ] With Trail enabled and at least a few points collected, "View my trail" appears
+      in Trail settings and opens `TrailViewerActivity` showing real points, most
+      recent first, grouped under Today/Yesterday/month-year day headers.
+- [ ] With Trail disabled and zero points, "View my trail" is hidden.
+- [ ] Fix rows (location icon) and event rows (amber info icon + bold amber label,
+      e.g. "Airplane mode turned on") are visually distinct at a glance in the same
+      list, in correct chronological position relative to each other.
+- [ ] Tapping any fix row opens the detail sheet showing: formatted time, lat/lon,
+      accuracy, speed/bearing when present, provider, mock-location flag, motion state,
+      battery %/charging, network type, serving cell + cell count when a SIM is
+      present, connected Wi-Fi SSID/BSSID + networks-seen count when Wi-Fi is on —
+      fields genuinely absent on that point (e.g. no cells indoors-only test) are
+      simply not shown, not blank/placeholder rows.
+- [ ] Tapping any event row opens the detail sheet showing the same enrichment plus
+      the human-readable event name and the "last known position" snapshot line.
+- [ ] "Show raw JSON" reveals a pretty-printed JSON block matching the point's actual
+      fields; "Copy" puts it on the clipboard (paste into another app to confirm) and
+      shows the existing "Copied" toast.
+- [ ] Trail viewer's overflow menu → "Wipe trail" shows a confirm dialog; confirming
+      empties `trail_points` and the list reverts to the empty state — but Trail stays
+      enabled (toggle still on in Trail settings, service notification still present,
+      new points start accumulating again without re-enabling anything).
+- [ ] Cancelling the wipe dialog leaves all existing points untouched.
+- [ ] Settings → Export my data (GDPR) produces a JSON file containing a top-level
+      `"trail"` array with one object per locally stored trail point, each shaped like
+      the §2.1 wire format (spot-check a few `seq`/`ts`/`kind` values against what the
+      viewer shows for the same points).

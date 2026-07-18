@@ -15,6 +15,10 @@ interface TrailDao {
     @Query("SELECT * FROM trail_points ORDER BY seq ASC")
     suspend fun getAll(): List<TrailPoint>
 
+    /** T13 Block E — my-trail viewer (§7 Phase 1 Block E): reverse-chronological. */
+    @Query("SELECT * FROM trail_points ORDER BY seq DESC")
+    suspend fun getAllDesc(): List<TrailPoint>
+
     @Query("SELECT * FROM trail_points WHERE seq > :sinceSeq ORDER BY seq ASC")
     suspend fun getSince(sinceSeq: Long): List<TrailPoint>
 
