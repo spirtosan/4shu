@@ -1,10 +1,15 @@
 package com.fshu.next.service
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
+import android.content.pm.PackageManager
 import android.hardware.Sensor
 import android.hardware.SensorManager
 import android.hardware.TriggerEvent
@@ -12,15 +17,31 @@ import android.hardware.TriggerEventListener
 import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
+import android.net.wifi.WifiInfo as AndroidWifiInfo
+import android.net.wifi.WifiManager
+import android.os.BatteryManager
 import android.os.Build
 import android.os.IBinder
 import android.os.Looper
+import android.telephony.CellInfo as TelephonyCellInfo
+import android.telephony.CellInfoGsm
+import android.telephony.CellInfoLte
+import android.telephony.CellInfoNr
+import android.telephony.CellInfoWcdma
+import android.telephony.TelephonyManager
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import com.fshu.next.R
 import com.fshu.next.data.local.AppDatabase
+import com.fshu.next.trail.CellInfo
+import com.fshu.next.trail.LastFix
 import com.fshu.next.trail.TrailPointData
 import com.fshu.next.trail.TrailPointKind
+import com.fshu.next.trail.WifiAp
+import com.fshu.next.trail.WifiInfo
 import com.fshu.next.trail.toEntity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -30,12 +51,13 @@ import kotlinx.coroutines.launch
 import java.util.concurrent.atomic.AtomicLong
 
 /**
- * SPEC_T13.md §3.1–§3.3 (Phase 1 Block B). Foreground service that runs the
- * MOVING/STILL sampling state machine and writes fixes straight to Room via
- * [com.fshu.next.data.local.dao.TrailDao]. No enrichment (battery/cells/wifi/events —
- * Block C), no upload/E2E (Phase 3), no real consent UI (Block D) — this block wires
- * the collection mechanics only. Start/stop is a BuildConfig.DEBUG-only hook in
- * SettingsFragment until Block D's real toggle exists.
+ * SPEC_T13.md §2.1, §3.1–§3.4 (Phase 1 Blocks B+C). Foreground service that runs the
+ * MOVING/STILL sampling state machine, enriches every written point with battery/net/
+ * cells/wifi (§3.4), emits event points for system broadcasts (§2.1's `ev` set, minus
+ * boot/svc_restart — deferred to Block D), and writes straight to Room via
+ * [com.fshu.next.data.local.dao.TrailDao]. No upload/E2E (Phase 3), no real consent UI
+ * (Block D) — this block wires collection + enrichment mechanics only. Start/stop is a
+ * BuildConfig.DEBUG-only hook in SettingsFragment until Block D's real toggle exists.
  */
 class TrailService : Service() {
 
@@ -63,6 +85,14 @@ class TrailService : Service() {
 
     private var activeProviders = mutableSetOf<String>()
 
+    // §2.1 event "last" snapshot — the most recent fix, updated on every fix (MOVING,
+    // STILL heartbeat, or passive), read by event points regardless of source.
+    @Volatile private var lastFixSnapshot: LastFix? = null
+
+    // Dedupe PROVIDERS_CHANGED_ACTION (fires per-provider) down to real loc_on/loc_off
+    // aggregate transitions only.
+    private var lastLocationEnabled: Boolean? = null
+
     companion object {
         private const val TAG = "TrailService"
         private const val CHANNEL_ID = "fshu_trail"
@@ -83,6 +113,7 @@ class TrailService : Service() {
         super.onCreate()
         isRunning = true
         createNotificationChannel()
+        registerSystemEventReceiver()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -104,6 +135,7 @@ class TrailService : Service() {
         try { locationManager.removeUpdates(fixListener) } catch (e: Exception) { Log.w(TAG, "removeUpdates(fixListener): ${e.message}") }
         try { locationManager.removeUpdates(passiveListener) } catch (e: Exception) { Log.w(TAG, "removeUpdates(passiveListener): ${e.message}") }
         unregisterSignificantMotion()
+        try { unregisterReceiver(systemEventReceiver) } catch (e: Exception) { Log.w(TAG, "unregisterReceiver(systemEventReceiver): ${e.message}") }
         Log.i(TAG, "provider unregistered: all (service destroyed)")
         scope.cancel()
     }
@@ -232,7 +264,10 @@ class TrailService : Service() {
     }
 
     private val fixListener = LocationListener { location ->
-        recordFix(location)
+        // Only a real MOVING active fix (fused/gps) may trigger an opportunistic wifi
+        // scan (§3.4) — the STILL network heartbeat reuses this same listener but must
+        // not fight the scan throttle just because it shares the callback.
+        recordFix(location, triggerWifiScan = motionState == MotionState.MOVING)
         if (motionState == MotionState.MOVING) evaluateStillEntry(location)
     }
 
@@ -245,28 +280,56 @@ class TrailService : Service() {
         }
     }
 
-    // --- point construction (§2.1 fix fields only — enrichment is Block C) ---
+    // --- point construction ---
 
-    private fun recordFix(location: Location, providerOverride: String? = null) {
+    private fun recordFix(location: Location, providerOverride: String? = null, triggerWifiScan: Boolean = false) {
         val seq = fixSeq.incrementAndGet()
+        val (battPct, charging) = readBattery()
+        val ts = if (location.time > 0) location.time else System.currentTimeMillis()
+        val acc = if (location.hasAccuracy()) location.accuracy.toDouble() else null
         val point = TrailPointData(
             seq = seq,
             kind = TrailPointKind.FIX,
-            ts = if (location.time > 0) location.time else System.currentTimeMillis(),
+            ts = ts,
             lat = location.latitude,
             lon = location.longitude,
-            acc = if (location.hasAccuracy()) location.accuracy.toDouble() else null,
+            acc = acc,
             alt = if (location.hasAltitude()) location.altitude else null,
             spd = if (location.hasSpeed()) location.speed.toDouble() else null,
             brg = if (location.hasBearing()) location.bearing.toDouble() else null,
             prov = providerOverride ?: location.provider,
             mock = isMockLocation(location),
-            mot = if (motionState == MotionState.MOVING) "moving" else "still"
+            mot = if (motionState == MotionState.MOVING) "moving" else "still",
+            batt = battPct,
+            chg = charging,
+            net = readNetType(),
+            cells = readCells(),
+            wifi = readWifi(triggerScan = triggerWifiScan)
         )
+        lastFixSnapshot = LastFix(lat = location.latitude, lon = location.longitude, acc = acc ?: 0.0, ts = ts)
+        persist(point)
+    }
+
+    private fun recordEvent(ev: String) {
+        val seq = fixSeq.incrementAndGet()
+        val (battPct, charging) = readBattery()
+        val point = TrailPointData(
+            seq = seq,
+            kind = TrailPointKind.EVENT,
+            ts = System.currentTimeMillis(),
+            ev = ev,
+            batt = battPct,
+            chg = charging,
+            last = lastFixSnapshot
+        )
+        persist(point)
+    }
+
+    private fun persist(point: TrailPointData) {
         scope.launch {
             try {
                 db.trailDao().insert(point.toEntity())
-                Log.d(TAG, "fix seq=$seq prov=${point.prov} mot=${point.mot} acc=${point.acc}")
+                Log.d(TAG, "point seq=${point.seq} kind=${point.kind} ev=${point.ev ?: "-"} prov=${point.prov ?: "-"} mot=${point.mot ?: "-"}")
             } catch (e: Exception) {
                 Log.w(TAG, "insert failed: ${e.message}")
             }
@@ -276,4 +339,222 @@ class TrailService : Service() {
     private fun isMockLocation(location: Location): Boolean =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) location.isMock
         else @Suppress("DEPRECATION") location.isFromMockProvider
+
+    // --- enrichment collectors (§3.4) ---
+
+    /** Peeks the sticky ACTION_BATTERY_CHANGED intent — no persistent receiver needed. */
+    private fun readBattery(): Pair<Int?, Boolean?> {
+        val sticky = registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED)) ?: return null to null
+        val level = sticky.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
+        val scale = sticky.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
+        val pct = if (level >= 0 && scale > 0) (level * 100 / scale) else null
+        val status = sticky.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
+        val charging = if (status >= 0)
+            (status == BatteryManager.BATTERY_STATUS_CHARGING || status == BatteryManager.BATTERY_STATUS_FULL)
+        else null
+        return pct to charging
+    }
+
+    private fun readNetType(): String? {
+        val cm = getSystemService(ConnectivityManager::class.java) ?: return null
+        val network = cm.activeNetwork ?: return "offline"
+        val caps = cm.getNetworkCapabilities(network) ?: return "offline"
+        return when {
+            caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> "wifi"
+            caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> "cell"
+            else -> null
+        }
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun readCells(): List<CellInfo>? {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) return null
+        val tm = getSystemService(TelephonyManager::class.java) ?: return null
+        return try {
+            tm.allCellInfo?.mapNotNull { mapCellInfo(it) }?.takeIf { it.isNotEmpty() }
+        } catch (e: Exception) {
+            Log.w(TAG, "getAllCellInfo failed: ${e.message}")
+            null
+        }
+    }
+
+    // §2.1: t/mcc/mnc/tac/ci/pci/sig/reg. WCDMA/GSM's lac/psc map onto the tac/pci
+    // slots (same semantic role, different radio-generation name). CDMA and any future
+    // unknown subtype are out of scope (spec names LTE/NR/WCDMA/GSM only) — skipped.
+    private fun mapCellInfo(info: TelephonyCellInfo): CellInfo? {
+        val registered = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q)
+            info.cellConnectionStatus == TelephonyCellInfo.CONNECTION_PRIMARY_SERVING
+        else @Suppress("DEPRECATION") info.isRegistered
+
+        return when (info) {
+            is CellInfoLte -> {
+                val id = info.cellIdentity
+                val ss = info.cellSignalStrength
+                CellInfo(
+                    t = "lte",
+                    mcc = compatMccMnc({ id.mccString }, { id.mcc }),
+                    mnc = compatMccMnc({ id.mncString }, { id.mnc }),
+                    tac = id.tac.takeIf { it != TelephonyCellInfo.UNAVAILABLE },
+                    ci = id.ci.takeIf { it != TelephonyCellInfo.UNAVAILABLE }?.toLong(),
+                    pci = id.pci.takeIf { it != TelephonyCellInfo.UNAVAILABLE },
+                    sig = ss.rsrp.takeIf { it != TelephonyCellInfo.UNAVAILABLE },
+                    reg = registered
+                )
+            }
+            is CellInfoNr -> {
+                val id = info.cellIdentity
+                val ss = info.cellSignalStrength
+                CellInfo(
+                    t = "nr",
+                    mcc = id.mccString?.toIntOrNull(),
+                    mnc = id.mncString?.toIntOrNull(),
+                    tac = id.tac.takeIf { it != TelephonyCellInfo.UNAVAILABLE },
+                    ci = id.nci.takeIf { it != TelephonyCellInfo.UNAVAILABLE_LONG },
+                    pci = id.pci.takeIf { it != TelephonyCellInfo.UNAVAILABLE },
+                    sig = ss.ssRsrp.takeIf { it != TelephonyCellInfo.UNAVAILABLE },
+                    reg = registered
+                )
+            }
+            is CellInfoWcdma -> {
+                val id = info.cellIdentity
+                val ss = info.cellSignalStrength
+                CellInfo(
+                    t = "wcdma",
+                    mcc = compatMccMnc({ id.mccString }, { id.mcc }),
+                    mnc = compatMccMnc({ id.mncString }, { id.mnc }),
+                    tac = id.lac.takeIf { it != TelephonyCellInfo.UNAVAILABLE },
+                    ci = id.cid.takeIf { it != TelephonyCellInfo.UNAVAILABLE }?.toLong(),
+                    pci = id.psc.takeIf { it != TelephonyCellInfo.UNAVAILABLE },
+                    sig = ss.dbm.takeIf { it != TelephonyCellInfo.UNAVAILABLE },
+                    reg = registered
+                )
+            }
+            is CellInfoGsm -> {
+                val id = info.cellIdentity
+                val ss = info.cellSignalStrength
+                CellInfo(
+                    t = "gsm",
+                    mcc = compatMccMnc({ id.mccString }, { id.mcc }),
+                    mnc = compatMccMnc({ id.mncString }, { id.mnc }),
+                    tac = id.lac.takeIf { it != TelephonyCellInfo.UNAVAILABLE },
+                    ci = id.cid.takeIf { it != TelephonyCellInfo.UNAVAILABLE }?.toLong(),
+                    pci = null,
+                    sig = ss.dbm.takeIf { it != TelephonyCellInfo.UNAVAILABLE },
+                    reg = registered
+                )
+            }
+            else -> null
+        }
+    }
+
+    /** mcc/mnc String getters need API 28+ (calling them below that throws NoSuchMethodError
+     *  at runtime, not just returns null) — the legacy int getter is the only safe path below P. */
+    @Suppress("DEPRECATION")
+    private fun compatMccMnc(stringGetter: () -> String?, legacyIntGetter: () -> Int): Int? =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) stringGetter()?.toIntOrNull()
+        else legacyIntGetter().takeIf { it != TelephonyCellInfo.UNAVAILABLE }
+
+    @SuppressLint("MissingPermission")
+    private fun readWifi(triggerScan: Boolean): WifiInfo? {
+        if (triggerScan) triggerOpportunisticScan()
+        val conn = readConnectedWifiAp()
+        val scan = readWifiScanCache().takeIf { it.isNotEmpty() }
+        return if (conn == null && scan == null) null else WifiInfo(conn = conn, scan = scan)
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun readConnectedWifiAp(): WifiAp? {
+        val info: AndroidWifiInfo? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val cm = getSystemService(ConnectivityManager::class.java) ?: return null
+            val network = cm.activeNetwork ?: return null
+            val caps = cm.getNetworkCapabilities(network) ?: return null
+            if (!caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) return null
+            caps.transportInfo as? AndroidWifiInfo
+        } else {
+            val wm = getSystemService(WifiManager::class.java) ?: return null
+            @Suppress("DEPRECATION") wm.connectionInfo
+        } ?: return null
+
+        // "02:00:00:00:00:00" is the randomized placeholder Android returns when the
+        // caller isn't allowed to see the real BSSID — treat as unavailable, not real.
+        val bssid = info.bssid?.takeIf { it.isNotBlank() && it != "02:00:00:00:00:00" } ?: return null
+        val ssid = info.ssid?.removeSurrounding("\"")
+            ?.takeIf { it.isNotBlank() && it != WifiManager.UNKNOWN_SSID }
+        return WifiAp(b = bssid, s = ssid, r = info.rssi, f = info.frequency)
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun triggerOpportunisticScan() {
+        val wm = getSystemService(WifiManager::class.java) ?: return
+        try {
+            @Suppress("DEPRECATION") wm.startScan()
+            Log.d(TAG, "wifi scan triggered (opportunistic, MOVING point)")
+        } catch (e: Exception) {
+            Log.w(TAG, "wifi startScan failed: ${e.message}")
+        }
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun readWifiScanCache(): List<WifiAp> {
+        val wm = getSystemService(WifiManager::class.java) ?: return emptyList()
+        return try {
+            @Suppress("DEPRECATION")
+            wm.scanResults.mapNotNull { sr ->
+                val bssid = sr.BSSID?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+                WifiAp(b = bssid, s = sr.SSID?.takeIf { it.isNotBlank() }, r = sr.level, f = sr.frequency)
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "wifi scanResults read failed: ${e.message}")
+            emptyList()
+        }
+    }
+
+    // --- events (§2.1 ev set, minus boot/svc_restart — deferred to Block D) ---
+
+    private fun registerSystemEventReceiver() {
+        lastLocationEnabled = isLocationEnabledCompat()
+        val filter = IntentFilter().apply {
+            addAction(Intent.ACTION_AIRPLANE_MODE_CHANGED)
+            addAction(LocationManager.PROVIDERS_CHANGED_ACTION)
+            @Suppress("DEPRECATION") addAction(TelephonyManager.ACTION_SIM_STATE_CHANGED)
+            addAction(Intent.ACTION_BATTERY_LOW)
+            addAction(Intent.ACTION_BATTERY_OKAY)
+            addAction(Intent.ACTION_POWER_CONNECTED)
+            addAction(Intent.ACTION_POWER_DISCONNECTED)
+            addAction(Intent.ACTION_SHUTDOWN)
+        }
+        registerReceiver(systemEventReceiver, filter)
+    }
+
+    private fun isLocationEnabledCompat(): Boolean =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) locationManager.isLocationEnabled
+        else locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) ||
+             locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
+
+    private val systemEventReceiver = object : BroadcastReceiver() {
+        @Suppress("DEPRECATION")
+        override fun onReceive(context: Context, intent: Intent) {
+            val ev = when (intent.action) {
+                Intent.ACTION_AIRPLANE_MODE_CHANGED ->
+                    if (intent.getBooleanExtra("state", false)) "airplane_on" else "airplane_off"
+                LocationManager.PROVIDERS_CHANGED_ACTION -> {
+                    val enabled = isLocationEnabledCompat()
+                    val prev = lastLocationEnabled
+                    lastLocationEnabled = enabled
+                    // PROVIDERS_CHANGED fires per-provider — only emit on a real aggregate flip.
+                    if (prev == enabled) return
+                    if (enabled) "loc_on" else "loc_off"
+                }
+                TelephonyManager.ACTION_SIM_STATE_CHANGED -> "sim_changed"
+                Intent.ACTION_BATTERY_LOW -> "batt_low"
+                Intent.ACTION_BATTERY_OKAY -> "batt_okay"
+                Intent.ACTION_POWER_CONNECTED -> "charge_on"
+                Intent.ACTION_POWER_DISCONNECTED -> "charge_off"
+                Intent.ACTION_SHUTDOWN -> "shutdown"
+                else -> return
+            }
+            Log.i(TAG, "system event: $ev")
+            recordEvent(ev)
+        }
+    }
 }

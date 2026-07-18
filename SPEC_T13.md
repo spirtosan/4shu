@@ -456,16 +456,84 @@ toggle only.
 entry radius 100 m / 3 consecutive fixes / 20 min timeout, STILL exit radius 150 m —
 all exactly the values named in §3.3, no invented numbers.
 
-**Verification status:** could not run Gradle/adb (project rule). Provider
-registration/deregistration and state transitions are logged (`Log.i`, tag
-`TrailService`) specifically so the G60 batch test (below) can confirm STILL
-provably drops GPS/FUSED registration, per the block's Accept criterion.
+**Verification status (updated 2026-07-18):** Ivan confirms Gradle build SUCCESSFUL
+(30s). Unit tests still not run; device verification remains deferred to the
+end-of-Phase-1 batch test (same deferral as Block A). Provider registration/
+deregistration and state transitions are logged (`Log.i`, tag `TrailService`)
+specifically so that batch test can confirm STILL provably drops GPS/FUSED
+registration, per the block's Accept criterion.
+
+### Phase 1 Block C — 2026-07-18
+
+**MATCH EXISTING resolutions:**
+
+1. **Battery read — sticky-peek, not a live receiver.** `context.registerReceiver(null,
+   IntentFilter(ACTION_BATTERY_CHANGED))` returns the cached sticky intent synchronously
+   with no persistent receiver needed — the simplest correct idiom for "read battery
+   right now," called fresh at every point (fix or event) rather than cached on a
+   receiver-driven field.
+2. **Net type — synchronous read, not `FshuService`'s `NetworkCallback` pattern.**
+   `FshuService.registerNetworkCallback` (§3.1's neighbor in the codebase) is
+   event-driven (reconnect-on-change), which fits its job but not this one — Trail
+   needs "what's the transport right now, at this exact point," a one-shot
+   `ConnectivityManager.getNetworkCapabilities(activeNetwork)` read, not a standing
+   callback. Different problem shape, deliberately not reused.
+3. **Cell/wifi framework APIs — first use in the codebase**, no existing convention to
+   match. `TelephonyManager.getAllCellInfo()` gated on the same `ACCESS_FINE_LOCATION`
+   check already used for the location providers (§3.4: "needs fine location," no
+   `READ_PHONE_STATE` requested — would need its own runtime-consent story, out of
+   scope for a still-no-consent-UI block). Wifi connected-AP read follows the
+   API-31-transportInfo/legacy-connectionInfo split the spec itself specifies (§3.4),
+   there being no pre-31 vs 31+ precedent elsewhere in the app to match.
+4. **Naming collisions with `com.fshu.next.trail`'s own models.** `android.net.wifi.
+   WifiInfo` and `android.telephony.CellInfo` collide by name with our own
+   `trail.WifiInfo`/`trail.CellInfo` data classes (Block A). Aliased the Android types
+   on import (`... as AndroidWifiInfo`, `... as TelephonyCellInfo`) rather than fully
+   qualifying every reference or renaming our own Block A models — keeps the wire-model
+   names matching §2.1 exactly, which is the more load-bearing constraint.
+5. **Event receivers — dynamic registration, matching `ChatActivity`'s
+   `screenOnReceiver` pattern** (`registerReceiver(receiver, IntentFilter(...))` /
+   `unregisterReceiver(...)` tied to a lifecycle, no manifest `<receiver>` entries, no
+   explicit `RECEIVER_EXPORTED`/`RECEIVER_NOT_EXPORTED` flag) — the only existing
+   dynamic-receiver precedent in the app. All eight actions here are system-protected
+   broadcasts (can't be spoofed by a third-party app), the same category as
+   `ACTION_SCREEN_ON` in that precedent, so the unflagged 2-arg form was matched
+   as-is rather than introducing a new pattern.
+6. **`sim_changed` uses the deprecated `TelephonyManager.ACTION_SIM_STATE_CHANGED`,
+   not the newer `ACTION_SIMCARD_STATE_CHANGED`.** The replacement is `@SystemApi`
+   and requires `READ_PRIVILEGED_PHONE_STATE` (platform/carrier-signed only, not
+   obtainable by this app). The deprecated constant is still a public, non-hidden
+   field and the broadcast still fires for third-party dynamic receivers — the only
+   actually usable option here, deprecation notwithstanding.
+
+**Deliberate spec extension (flagging, not a MATCH EXISTING item):** the original
+§2.1 `ev` enum lists only `batt_low`, not a paired "back to normal" event. This
+session's instruction explicitly asked for both `ACTION_BATTERY_LOW` **and**
+`ACTION_BATTERY_OKAY`, so a new event value `batt_okay` was added — safe because
+Block A deliberately kept `ev` as a plain `String` (not a closed Kotlin enum) for
+exactly this kind of forward-compatible extension. `SPEC_T13.md` §2.1's own text
+should be considered amended to include `batt_okay` in the `ev` set alongside
+`batt_low`.
+
+**Deliberately deferred to later blocks (not built now):** `boot`/`svc_restart`
+events — explicitly out of scope this block per instruction, since the restart
+machinery those events describe lands in Block D; upload/E2E fan-out of any of this
+(Phase 3); PANIC-state accuracy/cadence overrides (Block J); real consent UI (Block D).
+
+**New permission: `CHANGE_WIFI_STATE`** (manifest), required for `WifiManager.
+startScan()`'s opportunistic-scan trigger. Per `CLAUDE.md`'s build-type rule, this
+makes Block C's install a **REINSTALL**, not the UPDATE that sufficed for Blocks A/B.
+
+**Verification status:** could not run Gradle/adb (project rule). Cell/wifi/battery/
+net reads all fail closed (return `null`/omit the field) on any exception or missing
+permission rather than crashing the service — consistent with §2.1's "nullable fields
+omitted when unavailable." Needs Ivan's build + the device-test checklist below.
 
 ---
 
 ## Phase 1 device-test checklist (batch test, on the G60s, after Block E)
 
-Seeded by Block A and Block B; each later block appends its own subsection below.
+Seeded by Blocks A/B/C; each later block appends its own subsection below.
 
 ### Block A
 - [x] App builds (Gradle) — confirmed by Ivan, SUCCESSFUL (52s), 2026-07-18.
@@ -491,3 +559,25 @@ Seeded by Block A and Block B; each later block appends its own subsection below
       via either the passive->150 m check or the significant-motion sensor firing.
 - [ ] Long-press again stops the service; notification clears; logcat shows all
       providers unregistered.
+
+### Block C
+- [ ] Rows in `trail_points` (fixes and STILL heartbeats alike) show non-null
+      `batt`/`chg` matching the phone's actual battery state at the time.
+- [ ] `net` reads `wifi` on Wi-Fi, `cell` on mobile data, `offline`/null with both off.
+- [ ] `cells` is populated on rows taken with a SIM inserted and cell signal present
+      (check `t`/`sig`/`reg` at minimum; `mcc`/`mnc` should match the home carrier).
+- [ ] `wifi.conn` is populated while connected to a known AP (bssid/ssid/rssi/freq
+      look sane); `wifi.scan` has entries when other networks are in range.
+- [ ] Logcat shows `wifi scan triggered (opportunistic, MOVING point)` at most once
+      per MOVING point, never during STILL heartbeats or passive fixes.
+- [ ] STILL heartbeat rows carry the same batt/net/cells/wifi enrichment as MOVING
+      fixes — enrichment isn't dropped just because GPS is off.
+- [ ] Toggling airplane mode on then off produces a paired `airplane_on`/`airplane_off`
+      event row each, both carrying a `last` snapshot and `batt`/`chg`.
+- [ ] Toggling location services off/on produces one `loc_off` and one `loc_on` event
+      each (not one per individual provider — confirm no duplicate spam).
+- [ ] Plugging in / unplugging the charger produces `charge_on`/`charge_off` events.
+- [ ] Ejecting/reinserting the SIM (or toggling airplane mode, which also flips SIM
+      readiness on some OEMs) produces a `sim_changed` event.
+- [ ] `PROJECT_MEMORY.md`/spec note the new `CHANGE_WIFI_STATE` permission — confirm
+      this install was a REINSTALL, not an UPDATE over a pre-Block-C build.
