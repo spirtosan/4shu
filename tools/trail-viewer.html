@@ -1,0 +1,937 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>4shu Trail Viewer (dev tool)</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+  :root {
+    --blue: #2563eb;
+    --amber: #f59e0b;
+    --green: #16a34a;
+    --red: #dc2626;
+    --bg: #f4f5f7;
+    --panel: #ffffff;
+    --border: #d9dce1;
+    --text: #1f2430;
+    --text-dim: #666e7d;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font-family: -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    display: flex;
+    flex-direction: column;
+  }
+  header {
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    padding: 8px 12px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    z-index: 20;
+  }
+  header h1 {
+    font-size: 15px;
+    margin: 0 8px 0 0;
+    white-space: nowrap;
+  }
+  header h1 small {
+    display: block;
+    font-weight: normal;
+    font-size: 10px;
+    color: var(--text-dim);
+  }
+  .ctl-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text-dim);
+    border-left: 1px solid var(--border);
+    padding-left: 10px;
+  }
+  .ctl-group:first-of-type { border-left: none; padding-left: 0; }
+  button, .file-btn {
+    font-size: 12px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: #fff;
+    cursor: pointer;
+  }
+  button.primary { background: var(--blue); color: #fff; border-color: var(--blue); }
+  button:hover { filter: brightness(0.97); }
+  input[type="date"], input[type="number"] {
+    font-size: 12px;
+    padding: 4px 6px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+  }
+  input[type="number"] { width: 60px; }
+  #summary { font-size: 12px; color: var(--text-dim); margin-left: auto; white-space: nowrap; }
+  #status { font-size: 12px; padding: 4px 10px; }
+  #status.error { color: var(--red); }
+  main {
+    flex: 1;
+    display: flex;
+    min-height: 0;
+  }
+  #mapPane {
+    flex: 1 1 62%;
+    position: relative;
+    min-width: 0;
+  }
+  #map { width: 100%; height: 100%; background: #dde3ea; }
+  #legend {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    z-index: 500;
+    background: rgba(255,255,255,0.95);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-size: 11px;
+    line-height: 1.7;
+    box-shadow: 0 1px 4px rgba(0,0,0,.15);
+  }
+  #legend .sw { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
+  #emptyMapHint {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 13px;
+    pointer-events: none;
+    z-index: 400;
+  }
+  #timelinePane {
+    flex: 0 0 38%;
+    max-width: 460px;
+    display: flex;
+    flex-direction: column;
+    border-left: 1px solid var(--border);
+    background: var(--panel);
+    min-width: 260px;
+  }
+  #timelineHead {
+    padding: 6px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-dim);
+  }
+  #timelineViewport {
+    flex: 1;
+    overflow-y: auto;
+    position: relative;
+  }
+  #timelineSpacer { position: relative; }
+  #timelineContent { position: absolute; top: 0; left: 0; right: 0; }
+  .tl-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 10px;
+    font-size: 12px;
+    cursor: pointer;
+    border-bottom: 1px solid #eef0f3;
+    white-space: nowrap;
+    overflow: hidden;
+  }
+  .tl-row.tl-header {
+    cursor: default;
+    background: #f0f2f5;
+    font-weight: 600;
+    color: var(--text-dim);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+  }
+  .tl-row.tl-fix:hover, .tl-row.tl-event:hover { background: #f7f9fc; }
+  .tl-row.selected { background: #dbeafe !important; }
+  .tl-icon { flex: 0 0 auto; width: 14px; text-align: center; }
+  .tl-icon-fix { color: var(--blue); }
+  .tl-icon-event { color: var(--amber); font-weight: bold; }
+  .tl-time { flex: 0 0 auto; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+  .tl-label { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; }
+  .tl-event .tl-label { color: #92400e; font-weight: 600; }
+
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(20,22,28,0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+  }
+  .overlay.hidden { display: none; }
+  .panel {
+    background: #fff;
+    border-radius: 10px;
+    max-width: 560px;
+    width: 92%;
+    max-height: 84vh;
+    overflow-y: auto;
+    box-shadow: 0 8px 30px rgba(0,0,0,.3);
+  }
+  .panel-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    background: #fff;
+  }
+  .panel-head h2 { font-size: 15px; margin: 0; }
+  .panel-body { padding: 12px 16px; }
+  .close-x { border: none; background: none; font-size: 18px; cursor: pointer; color: var(--text-dim); }
+
+  .detail-row { display: flex; padding: 5px 0; border-bottom: 1px solid #f0f1f3; font-size: 13px; }
+  .detail-row .lbl { flex: 0 0 150px; color: var(--text-dim); }
+  .detail-row .val { flex: 1; word-break: break-word; }
+  #rawJsonBox { display: none; margin-top: 10px; }
+  #rawJsonBox pre {
+    background: #1e222b;
+    color: #d6deeb;
+    padding: 10px;
+    border-radius: 6px;
+    font-size: 11px;
+    overflow-x: auto;
+    max-height: 240px;
+  }
+  #rawJsonBox .rjbtns { margin-top: 6px; display: flex; gap: 6px; }
+
+  .stat-section { margin-bottom: 16px; }
+  .stat-section h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .03em; color: var(--text-dim); margin: 0 0 6px; }
+  table.stat-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  table.stat-table td { padding: 3px 4px; border-bottom: 1px solid #f0f1f3; }
+  table.stat-table td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+  .ok { color: var(--green); font-weight: 600; }
+  .warn { color: var(--red); font-weight: 600; }
+  .gap-list { font-size: 12px; max-height: 140px; overflow-y: auto; }
+  .gap-list div { padding: 3px 0; border-bottom: 1px solid #f0f1f3; }
+
+  #dropOverlay {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    background: rgba(37,99,235,0.15);
+    border: 4px dashed var(--blue);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    color: var(--blue);
+    font-weight: 600;
+    pointer-events: none;
+  }
+  #dropOverlay.hidden { display: none; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>4shu Trail Viewer <small>dev tool — not a product surface · data stays in your browser</small></h1>
+
+  <div class="ctl-group">
+    <label class="file-btn" for="fileInput">Load export / trail JSON…</label>
+    <input id="fileInput" type="file" accept=".json,application/json" style="display:none">
+  </div>
+
+  <div class="ctl-group">
+    <label>From <input id="filterFrom" type="date"></label>
+    <label>To <input id="filterTo" type="date"></label>
+    <button id="btnClearFilter">Clear</button>
+  </div>
+
+  <div class="ctl-group">
+    <label><input id="chkTimeGap" type="checkbox" checked> Break on time gap &gt;</label>
+    <input id="timeGapMin" type="number" min="0" value="60"> min
+  </div>
+
+  <div class="ctl-group">
+    <button id="btnStats">Stats &amp; QA</button>
+    <button id="btnGpx" class="primary">Export GPX</button>
+  </div>
+
+  <div id="summary">No data loaded — try dragging in trail-sample.json</div>
+</header>
+<div id="status"></div>
+
+<main>
+  <div id="mapPane">
+    <div id="map"></div>
+    <div id="emptyMapHint">Load a 4shu GDPR export or a bare trail-point array to begin.<br>Drag &amp; drop a .json file anywhere on this page.</div>
+    <div id="legend">
+      <div><span class="sw" style="background:#2563eb"></span>Fix (click for detail)</div>
+      <div><span class="sw" style="background:#f59e0b"></span>Event with last-known position</div>
+      <div><span class="sw" style="background:#16a34a"></span>Start of trail</div>
+      <div><span class="sw" style="background:#111827"></span>End of trail (most recent)</div>
+      <div style="margin-top:4px;color:#666">Line breaks = seq gap and/or time-gap threshold</div>
+    </div>
+  </div>
+  <div id="timelinePane">
+    <div id="timelineHead">Timeline</div>
+    <div id="timelineViewport">
+      <div id="timelineSpacer">
+        <div id="timelineContent"></div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<div id="detailOverlay" class="overlay hidden">
+  <div class="panel">
+    <div class="panel-head">
+      <h2 id="detailTitle">Trail point</h2>
+      <button class="close-x" data-close="detailOverlay">&times;</button>
+    </div>
+    <div class="panel-body">
+      <div id="detailRows"></div>
+      <button id="btnToggleRaw" style="margin-top:10px">Show raw JSON</button>
+      <div id="rawJsonBox">
+        <pre id="rawJsonText"></pre>
+        <div class="rjbtns">
+          <button id="btnCopyRaw">Copy</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="statsOverlay" class="overlay hidden">
+  <div class="panel">
+    <div class="panel-head">
+      <h2>Stats &amp; QA</h2>
+      <button class="close-x" data-close="statsOverlay">&times;</button>
+    </div>
+    <div class="panel-body" id="statsBody"></div>
+  </div>
+</div>
+
+<div id="dropOverlay" class="hidden">Drop trail JSON to load</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-polylinedecorator@1.6.0/dist/leaflet.polylineDecorator.js"></script>
+<script>
+'use strict';
+
+/* ---------- TrailLabels.kt reimplemented (semantics only, not ported) ---------- */
+const TrailLabels = {
+  provider(prov) {
+    switch (prov) {
+      case 'fused': return 'Fused';
+      case 'gps': return 'GPS';
+      case 'network': return 'Network';
+      case 'passive': return 'Passive';
+      default: return prov ? prov.charAt(0).toUpperCase() + prov.slice(1) : prov;
+    }
+  },
+  motion(mot) {
+    switch (mot) {
+      case 'moving': return 'Moving';
+      case 'still': return 'Still';
+      default: return mot;
+    }
+  },
+  network(net) {
+    switch (net) {
+      case 'wifi': return 'Wi-Fi';
+      case 'cell': return 'Mobile data';
+      case 'offline': return 'Offline';
+      default: return net;
+    }
+  },
+  cell(c) {
+    const type = (c.t || '').toUpperCase();
+    return (c.sig != null) ? `${type} · ${c.sig} dBm` : type;
+  },
+  event(ev) {
+    const map = {
+      shutdown: 'Phone shut down',
+      boot: 'Phone started',
+      airplane_on: 'Airplane mode turned on',
+      airplane_off: 'Airplane mode turned off',
+      loc_on: 'Location services turned on',
+      loc_off: 'Location services turned off',
+      sim_changed: 'SIM card changed',
+      batt_low: 'Battery low',
+      batt_okay: 'Battery back to normal',
+      charge_on: 'Charger connected',
+      charge_off: 'Charger disconnected',
+      svc_restart: 'Trail service restarted',
+    };
+    return map[ev] || ev || 'Event';
+  }
+};
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function pad2(n) { return String(n).padStart(2, '0'); }
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function formatDateTime(ts) {
+  const d = new Date(ts);
+  return `${MONTHS[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()} ${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`;
+}
+function formatTime(ts) {
+  const d = new Date(ts);
+  return `${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`;
+}
+function hasPos(p) { return p && typeof p.lat === 'number' && typeof p.lon === 'number'; }
+
+/* ---------- Loading & parsing (§2.1) ---------- */
+function extractTrailArray(json) {
+  if (Array.isArray(json)) return json;
+  if (json && Array.isArray(json.trail)) return json.trail;
+  throw new Error('Unrecognized file: expected a GDPR export object with a "trail" array, or a bare array of trail points.');
+}
+
+/* ---------- App state ---------- */
+let allPoints = [];       // full loaded set, ts-asc sorted
+let filteredPoints = [];  // after date-range filter, ts-asc sorted
+let currentGaps = [];     // seq gaps over filteredPoints
+let currentSegments = []; // fix-only segments (for map + GPX)
+let timelineEntries = []; // flattened day-grouped rows
+let seqToTimelineIndex = new Map();
+let currentSelectedSeq = null;
+let sourceFileName = '';
+
+const ROW_H = 32;
+
+/* ---------- Map setup ---------- */
+const map = L.map('map', { preferCanvas: true }).setView([42.6977, 23.3219], 6);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom: 19,
+  attribution: '&copy; OpenStreetMap contributors'
+}).addTo(map);
+const canvasRenderer = L.canvas();
+let mapLayerGroup = L.layerGroup().addTo(map);
+
+function dotIcon(color, size, border) {
+  return L.divIcon({
+    className: '',
+    html: `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${color};border:2px solid ${border || '#fff'};box-shadow:0 0 3px rgba(0,0,0,.6)"></div>`,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2]
+  });
+}
+
+function clearMap() {
+  mapLayerGroup.clearLayers();
+}
+
+function renderMap() {
+  clearMap();
+  document.getElementById('emptyMapHint').style.display = filteredPoints.length ? 'none' : 'flex';
+
+  const bounds = [];
+
+  // Segments: polyline + direction arrows + per-fix clickable dots
+  currentSegments.forEach(seg => {
+    if (seg.length === 0) return;
+    const coords = seg.map(p => [p.lat, p.lon]);
+    coords.forEach(c => bounds.push(c));
+    if (seg.length > 1) {
+      const line = L.polyline(coords, { renderer: canvasRenderer, color: '#2563eb', weight: 3, opacity: 0.85 });
+      mapLayerGroup.addLayer(line);
+      if (typeof L.polylineDecorator === 'function') {
+        try {
+          const deco = L.polylineDecorator(line, {
+            patterns: [{
+              offset: '5%', repeat: '12%',
+              symbol: L.Symbol.arrowHead({ pixelSize: 7, pathOptions: { color: '#1d4ed8', weight: 0, fillOpacity: 0.9 } })
+            }]
+          });
+          mapLayerGroup.addLayer(deco);
+        } catch (e) { /* plugin unavailable — arrows are a non-essential enhancement */ }
+      }
+    }
+    seg.forEach(p => {
+      const marker = L.circleMarker([p.lat, p.lon], {
+        renderer: canvasRenderer, radius: 4, color: '#1d4ed8', weight: 1, fillColor: '#3b82f6', fillOpacity: 0.85
+      });
+      marker.on('click', () => selectPoint(p, { fromMap: true }));
+      mapLayerGroup.addLayer(marker);
+    });
+  });
+
+  // Event markers at "last" position
+  filteredPoints.forEach(p => {
+    if (p.kind === 'event' && p.last && hasPos(p.last)) {
+      bounds.push([p.last.lat, p.last.lon]);
+      const marker = L.marker([p.last.lat, p.last.lon], { icon: dotIcon('#f59e0b', 16, '#92400e') });
+      marker.on('click', () => selectPoint(p, { fromMap: true }));
+      mapLayerGroup.addLayer(marker);
+    }
+  });
+
+  // Start / end markers (chronological first/last positioned fix)
+  const posFixes = filteredPoints.filter(p => p.kind === 'fix' && hasPos(p));
+  if (posFixes.length) {
+    const first = posFixes[0], last = posFixes[posFixes.length - 1];
+    const startM = L.marker([first.lat, first.lon], { icon: dotIcon('#16a34a', 18, '#065f46') });
+    startM.on('click', () => selectPoint(first, { fromMap: true }));
+    mapLayerGroup.addLayer(startM);
+    const endM = L.marker([last.lat, last.lon], { icon: dotIcon('#111827', 18, '#f9fafb') });
+    endM.on('click', () => selectPoint(last, { fromMap: true }));
+    mapLayerGroup.addLayer(endM);
+  }
+
+  if (bounds.length) {
+    map.fitBounds(bounds, { padding: [24, 24], maxZoom: 17 });
+  }
+}
+
+/* ---------- Gap / segment computation ---------- */
+function computeGaps(sortedAsc) {
+  const gaps = [];
+  for (let i = 0; i < sortedAsc.length - 1; i++) {
+    const cur = sortedAsc[i], next = sortedAsc[i + 1];
+    if (typeof cur.seq === 'number' && typeof next.seq === 'number' && next.seq !== cur.seq + 1) {
+      gaps.push({ fromSeq: cur.seq, toSeq: next.seq, fromTs: cur.ts, toTs: next.ts, fromIndex: i });
+    }
+  }
+  return gaps;
+}
+
+function buildSegments(sortedAsc, gaps, timeGapMs) {
+  const gapAfterIndex = new Set(gaps.map(g => g.fromIndex));
+  const posFixes = [];
+  sortedAsc.forEach((p, i) => { if (p.kind === 'fix' && hasPos(p)) posFixes.push({ p, i }); });
+
+  const segments = [];
+  let cur = [];
+  for (let k = 0; k < posFixes.length; k++) {
+    const { p, i } = posFixes[k];
+    if (cur.length === 0) { cur.push(p); continue; }
+    const prev = cur[cur.length - 1];
+    const prevIndex = posFixes[k - 1].i;
+    let brokenBySeq = false;
+    for (let j = prevIndex; j < i; j++) { if (gapAfterIndex.has(j)) { brokenBySeq = true; break; } }
+    const brokenByTime = timeGapMs > 0 && (p.ts - prev.ts) > timeGapMs;
+    if (brokenBySeq || brokenByTime) { segments.push(cur); cur = [p]; }
+    else cur.push(p);
+  }
+  if (cur.length) segments.push(cur);
+  return segments;
+}
+
+/* ---------- Stats / QA ---------- */
+function computeStats(points) {
+  const byKind = {}, byProv = {}, byMot = {}, byEv = {};
+  let nullBatt = 0, nullChg = 0, nullNet = 0, withCells = 0, withWifi = 0, invariant = 0;
+  points.forEach(p => {
+    byKind[p.kind] = (byKind[p.kind] || 0) + 1;
+    if (p.prov) byProv[p.prov] = (byProv[p.prov] || 0) + 1;
+    if (p.mot) byMot[p.mot] = (byMot[p.mot] || 0) + 1;
+    if (p.kind === 'event' && p.ev) byEv[p.ev] = (byEv[p.ev] || 0) + 1;
+    if (p.batt == null) nullBatt++;
+    if (p.chg == null) nullChg++;
+    if (p.net == null) nullNet++;
+    if (Array.isArray(p.cells) && p.cells.length > 0) withCells++;
+    if (p.wifi && (p.wifi.conn || (Array.isArray(p.wifi.scan) && p.wifi.scan.length > 0))) withWifi++;
+    if ((p.prov === 'gps' || p.prov === 'fused') && p.mot === 'still') invariant++;
+  });
+  return { total: points.length, byKind, byProv, byMot, byEv, nullBatt, nullChg, nullNet, withCells, withWifi, invariant };
+}
+
+function renderCountTable(obj) {
+  const keys = Object.keys(obj).sort();
+  if (!keys.length) return '<div style="color:#999;font-size:12px">none</div>';
+  return '<table class="stat-table">' + keys.map(k => `<tr><td>${escapeHtml(k)}</td><td>${obj[k]}</td></tr>`).join('') + '</table>';
+}
+
+function renderStats() {
+  const s = computeStats(filteredPoints);
+  const body = document.getElementById('statsBody');
+  body.innerHTML = `
+    <div class="stat-section">
+      <h3>Totals</h3>
+      <table class="stat-table">
+        <tr><td>Total rows</td><td>${s.total}</td></tr>
+      </table>
+    </div>
+    <div class="stat-section"><h3>By kind</h3>${renderCountTable(s.byKind)}</div>
+    <div class="stat-section"><h3>By provider</h3>${renderCountTable(s.byProv)}</div>
+    <div class="stat-section"><h3>By motion</h3>${renderCountTable(s.byMot)}</div>
+    <div class="stat-section"><h3>Events by type</h3>${renderCountTable(s.byEv)}</div>
+    <div class="stat-section">
+      <h3>Invariant check</h3>
+      <table class="stat-table">
+        <tr><td>prov ∈ (gps, fused) AND mot = 'still' (expected 0)</td>
+            <td class="${s.invariant === 0 ? 'ok' : 'warn'}">${s.invariant}</td></tr>
+      </table>
+    </div>
+    <div class="stat-section">
+      <h3>Null counts</h3>
+      <table class="stat-table">
+        <tr><td>batt</td><td>${s.nullBatt}</td></tr>
+        <tr><td>chg</td><td>${s.nullChg}</td></tr>
+        <tr><td>net</td><td>${s.nullNet}</td></tr>
+      </table>
+    </div>
+    <div class="stat-section">
+      <h3>Enrichment coverage</h3>
+      <table class="stat-table">
+        <tr><td>rows with cells</td><td>${s.withCells}</td></tr>
+        <tr><td>rows with wifi</td><td>${s.withWifi}</td></tr>
+      </table>
+    </div>
+    <div class="stat-section">
+      <h3>Seq gaps (${currentGaps.length})</h3>
+      <div class="gap-list">
+        ${currentGaps.length ? currentGaps.map(g =>
+          `<div>seq ${g.fromSeq} &rarr; ${g.toSeq} &nbsp; (${formatDateTime(g.fromTs)} &rarr; ${formatDateTime(g.toTs)})</div>`
+        ).join('') : '<div style="color:#999">none</div>'}
+      </div>
+    </div>
+  `;
+}
+
+/* ---------- Timeline (virtualized, day-grouped, reverse-chronological) ---------- */
+function dayLabel(d) {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const that = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const diffDays = Math.round((today - that) / 86400000);
+  if (diffDays === 0) return 'Today';
+  if (diffDays === 1) return 'Yesterday';
+  const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  return `${days[d.getDay()]}, ${MONTHS[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+}
+
+function buildTimelineEntries(points) {
+  const desc = points.slice().sort((a, b) => (b.ts - a.ts) || (b.seq - a.seq));
+  const entries = [];
+  let lastKey = null;
+  desc.forEach(p => {
+    const d = new Date(p.ts);
+    const key = d.toDateString();
+    if (key !== lastKey) { entries.push({ type: 'header', label: dayLabel(d) }); lastKey = key; }
+    entries.push({ type: 'point', point: p });
+  });
+  seqToTimelineIndex = new Map();
+  entries.forEach((e, i) => { if (e.type === 'point') seqToTimelineIndex.set(e.point.seq, i); });
+  return entries;
+}
+
+function renderEntryRow(entry) {
+  const div = document.createElement('div');
+  div.style.height = ROW_H + 'px';
+  if (entry.type === 'header') {
+    div.className = 'tl-row tl-header';
+    div.textContent = entry.label;
+    return div;
+  }
+  const p = entry.point;
+  div.className = 'tl-row ' + (p.kind === 'event' ? 'tl-event' : 'tl-fix');
+  if (p.seq === currentSelectedSeq) div.classList.add('selected');
+  const time = formatTime(p.ts);
+  if (p.kind === 'event') {
+    div.innerHTML = `<span class="tl-icon tl-icon-event">&#9679;</span><span class="tl-time">${time}</span><span class="tl-label">${escapeHtml(TrailLabels.event(p.ev))}</span>`;
+  } else {
+    const loc = hasPos(p) ? `${p.lat.toFixed(4)}, ${p.lon.toFixed(4)}` : '(no position)';
+    div.innerHTML = `<span class="tl-icon tl-icon-fix">&#9679;</span><span class="tl-time">${time}</span><span class="tl-label">${escapeHtml(loc)}</span>`;
+  }
+  div.addEventListener('click', () => selectPoint(p, { fromTimeline: true }));
+  return div;
+}
+
+let timelineDrawScheduled = false;
+function drawTimeline() {
+  const viewport = document.getElementById('timelineViewport');
+  const content = document.getElementById('timelineContent');
+  const scrollTop = viewport.scrollTop;
+  const visibleCount = Math.ceil(viewport.clientHeight / ROW_H) + 10;
+  const start = Math.max(0, Math.floor(scrollTop / ROW_H) - 5);
+  const end = Math.min(timelineEntries.length, start + visibleCount);
+  content.style.transform = `translateY(${start * ROW_H}px)`;
+  content.innerHTML = '';
+  const frag = document.createDocumentFragment();
+  for (let i = start; i < end; i++) frag.appendChild(renderEntryRow(timelineEntries[i]));
+  content.appendChild(frag);
+}
+function scheduleDraw() {
+  if (timelineDrawScheduled) return;
+  timelineDrawScheduled = true;
+  requestAnimationFrame(() => { timelineDrawScheduled = false; drawTimeline(); });
+}
+
+function renderTimeline() {
+  timelineEntries = buildTimelineEntries(filteredPoints);
+  const spacer = document.getElementById('timelineSpacer');
+  spacer.style.height = (timelineEntries.length * ROW_H) + 'px';
+  drawTimeline();
+}
+
+function scrollTimelineToSeq(seq) {
+  const idx = seqToTimelineIndex.get(seq);
+  if (idx == null) return;
+  const viewport = document.getElementById('timelineViewport');
+  viewport.scrollTop = Math.max(0, idx * ROW_H - viewport.clientHeight / 2);
+  scheduleDraw();
+}
+
+document.getElementById('timelineViewport').addEventListener('scroll', scheduleDraw);
+window.addEventListener('resize', () => { scheduleDraw(); map.invalidateSize(); });
+
+/* ---------- Detail modal (§2.1 full readout) ---------- */
+function openOverlay(id) { document.getElementById(id).classList.remove('hidden'); }
+function closeOverlay(id) { document.getElementById(id).classList.add('hidden'); }
+document.querySelectorAll('[data-close]').forEach(btn => {
+  btn.addEventListener('click', () => closeOverlay(btn.getAttribute('data-close')));
+});
+document.querySelectorAll('.overlay').forEach(ov => {
+  ov.addEventListener('click', e => { if (e.target === ov) ov.classList.add('hidden'); });
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { closeOverlay('detailOverlay'); closeOverlay('statsOverlay'); }
+});
+
+function addDetailRow(container, label, value) {
+  if (value == null) return;
+  const row = document.createElement('div');
+  row.className = 'detail-row';
+  row.innerHTML = `<div class="lbl">${escapeHtml(label)}</div><div class="val">${escapeHtml(value)}</div>`;
+  container.appendChild(row);
+}
+
+function openDetail(point) {
+  document.getElementById('detailTitle').textContent = point.kind === 'event' ? 'Trail event' : 'Trail point';
+  const rows = document.getElementById('detailRows');
+  rows.innerHTML = '';
+
+  addDetailRow(rows, 'Time', formatDateTime(point.ts));
+  if (hasPos(point)) addDetailRow(rows, 'Location', `${point.lat.toFixed(5)}, ${point.lon.toFixed(5)}`);
+  if (point.acc != null) addDetailRow(rows, 'Accuracy', `${point.acc.toFixed(1)} m`);
+  if (point.alt != null) addDetailRow(rows, 'Altitude', `${point.alt.toFixed(1)} m`);
+  if (point.spd != null) addDetailRow(rows, 'Speed', `${point.spd.toFixed(1)} m/s`);
+  if (point.brg != null) addDetailRow(rows, 'Bearing', `${Math.round(point.brg)}°`);
+  if (point.prov != null) addDetailRow(rows, 'Provider', TrailLabels.provider(point.prov));
+  if (point.mock != null) addDetailRow(rows, 'Mock location', point.mock ? 'Yes' : 'No');
+  if (point.mot != null) addDetailRow(rows, 'Motion', TrailLabels.motion(point.mot));
+  if (point.batt != null) {
+    const chgSuffix = point.chg === true ? ' (charging)' : '';
+    addDetailRow(rows, 'Battery', `${point.batt}%${chgSuffix}`);
+  }
+  if (point.net != null) addDetailRow(rows, 'Network', TrailLabels.network(point.net));
+
+  if (Array.isArray(point.cells) && point.cells.length) {
+    const serving = point.cells.find(c => c.reg) || point.cells[0];
+    addDetailRow(rows, 'Serving cell', TrailLabels.cell(serving));
+    addDetailRow(rows, 'Cells seen', String(point.cells.length));
+  }
+  if (point.wifi && point.wifi.conn) {
+    const ap = point.wifi.conn;
+    addDetailRow(rows, 'Connected Wi-Fi', `${ap.s || '—'} (${ap.b})`);
+  }
+  if (point.wifi && Array.isArray(point.wifi.scan) && point.wifi.scan.length) {
+    addDetailRow(rows, 'Networks seen', String(point.wifi.scan.length));
+  }
+
+  if (point.kind === 'event') {
+    addDetailRow(rows, 'Event', TrailLabels.event(point.ev));
+    if (point.last && hasPos(point.last)) {
+      const l = point.last;
+      addDetailRow(rows, 'Last known position',
+        `${l.lat.toFixed(5)}, ${l.lon.toFixed(5)} (±${Math.round(l.acc)} m) @ ${formatDateTime(l.ts)}`);
+    }
+  }
+
+  const rawJsonBox = document.getElementById('rawJsonBox');
+  const rawJsonText = document.getElementById('rawJsonText');
+  rawJsonText.textContent = JSON.stringify(point, null, 2);
+  rawJsonBox.style.display = 'none';
+  document.getElementById('btnToggleRaw').textContent = 'Show raw JSON';
+
+  openOverlay('detailOverlay');
+}
+
+document.getElementById('btnToggleRaw').addEventListener('click', () => {
+  const box = document.getElementById('rawJsonBox');
+  const show = box.style.display !== 'block';
+  box.style.display = show ? 'block' : 'none';
+  document.getElementById('btnToggleRaw').textContent = show ? 'Hide raw JSON' : 'Show raw JSON';
+});
+document.getElementById('btnCopyRaw').addEventListener('click', () => {
+  const text = document.getElementById('rawJsonText').textContent;
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).catch(() => {});
+  }
+});
+
+/* ---------- Selection: links map <-> timeline <-> detail ---------- */
+function selectPoint(point, opts) {
+  opts = opts || {};
+  currentSelectedSeq = point.seq;
+  openDetail(point);
+  if (!opts.fromMap) {
+    const pos = point.kind === 'fix' && hasPos(point) ? [point.lat, point.lon]
+      : (point.last && hasPos(point.last) ? [point.last.lat, point.last.lon] : null);
+    if (pos) map.flyTo(pos, Math.max(map.getZoom(), 16));
+  }
+  if (!opts.fromTimeline) scrollTimelineToSeq(point.seq);
+  else scheduleDraw();
+}
+
+/* ---------- Recompute pipeline ---------- */
+function applyFilterAndRecompute() {
+  const fromVal = document.getElementById('filterFrom').value;
+  const toVal = document.getElementById('filterTo').value;
+  const fromMs = fromVal ? new Date(fromVal + 'T00:00:00').getTime() : null;
+  const toMs = toVal ? new Date(toVal + 'T23:59:59.999').getTime() : null;
+
+  filteredPoints = allPoints.filter(p =>
+    (fromMs == null || p.ts >= fromMs) && (toMs == null || p.ts <= toMs)
+  );
+
+  currentGaps = computeGaps(filteredPoints);
+  const timeGapEnabled = document.getElementById('chkTimeGap').checked;
+  const timeGapMin = parseFloat(document.getElementById('timeGapMin').value) || 0;
+  const timeGapMs = timeGapEnabled ? timeGapMin * 60000 : 0;
+  currentSegments = buildSegments(filteredPoints, currentGaps, timeGapMs);
+
+  renderMap();
+  renderTimeline();
+  renderStats();
+  updateSummary();
+}
+
+function updateSummary() {
+  const fixCount = filteredPoints.filter(p => p.kind === 'fix').length;
+  const evCount = filteredPoints.filter(p => p.kind === 'event').length;
+  const suffix = filteredPoints.length !== allPoints.length ? ` (filtered from ${allPoints.length})` : '';
+  document.getElementById('summary').textContent = sourceFileName
+    ? `${sourceFileName}: ${filteredPoints.length} rows — ${fixCount} fixes, ${evCount} events${suffix}`
+    : 'No data loaded — try dragging in trail-sample.json';
+}
+
+['filterFrom', 'filterTo', 'chkTimeGap', 'timeGapMin'].forEach(id => {
+  document.getElementById(id).addEventListener('change', applyFilterAndRecompute);
+});
+document.getElementById('btnClearFilter').addEventListener('click', () => {
+  document.getElementById('filterFrom').value = '';
+  document.getElementById('filterTo').value = '';
+  applyFilterAndRecompute();
+});
+document.getElementById('btnStats').addEventListener('click', () => { renderStats(); openOverlay('statsOverlay'); });
+
+/* ---------- GPX export (fixes only, one trkseg per segment) ---------- */
+function buildGpx(segments) {
+  const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const totalPts = segments.reduce((n, s) => n + s.length, 0);
+  let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
+  xml += '<gpx version="1.1" creator="4shu trail-viewer (dev tool)" xmlns="http://www.topografix.com/GPX/1/1" ';
+  xml += 'xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" ';
+  xml += 'xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd">\n';
+  xml += `  <trk>\n    <name>${esc(`4shu trail export — ${totalPts} points, ${segments.length} segment(s)`)}</name>\n`;
+  segments.forEach(seg => {
+    xml += '    <trkseg>\n';
+    seg.forEach(p => {
+      xml += `      <trkpt lat="${p.lat}" lon="${p.lon}">\n`;
+      if (typeof p.alt === 'number') xml += `        <ele>${p.alt}</ele>\n`;
+      xml += `        <time>${new Date(p.ts).toISOString()}</time>\n`;
+      xml += '      </trkpt>\n';
+    });
+    xml += '    </trkseg>\n';
+  });
+  xml += '  </trk>\n</gpx>\n';
+  return xml;
+}
+
+document.getElementById('btnGpx').addEventListener('click', () => {
+  const nonEmpty = currentSegments.filter(s => s.length > 0);
+  if (!nonEmpty.length) {
+    showStatus('No fix points with a location to export.', true);
+    return;
+  }
+  const xml = buildGpx(nonEmpty);
+  const blob = new Blob([xml], { type: 'application/gpx+xml' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+  a.download = `trail_export_${stamp}.gpx`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+});
+
+/* ---------- File loading (picker + drag & drop) ---------- */
+function showStatus(msg, isError) {
+  const el = document.getElementById('status');
+  el.textContent = msg;
+  el.className = isError ? 'error' : '';
+}
+
+function loadFromJson(json, fileName) {
+  const arr = extractTrailArray(json);
+  if (!arr.length) throw new Error('The "trail" array is empty.');
+  allPoints = arr
+    .filter(p => p && typeof p === 'object')
+    .slice()
+    .sort((a, b) => (a.ts - b.ts) || ((a.seq || 0) - (b.seq || 0)));
+  sourceFileName = fileName || '';
+  currentSelectedSeq = null;
+  document.getElementById('filterFrom').value = '';
+  document.getElementById('filterTo').value = '';
+  applyFilterAndRecompute();
+  showStatus(`Loaded ${allPoints.length} points from ${fileName}.`, false);
+}
+
+function handleFile(file) {
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const json = JSON.parse(reader.result);
+      loadFromJson(json, file.name);
+    } catch (e) {
+      showStatus('Failed to load: ' + e.message, true);
+    }
+  };
+  reader.onerror = () => showStatus('Failed to read file.', true);
+  reader.readAsText(file);
+}
+
+document.getElementById('fileInput').addEventListener('change', e => {
+  if (e.target.files && e.target.files[0]) handleFile(e.target.files[0]);
+});
+
+let dragCounter = 0;
+window.addEventListener('dragenter', e => {
+  e.preventDefault();
+  dragCounter++;
+  document.getElementById('dropOverlay').classList.remove('hidden');
+});
+window.addEventListener('dragover', e => e.preventDefault());
+window.addEventListener('dragleave', () => {
+  dragCounter = Math.max(0, dragCounter - 1);
+  if (dragCounter === 0) document.getElementById('dropOverlay').classList.add('hidden');
+});
+window.addEventListener('drop', e => {
+  e.preventDefault();
+  dragCounter = 0;
+  document.getElementById('dropOverlay').classList.add('hidden');
+  const file = e.dataTransfer.files && e.dataTransfer.files[0];
+  if (file) handleFile(file);
+});
+
+/* ---------- Init ---------- */
+applyFilterAndRecompute();
+</script>
+</body>
+</html>

@@ -712,6 +712,107 @@ the device-test checklist below (Block E subsection appended).
 
 ---
 
+### Block W — desktop trail viewer (dev tool, out-of-band) — 2026-07-18
+
+Not a Phase 1/2/3 block — a standalone tooling deliverable, built ahead of Block K to
+give Ivan (and future Claude Code sessions) a way to load a real or synthetic trail
+export and actually look at it before the guardian-facing product viewer exists.
+**Explicitly not covered by "desktop remains out per project rules" (§8):** that rule
+is about product surfaces the app ships to users; `tools/trail-viewer.html` is a local
+HTML file opened directly in a browser, never distributed, never linked from the app.
+Block K remains the real map/timeline the product ships.
+
+**Decisions (no MATCH EXISTING markers apply — this is new tooling, not app code, so
+these are plain design decisions, not resolutions of a spec ambiguity against existing
+code):**
+
+1. **Segment-break algorithm.** §2.1 states `seq` is "per-device monotonic counter (gap
+   detection)" but doesn't spell out how to turn that into map/GPX segments when fixes
+   and events share one seq space. Implemented as: sort the *full* merged fix+event
+   stream by `ts` (secondary `seq`), flag an adjacent pair as a gap whenever
+   `next.seq !== cur.seq + 1`, then walk the fix-only subsequence and break a segment
+   between two consecutive fixes if *any* flagged gap falls between their positions in
+   the full merged stream. This is deliberately not "compare consecutive **fix** seqs"
+   — that would falsely flag a break every time a plain event (which consumes a seq
+   number) sits between two fixes with no actual data loss. Verified against
+   `trail-sample.json`: the charge_on/charge_off events between fixes produce zero
+   false segment breaks; the one real seq gap (19→25, wrapping the synthetic
+   `svc_restart`) produces exactly one break, in the right place.
+2. **GPX segmentation reuses the live map segments, not a separate fixed rule.** The
+   Export GPX button builds one `<trkseg>` per *currently displayed* segment (same
+   seq-gap logic + whatever the time-gap threshold checkbox/value are set to at export
+   time), rather than a GPX-only rule independent of the UI state. Chosen so the
+   exported file always matches what's on screen — a guardian who adjusted the
+   time-gap threshold to make sense of a confusing stretch shouldn't get a GPX that
+   silently reverts to a different segmentation.
+3. **Timeline day-grouping is genuine day-level, not `TrailViewerActivity`'s
+   Today/Yesterday/month-year fallback.** The Android viewer (Block E) falls back to a
+   month-level header for anything older than yesterday (copied from
+   `MediaGalleryActivity`'s convention, tuned for a photo gallery). This tool's task
+   explicitly calls the timeline "day-grouped," and a multi-week trail export benefits
+   from real per-day headers, so Block W deliberately diverges: Today / Yesterday /
+   `"Ddd, Mon D, YYYY"` for anything older. Not a bug relative to Block E — a different
+   tool with a different instruction.
+4. **No "load sample" fetch button.** Considered wiring a button that `fetch()`s
+   `./trail-sample.json` for one-click testing, but `fetch()` of `file://` resources is
+   blocked or unreliable in several browsers' local-file security models (notably
+   Chrome), which would make the tool's own convenience feature the least reliable way
+   to use it. Drag-and-drop / file-picker (the accept criterion's actual path) has no
+   such restriction, so that's the only load path offered; a hint line next to the file
+   picker points at `trail-sample.json`.
+5. **Per-fix circle markers, not just a polyline.** "Clicking any point/marker" (task
+   wording) requires each fix to be individually hit-testable, not just visually
+   present as part of a line. Used Leaflet's canvas renderer (`L.canvas()`) for the
+   per-fix `circleMarker`s specifically for the ~10k-point responsiveness requirement —
+   thousands of DOM-based `L.marker`s would not stay responsive; a handful of
+   genuinely-DOM markers (start/end, and events-with-`last`, which are far fewer than
+   raw fixes) use `L.divIcon` instead, both to get distinct colored-dot styling without
+   needing Leaflet's default marker image assets (which aren't bundled and commonly
+   break when Leaflet is loaded from a CDN without its image path configured) and
+   because a small marker count doesn't need canvas-renderer treatment.
+6. **§2.1 reading applied to the sample fixture's event points:** the spec's own event
+   example (`{"seq":124,"kind":"event",...,"batt":57,"chg":false,"last":{...}}`) shows
+   only `batt`/`chg`/`last` alongside the required `seq`/`kind`/`ts`/`ev` — no
+   `net`/`cells`/`wifi`/`prov`/`mot`/`lat`/`lon`. `trail-sample.json`'s six event points
+   are authored to that minimal shape exactly (not the fuller shape a fix point
+   carries), on the reading that the wire example is the authoritative minimal event
+   shape, not just an abbreviated illustration. The viewer's own parsing/rendering code
+   doesn't assume this either way — it reads whatever fields are present on any point,
+   fix or event — so this only affects how the *fixture* was authored, not a viewer
+   behavior decision.
+7. **Detail-modal field semantics reimplemented, not ported.** `TrailLabels.kt`'s
+   mapping tables (provider/motion/network/cell/event labels) and
+   `TrailPointDetailSheet.kt`'s row set, ordering, and format strings (`"%.5f, %.5f"`
+   for lat/lon, `"%.1f m"` for accuracy/altitude, `"%.0f°"` for bearing, the
+   `"N% (charging)"` battery suffix, the last-known-position composite string) were
+   read from the actual Kotlin source and re-expressed as plain JS — same output
+   strings, same "omit the row entirely if the field is null" rule — with no attempt to
+   share code across the two languages/runtimes.
+8. **Ignoring unknown keys** needed no explicit filtering code: the loader only reads
+   the top-level `trail` array (or accepts a bare array) and every point-field access
+   is a named lookup (`p.lat`, `p.seq`, …), so any other key on the export object or on
+   an individual point is naturally never read. `trail-sample.json`'s `_synthetic`/
+   `_note`/`username`/`exportedAt` top-level keys exist specifically to exercise this.
+
+**Verification performed:** extracted the pure-logic functions (gap detection,
+segmentation, stats, GPX builder — no DOM dependency) out of the shipped HTML file and
+ran them directly in Node against `trail-sample.json`: 1 seq gap detected (19→25,
+exactly the one authored), 2 fix-only segments of length 16 and 6 (splitting exactly at
+that gap, both with and without the time-gap threshold applied — the sample data has no
+plain time gaps large enough to trigger a threshold-only break), stats counts (28 total
+rows, 22 fixes / 6 events, `byMot` moving=10/still=12, invariant-check=0, nullBatt=1/
+nullChg=1/nullNet=7, withCells=22/withWifi=7 — all matching the fixture's hand-designed
+counts) and a well-formed 2-`<trkseg>`/22-`<trkpt>` GPX with correct UTC ISO-8601
+timestamps and `<ele>` present only where `alt` was set on the source point. All
+`getElementById` targets cross-checked against the HTML's actual `id` attributes (no
+mismatches). **Not verified:** actual browser rendering (map tiles, drag-and-drop,
+click-to-select bidirectional sync, virtualized-scroll behavior, the Leaflet.
+PolylineDecorator arrows) — this environment has no interactive browser available.
+Needs Ivan to open `tools/trail-viewer.html` locally, drop in `trail-sample.json`, and
+separately re-verify against a real GDPR export from a G60.
+
+---
+
 ## Phase 1 device-test checklist (batch test, on the G60s, after Block E)
 
 Seeded by Blocks A/B/C; each later block appends its own subsection below.

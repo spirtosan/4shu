@@ -1,0 +1,46 @@
+{
+  "exportedAt": "2026-07-18T00:00:00Z",
+  "username": "synthetic_test_user",
+  "_synthetic": true,
+  "_note": "Synthetic fixture for tools/trail-viewer.html (SPEC_T13 Block W). Not a real device export — hand-authored strictly per SPEC_T13.md §2.1 to exercise the viewer's map/timeline/QA/GPX features. Unknown top-level keys like this one and 'username' should be ignored by the loader.",
+  "trail": [
+    {"seq":1,"kind":"event","ts":1752739500000,"ev":"boot","batt":82,"chg":false},
+
+    {"seq":2,"kind":"fix","ts":1752739980000,"lat":42.13560,"lon":24.74560,"acc":10.2,"alt":163.5,"spd":1.3,"brg":52,"prov":"fused","mock":false,"mot":"moving","batt":81,"chg":false,"net":"cell","cells":[{"t":"lte","mcc":284,"mnc":3,"tac":21901,"ci":123456001,"pci":211,"sig":-95,"reg":true}]},
+    {"seq":3,"kind":"fix","ts":1752740160000,"lat":42.13585,"lon":24.74615,"acc":9.8,"alt":163.8,"spd":1.4,"brg":55,"prov":"gps","mock":false,"mot":"moving","batt":81,"chg":false,"net":"cell","cells":[{"t":"lte","mcc":284,"mnc":3,"tac":21901,"ci":123456002,"pci":211,"sig":-96,"reg":true}]},
+    {"seq":4,"kind":"fix","ts":1752740340000,"lat":42.13608,"lon":24.74672,"acc":8.6,"alt":164.2,"spd":1.35,"brg":58,"prov":"fused","mock":false,"mot":"moving","batt":80,"chg":false,"net":"cell","cells":[{"t":"lte","mcc":284,"mnc":3,"tac":21901,"ci":123456003,"pci":211,"sig":-94,"reg":true}]},
+    {"seq":5,"kind":"fix","ts":1752740520000,"lat":42.13630,"lon":24.74730,"acc":9.0,"alt":164.5,"spd":1.45,"brg":60,"prov":"gps","mock":false,"mot":"moving","batt":79,"chg":false,"net":"cell","cells":[{"t":"lte","mcc":284,"mnc":3,"tac":21901,"ci":123456004,"pci":211,"sig":-97,"reg":true}],"wifi":{"scan":[{"b":"11:22:33:44:55:66","s":"CafeX","r":-71,"f":2437}]}},
+    {"seq":6,"kind":"fix","ts":1752740700000,"lat":42.13652,"lon":24.74790,"acc":8.4,"alt":165.0,"spd":1.5,"brg":63,"prov":"fused","mock":false,"mot":"moving","batt":78,"net":"cell","cells":[{"t":"lte","mcc":284,"mnc":3,"tac":21901,"ci":123456005,"pci":211,"sig":-93,"reg":true}]},
+    {"seq":7,"kind":"fix","ts":1752740880000,"lat":42.13671,"lon":24.74855,"acc":9.6,"alt":165.6,"spd":1.4,"brg":68,"prov":"gps","mock":false,"mot":"moving","batt":77,"chg":false,"net":"cell","cells":[{"t":"lte","mcc":284,"mnc":3,"tac":21901,"ci":123456006,"pci":211,"sig":-98,"reg":true}]},
+    {"seq":8,"kind":"fix","ts":1752741060000,"lat":42.13688,"lon":24.74922,"acc":10.5,"alt":166.1,"spd":1.35,"brg":72,"prov":"fused","mock":false,"mot":"moving","batt":77,"chg":false,"net":null,"cells":[{"t":"lte","mcc":284,"mnc":3,"tac":21901,"ci":123456007,"pci":211,"sig":-96,"reg":true}]},
+    {"seq":9,"kind":"fix","ts":1752741240000,"lat":42.13702,"lon":24.74990,"acc":11.0,"alt":166.7,"spd":1.3,"brg":78,"prov":"gps","mock":false,"mot":"moving","batt":76,"chg":false,"net":"cell","cells":[{"t":"lte","mcc":284,"mnc":3,"tac":21901,"ci":123456008,"pci":211,"sig":-99,"reg":true}]},
+    {"seq":10,"kind":"fix","ts":1752741420000,"lat":42.13712,"lon":24.75058,"acc":12.4,"alt":167.2,"spd":1.2,"brg":84,"prov":"fused","mock":false,"mot":"moving","batt":75,"chg":false,"net":"cell","cells":[{"t":"lte","mcc":284,"mnc":3,"tac":21901,"ci":123456009,"pci":211,"sig":-97,"reg":true}]},
+    {"seq":11,"kind":"fix","ts":1752741600000,"lat":42.13718,"lon":24.75125,"acc":13.0,"alt":167.8,"spd":1.1,"brg":90,"prov":"gps","mock":false,"mot":"moving","batt":74,"chg":false,"net":"cell","cells":[{"t":"lte","mcc":284,"mnc":3,"tac":21901,"ci":123456010,"pci":211,"sig":-100,"reg":true}]},
+
+    {"seq":12,"kind":"fix","ts":1752742800000,"lat":42.13718,"lon":24.75125,"acc":35,"prov":"network","mock":false,"mot":"still","batt":73,"chg":false,"net":"wifi","cells":[{"t":"lte","mcc":284,"mnc":3,"tac":21901,"ci":123456011,"pci":212,"sig":-104,"reg":true}],"wifi":{"conn":{"b":"aa:bb:cc:dd:ee:ff","s":"HomeNet","r":-52,"f":5180}}},
+    {"seq":13,"kind":"fix","ts":1752744000000,"lat":42.13718,"lon":24.75125,"acc":38,"prov":"network","mock":false,"mot":"still","batt":71,"chg":false,"net":"wifi","cells":[{"t":"lte","mcc":284,"mnc":3,"tac":21901,"ci":123456011,"pci":212,"sig":-106,"reg":true}],"wifi":{"conn":{"b":"aa:bb:cc:dd:ee:ff","s":"HomeNet","r":-52,"f":5180}}},
+    {"seq":14,"kind":"fix","ts":1752745200000,"lat":42.13718,"lon":24.75125,"acc":32,"prov":"network","mock":false,"mot":"still","batt":70,"chg":false,"net":"wifi","cells":[{"t":"lte","mcc":284,"mnc":3,"tac":21901,"ci":123456011,"pci":212,"sig":-108,"reg":true}],"wifi":{"conn":{"b":"aa:bb:cc:dd:ee:ff","s":"HomeNet","r":-52,"f":5180}}},
+
+    {"seq":15,"kind":"event","ts":1752745500000,"ev":"charge_on","batt":70,"chg":true,"last":{"lat":42.13718,"lon":24.75125,"acc":32,"ts":1752745200000}},
+
+    {"seq":16,"kind":"fix","ts":1752746700000,"lat":42.13718,"lon":24.75125,"acc":34,"prov":"network","mock":false,"mot":"still","batt":76,"chg":true,"net":"wifi","cells":[{"t":"lte","mcc":284,"mnc":3,"tac":21901,"ci":123456012,"pci":212,"sig":-103,"reg":true}],"wifi":{"conn":{"b":"aa:bb:cc:dd:ee:ff","s":"HomeNet","r":-52,"f":5180}}},
+    {"seq":17,"kind":"fix","ts":1752747900000,"lat":42.13718,"lon":24.75125,"acc":30,"prov":"network","mock":false,"mot":"still","batt":82,"chg":true,"net":"wifi","cells":[{"t":"lte","mcc":284,"mnc":3,"tac":21901,"ci":123456012,"pci":212,"sig":-101,"reg":true}],"wifi":{"conn":{"b":"aa:bb:cc:dd:ee:ff","s":"HomeNet","r":-52,"f":5180}}},
+    {"seq":18,"kind":"fix","ts":1752749100000,"lat":42.13718,"lon":24.75125,"acc":28,"prov":"network","mock":false,"mot":"still","batt":88,"chg":true,"net":"wifi","cells":[{"t":"lte","mcc":284,"mnc":3,"tac":21901,"ci":123456012,"pci":212,"sig":-99,"reg":true}],"wifi":{"conn":{"b":"aa:bb:cc:dd:ee:ff","s":"HomeNet","r":-52,"f":5180}}},
+
+    {"seq":19,"kind":"event","ts":1752749400000,"ev":"charge_off","batt":89,"chg":false,"last":{"lat":42.13718,"lon":24.75125,"acc":28,"ts":1752749100000}},
+
+    {"seq":25,"kind":"event","ts":1752760200000,"ev":"svc_restart","batt":60,"chg":false,"last":{"lat":42.13718,"lon":24.75125,"acc":28,"ts":1752749100000}},
+
+    {"seq":26,"kind":"fix","ts":1752761400000,"lat":42.13718,"lon":24.75125,"acc":45,"prov":"network","mock":false,"mot":"still","batt":52,"chg":false,"net":"cell","cells":[{"t":"lte","mcc":284,"mnc":3,"tac":21901,"ci":123456013,"pci":213,"sig":-110,"reg":true}]},
+    {"seq":27,"kind":"fix","ts":1752762600000,"lat":42.13718,"lon":24.75125,"acc":50,"prov":"network","mock":false,"mot":"still","batt":44,"chg":false,"net":"cell","cells":[{"t":"lte","mcc":284,"mnc":3,"tac":21901,"ci":123456013,"pci":213,"sig":-112,"reg":true}]},
+    {"seq":28,"kind":"fix","ts":1752763800000,"lat":42.13718,"lon":24.75125,"acc":55,"prov":"network","mock":false,"mot":"still","chg":false,"net":"cell","cells":[{"t":"lte","mcc":284,"mnc":3,"tac":21901,"ci":123456013,"pci":213,"sig":-113,"reg":true}]},
+    {"seq":29,"kind":"fix","ts":1752765000000,"lat":42.13718,"lon":24.75125,"acc":60,"prov":"network","mock":false,"mot":"still","batt":25,"chg":false,"net":"cell","cells":[{"t":"lte","mcc":284,"mnc":3,"tac":21901,"ci":123456013,"pci":213,"sig":-115,"reg":true}]},
+    {"seq":30,"kind":"fix","ts":1752766200000,"lat":42.13718,"lon":24.75125,"acc":65,"prov":"network","mock":false,"mot":"still","batt":16,"chg":false,"net":"cell","cells":[{"t":"lte","mcc":284,"mnc":3,"tac":21901,"ci":123456013,"pci":213,"sig":-116,"reg":true}]},
+
+    {"seq":31,"kind":"event","ts":1752766500000,"ev":"batt_low","batt":14,"chg":false,"last":{"lat":42.13718,"lon":24.75125,"acc":65,"ts":1752766200000}},
+
+    {"seq":32,"kind":"fix","ts":1752767700000,"lat":42.13718,"lon":24.75125,"acc":68,"prov":"network","mock":false,"mot":"still","batt":9,"chg":false,"net":"cell","cells":[{"t":"lte","mcc":284,"mnc":3,"tac":21901,"ci":123456013,"pci":213,"sig":-117,"reg":true}]},
+
+    {"seq":33,"kind":"event","ts":1752768300000,"ev":"shutdown","batt":2,"chg":false,"last":{"lat":42.13718,"lon":24.75125,"acc":68,"ts":1752767700000}}
+  ]
+}
