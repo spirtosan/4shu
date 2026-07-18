@@ -256,6 +256,18 @@ class TrailService : Service() {
     }
 
     private fun evaluateStillEntry(location: Location) {
+        // B.1.2: a fix may only drive this state decision if its own reported accuracy
+        // is smaller than the radius it's tested against -- a coarse network/cell fix
+        // (accuracy commonly 300-1500 m with Wi-Fi off) landing "300 m away" from a
+        // phone that hasn't moved would otherwise thrash the anchor AND reset the
+        // 20-min timeout, via B.1's newly passive-fed zero-throttle path (pre-B.1 this
+        // branch only ever saw GPS-accurate active MOVING fixes, so the blindness was
+        // latent). Ignored entirely for state purposes if missing/too coarse -- this
+        // makes the 20-min timeout the workhorse in coarse-only environments, which is
+        // its job. Persistence (recordFix/isDuplicateFix) is untouched by this: locked
+        // decision 7 (collect maximally) governs storage, this governs transitions only.
+        if (!location.hasAccuracy() || location.accuracy > STILL_ENTRY_RADIUS_M) return
+
         val now = System.currentTimeMillis()
         val candidate = stillCandidateAnchor
         if (candidate == null || location.distanceTo(candidate) > STILL_ENTRY_RADIUS_M) {
@@ -376,7 +388,14 @@ class TrailService : Service() {
             }
             recordFix(location, providerOverride = "passive")
             val anchorFix = anchor
-            if (anchorFix != null && location.distanceTo(anchorFix) > STILL_EXIT_RADIUS_M) {
+            // B.1.2: gate the exit decision by accuracy too -- this check predates B.1
+            // (pre-existing Block B behavior, always accuracy-blind) but the same coarse-
+            // fix risk applies. Safe to gate: TYPE_SIGNIFICANT_MOTION remains the designed
+            // primary STILL-exit trigger (§3.3), and this only gates the DECISION -- the
+            // coarse fix is still persisted above as a designed STILL bonus point,
+            // unaffected by this check.
+            if (anchorFix != null && location.hasAccuracy() && location.accuracy <= STILL_EXIT_RADIUS_M &&
+                location.distanceTo(anchorFix) > STILL_EXIT_RADIUS_M) {
                 Log.i(TAG, "passive fix ${location.distanceTo(anchorFix)}m from anchor -> MOVING")
                 enterMoving()
             }

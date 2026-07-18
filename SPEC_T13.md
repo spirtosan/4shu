@@ -973,6 +973,71 @@ the reworded Block B checklist above is what confirms both findings on-device (n
 false STILL flip while briefly stopped with another location app running; no
 dup-suppressed lines while walking, some possible while STILL).
 
+### Block B.1.2 — accuracy-blind state decisions, newly passive-exposed — 2026-07-19
+
+**Finding.** `evaluateStillEntry()`'s reset branch treats *any* fix landing >100 m
+from the candidate anchor as motion — re-anchor, count reset to 1,
+`lastSignificantMotionTs` reset — with no regard for that fix's own accuracy. B.1 now
+feeds zero-throttle `PASSIVE_PROVIDER` deliveries into this same branch. A coarse
+network/cell-derived fix (accuracy commonly 300–1500 m with Wi-Fi off), sourced from
+*any other app's* location request, can easily land "300 m away" from a phone that
+hasn't physically moved at all — thrashing both the candidate anchor (never
+accumulates 3 consecutive fixes close enough together) and `lastSignificantMotionTs`
+(keeps re-arming the 20-min no-motion timeout, so it never fires either). Net effect:
+a genuinely stationary phone with Wi-Fi off, sitting near a coarse-polling app, could
+**never enter STILL** and keep GPS/FUSED sampling indefinitely — directly attacking
+battery life, which is what locked decision 4 (adaptive sampling: GPS only while
+moving) exists to protect, and by extension trail longevity (a dead phone stops
+collecting sooner than it needs to). Pre-B.1, this branch was fed exclusively by
+active MOVING fixes (fused/GPS, accurate outdoors by construction), so the blindness
+existed in the original Block B code but was latent — nothing coarse ever reached it.
+B.1's passive feed (B.1.1's addendum, change 1) is what exposes it.
+
+**Change, `TrailService` only — gate the state-machine feeds by accuracy:** a fix may
+drive a state *decision* only if its reported accuracy is smaller than the radius
+it's being tested against; a fix with no accuracy at all is ignored for state
+purposes. Persistence is untouched — `recordFix()`/`isDuplicateFix()` gain no accuracy
+filter of any kind; locked decision 7 ("collect maximally," §1.7) governs what gets
+stored, this block governs transitions only, per instruction.
+
+1. `evaluateStillEntry()` now returns immediately (no anchor/count/timer change at
+   all) if `!location.hasAccuracy() || location.accuracy > STILL_ENTRY_RADIUS_M`
+   (100 m). Comment in-code notes the consequence: in a coarse-only environment (no
+   fix ever clears the bar), the 20-min `STILL_ENTRY_TIMEOUT_MS` timeout becomes the
+   sole path into STILL — which is exactly its designed job as the OR'd fallback
+   criterion in §3.3, not a gap being papered over.
+2. Symmetrically, the pre-existing STILL-exit check in `passiveListener` (the >150 m
+   `STILL_EXIT_RADIUS_M` test) now also requires
+   `location.hasAccuracy() && location.accuracy <= STILL_EXIT_RADIUS_M` before it can
+   fire `enterMoving()`. **Flagging explicitly, per instruction: this touches
+   pre-existing Block B behavior, not new B.1/B.1.1 code** — the STILL-exit distance
+   check has been accuracy-blind since Block B first shipped; it just happened to
+   share a listener with change 1's new passive-into-MOVING-state-machine path, so
+   fixing both together in one pass made more sense than a separate block for a
+   one-line pre-existing gap. **Why gating it is safe:** `TYPE_SIGNIFICANT_MOTION`
+   remains the designed *primary* STILL-exit trigger (§3.3 lists it first; the >150 m
+   passive check is explicitly the secondary/backup path) — gating the secondary path
+   more conservatively doesn't remove the primary one. And critically, this gates the
+   exit *decision* only: the coarse fix is still `recordFix()`-persisted immediately
+   above this check regardless of its accuracy, exactly as designed (§3.2's STILL
+   bonus points) — a coarse fix during STILL is still written to `trail_points`, it
+   just can't unilaterally force a MOVING transition on its own.
+3. No changes anywhere in `recordFix()`/`isDuplicateFix()`/enrichment — persistence
+   during either state remains accuracy-agnostic by design (§2.1's `acc` field exists
+   precisely so a consumer downstream can judge fix quality itself; the phone
+   shouldn't discard data because it doesn't trust it, only avoid making state
+   *decisions* off it it can't trust).
+
+**Build type: UPDATE, unchanged.** No new permissions, no schema change — pure
+conditional-gate logic inside two existing functions.
+
+**Verification status:** could not run Gradle/adb (project rule). Needs Ivan's build.
+No new checklist item added this block — the existing Block B "leaving the phone
+stationary... triggers STILL" and "walking away... flips back to MOVING" items already
+cover the affected paths; a coarse-environment (Wi-Fi off, cellular-only) pass isn't
+separately scripted here, left to Ivan's judgment on whether it's worth a dedicated
+test given the G60s' typical test conditions.
+
 ---
 
 ## Phase 1 device-test checklist (batch test, on the G60s, after Block E)
