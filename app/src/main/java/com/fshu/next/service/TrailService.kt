@@ -25,11 +25,13 @@ import android.os.BatteryManager
 import android.os.Build
 import android.os.IBinder
 import android.os.Looper
+import android.telephony.CellIdentityNr
 import android.telephony.CellInfo as TelephonyCellInfo
 import android.telephony.CellInfoGsm
 import android.telephony.CellInfoLte
 import android.telephony.CellInfoNr
 import android.telephony.CellInfoWcdma
+import android.telephony.CellSignalStrengthNr
 import android.telephony.TelephonyManager
 import android.util.Log
 import androidx.core.app.NotificationCompat
@@ -97,6 +99,12 @@ class TrailService : Service() {
         private const val TAG = "TrailService"
         private const val CHANNEL_ID = "fshu_trail"
         private const val NOTIF_ID = 5100
+
+        // TelephonyManager.ACTION_SIM_STATE_CHANGED is NOT public SDK -- it lives in the
+        // internal (hidden) TelephonyIntents class, so referencing it doesn't compile.
+        // The broadcast itself is real and still delivered to dynamically registered
+        // receivers, so the literal action string is used directly instead.
+        private const val ACTION_SIM_STATE_CHANGED = "android.intent.action.SIM_STATE_CHANGED"
 
         private const val MOVING_INTERVAL_MS = 3 * 60 * 1000L   // §3.3: 2–5 min band
         private const val STILL_INTERVAL_MS = 20 * 60 * 1000L   // §3.3: 15–30 min band
@@ -402,8 +410,13 @@ class TrailService : Service() {
                 )
             }
             is CellInfoNr -> {
-                val id = info.cellIdentity
-                val ss = info.cellSignalStrength
+                // Unlike Lte/Wcdma/Gsm, CellInfoNr's cellIdentity/cellSignalStrength
+                // getters are typed to return the BASE CellIdentity/CellSignalStrength
+                // (an Android API inconsistency) -- explicit cast required, bail to null
+                // if either fails. CellInfoNr itself is API 29+, so gate on Q too.
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return null
+                val id = info.cellIdentity as? CellIdentityNr ?: return null
+                val ss = info.cellSignalStrength as? CellSignalStrengthNr ?: return null
                 CellInfo(
                     t = "nr",
                     mcc = id.mccString?.toIntOrNull(),
@@ -464,7 +477,11 @@ class TrailService : Service() {
 
     @SuppressLint("MissingPermission")
     private fun readConnectedWifiAp(): WifiAp? {
-        val info: AndroidWifiInfo? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        // Two-step on purpose: binding the if/else result directly to a nullable-typed
+        // val and elvis-returning off the whole expression defeats smart-cast at the
+        // use sites below (explicit `AndroidWifiInfo?` annotation blocks it) and is
+        // fragile to reorder. Assign raw, then unwrap on its own line instead.
+        val raw: AndroidWifiInfo? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val cm = getSystemService(ConnectivityManager::class.java) ?: return null
             val network = cm.activeNetwork ?: return null
             val caps = cm.getNetworkCapabilities(network) ?: return null
@@ -473,7 +490,8 @@ class TrailService : Service() {
         } else {
             val wm = getSystemService(WifiManager::class.java) ?: return null
             @Suppress("DEPRECATION") wm.connectionInfo
-        } ?: return null
+        }
+        val info = raw ?: return null
 
         // "02:00:00:00:00:00" is the randomized placeholder Android returns when the
         // caller isn't allowed to see the real BSSID — treat as unavailable, not real.
@@ -516,7 +534,7 @@ class TrailService : Service() {
         val filter = IntentFilter().apply {
             addAction(Intent.ACTION_AIRPLANE_MODE_CHANGED)
             addAction(LocationManager.PROVIDERS_CHANGED_ACTION)
-            @Suppress("DEPRECATION") addAction(TelephonyManager.ACTION_SIM_STATE_CHANGED)
+            addAction(ACTION_SIM_STATE_CHANGED)
             addAction(Intent.ACTION_BATTERY_LOW)
             addAction(Intent.ACTION_BATTERY_OKAY)
             addAction(Intent.ACTION_POWER_CONNECTED)
@@ -532,7 +550,6 @@ class TrailService : Service() {
              locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
 
     private val systemEventReceiver = object : BroadcastReceiver() {
-        @Suppress("DEPRECATION")
         override fun onReceive(context: Context, intent: Intent) {
             val ev = when (intent.action) {
                 Intent.ACTION_AIRPLANE_MODE_CHANGED ->
@@ -545,7 +562,7 @@ class TrailService : Service() {
                     if (prev == enabled) return
                     if (enabled) "loc_on" else "loc_off"
                 }
-                TelephonyManager.ACTION_SIM_STATE_CHANGED -> "sim_changed"
+                ACTION_SIM_STATE_CHANGED -> "sim_changed"
                 Intent.ACTION_BATTERY_LOW -> "batt_low"
                 Intent.ACTION_BATTERY_OKAY -> "batt_okay"
                 Intent.ACTION_POWER_CONNECTED -> "charge_on"

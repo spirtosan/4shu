@@ -499,12 +499,19 @@ registration, per the block's Accept criterion.
    broadcasts (can't be spoofed by a third-party app), the same category as
    `ACTION_SCREEN_ON` in that precedent, so the unflagged 2-arg form was matched
    as-is rather than introducing a new pattern.
-6. **`sim_changed` uses the deprecated `TelephonyManager.ACTION_SIM_STATE_CHANGED`,
-   not the newer `ACTION_SIMCARD_STATE_CHANGED`.** The replacement is `@SystemApi`
-   and requires `READ_PRIVILEGED_PHONE_STATE` (platform/carrier-signed only, not
-   obtainable by this app). The deprecated constant is still a public, non-hidden
-   field and the broadcast still fires for third-party dynamic receivers — the only
-   actually usable option here, deprecation notwithstanding.
+6. **CORRECTED (was wrong, caught by the compiler):** the first pass claimed
+   `TelephonyManager.ACTION_SIM_STATE_CHANGED` is a public, non-hidden, merely-
+   deprecated field. It is not — Ivan's Gradle build failed on it. The constant
+   actually lives in the internal `com.android.internal.telephony.TelephonyIntents`
+   class, not on the public `TelephonyManager` at all, so the reference didn't
+   resolve. Fixed by using the literal action string
+   `"android.intent.action.SIM_STATE_CHANGED"` directly (`TrailService.
+   ACTION_SIM_STATE_CHANGED`, a private `const val` with a comment explaining why).
+   The broadcast itself is still real and still delivered to dynamically registered
+   receivers — only the SDK-constant claim was false, not the mechanism. The newer
+   `ACTION_SIMCARD_STATE_CHANGED` replacement remains correctly out of reach:
+   `@SystemApi`, requires `READ_PRIVILEGED_PHONE_STATE` (platform/carrier-signed
+   only), not obtainable by this app.
 
 **Deliberate spec extension (flagging, not a MATCH EXISTING item):** the original
 §2.1 `ev` enum lists only `batt_low`, not a paired "back to normal" event. This
