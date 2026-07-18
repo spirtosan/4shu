@@ -52,9 +52,10 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import java.util.concurrent.atomic.AtomicLong
+import kotlin.math.abs
 
 /**
- * SPEC_T13.md §2.1, §3.1–§3.4, §3.6 (Phase 1 Blocks B+C+D). Foreground service that
+ * SPEC_T13.md §2.1, §3.1–§3.4, §3.6 (Phase 1 Blocks B+C+D, hotfix Block B.1). Foreground service that
  * runs the MOVING/STILL sampling state machine, enriches every written point with
  * battery/net/cells/wifi (§3.4), emits event points for system broadcasts including
  * `boot` (started via [TrailPermissionActivity]/[com.fshu.next.service.
@@ -95,6 +96,13 @@ class TrailService : Service() {
     // STILL heartbeat, or passive), read by event points regardless of source.
     @Volatile private var lastFixSnapshot: LastFix? = null
 
+    // B.1 dup guard: the last fix actually written to Room (any provider/state) --
+    // compared against every new persist attempt by isDuplicateFix(). Updated only when
+    // a fix is actually persisted, not on suppressed duplicates or MOVING-state passive
+    // deliveries (those never reach recordFix at all, see passiveListener).
+    @Volatile private var lastPersistedLocation: Location? = null
+    @Volatile private var lastPersistedTs: Long = 0L
+
     // Dedupe PROVIDERS_CHANGED_ACTION (fires per-provider) down to real loc_on/loc_off
     // aggregate transitions only.
     private var lastLocationEnabled: Boolean? = null
@@ -116,6 +124,18 @@ class TrailService : Service() {
         private const val STILL_ENTRY_FIX_COUNT = 3
         private const val STILL_ENTRY_TIMEOUT_MS = 20 * 60 * 1000L
         private const val STILL_EXIT_RADIUS_M = 150f
+
+        // B.1: near-duplicate persist guard. PASSIVE_PROVIDER is registered at zero
+        // throttle (0ms/0m) and echoes every location delivered to ANY registered
+        // listener system-wide, including our own active-provider (fused/gps/network)
+        // fix -- so every MOVING sample was landing in Room at least twice (once via
+        // fixListener, once via passiveListener) before this guard existed, with counts
+        // above 2 coming from other apps' concurrent location requests also being
+        // echoed. Suppress a persist attempt within DUP_RADIUS_M and DUP_WINDOW_S of the
+        // last fix actually written, regardless of source. See SPEC_T13.md's B.1
+        // implementation notes for the full root-cause writeup.
+        private const val DUP_RADIUS_M = 10f
+        private const val DUP_WINDOW_S = 5L
 
         @Volatile var isRunning: Boolean = false
             private set
@@ -299,29 +319,57 @@ class TrailService : Service() {
         }
     }
 
-    private val fixListener = LocationListener { location ->
-        // Only a real MOVING active fix (fused/gps) may trigger an opportunistic wifi
-        // scan (§3.4) — the STILL network heartbeat reuses this same listener but must
-        // not fight the scan throttle just because it shares the callback.
-        recordFix(location, triggerWifiScan = motionState == MotionState.MOVING)
-        if (motionState == MotionState.MOVING) evaluateStillEntry(location)
+    private val fixListener = object : LocationListener {
+        override fun onLocationChanged(location: Location) = onFix(location)
+
+        // B.1: iterate a batched delivery explicitly rather than relying on the
+        // platform LocationListener interface's own default onLocationChanged(List)
+        // fan-out (which would otherwise call onLocationChanged(Location) once per item
+        // anyway, silently) -- every item still passes through the same dup guard below.
+        override fun onLocationChanged(locations: List<Location>) = locations.forEach(::onFix)
+
+        private fun onFix(location: Location) {
+            // Only a real MOVING active fix (fused/gps) may trigger an opportunistic wifi
+            // scan (§3.4) — the STILL network heartbeat reuses this same listener but must
+            // not fight the scan throttle just because it shares the callback.
+            recordFix(location, triggerWifiScan = motionState == MotionState.MOVING)
+            if (motionState == MotionState.MOVING) evaluateStillEntry(location)
+        }
     }
 
-    private val passiveListener = LocationListener { location ->
-        recordFix(location, providerOverride = "passive")
-        val anchorFix = anchor
-        if (motionState == MotionState.STILL && anchorFix != null && location.distanceTo(anchorFix) > STILL_EXIT_RADIUS_M) {
-            Log.i(TAG, "passive fix ${location.distanceTo(anchorFix)}m from anchor -> MOVING")
-            enterMoving()
+    private val passiveListener = object : LocationListener {
+        override fun onLocationChanged(location: Location) = onFix(location)
+        override fun onLocationChanged(locations: List<Location>) = locations.forEach(::onFix)
+
+        private fun onFix(location: Location) {
+            // B.1: while MOVING, passive deliveries feed the STILL-entry distance logic
+            // only -- the active provider (fused/gps+network) is the sole persisted
+            // MOVING source per §3.3's source table. While STILL, passive fixes stay
+            // persistable (§3.2's designed bonus points + the >150 m exit trigger).
+            if (motionState == MotionState.MOVING) {
+                evaluateStillEntry(location)
+                return
+            }
+            recordFix(location, providerOverride = "passive")
+            val anchorFix = anchor
+            if (anchorFix != null && location.distanceTo(anchorFix) > STILL_EXIT_RADIUS_M) {
+                Log.i(TAG, "passive fix ${location.distanceTo(anchorFix)}m from anchor -> MOVING")
+                enterMoving()
+            }
         }
     }
 
     // --- point construction ---
 
     private fun recordFix(location: Location, providerOverride: String? = null, triggerWifiScan: Boolean = false) {
+        val ts = if (location.time > 0) location.time else System.currentTimeMillis()
+        val prov = providerOverride ?: location.provider
+        // B.1: check first, before any enrichment work (battery/cells/wifi reads, an
+        // opportunistic wifi scan) is spent building a point that will just be dropped.
+        if (isDuplicateFix(location, ts, prov)) return
+
         val seq = fixSeq.incrementAndGet()
         val (battPct, charging) = readBattery()
-        val ts = if (location.time > 0) location.time else System.currentTimeMillis()
         val acc = if (location.hasAccuracy()) location.accuracy.toDouble() else null
         val point = TrailPointData(
             seq = seq,
@@ -333,7 +381,7 @@ class TrailService : Service() {
             alt = if (location.hasAltitude()) location.altitude else null,
             spd = if (location.hasSpeed()) location.speed.toDouble() else null,
             brg = if (location.hasBearing()) location.bearing.toDouble() else null,
-            prov = providerOverride ?: location.provider,
+            prov = prov,
             mock = isMockLocation(location),
             mot = if (motionState == MotionState.MOVING) "moving" else "still",
             batt = battPct,
@@ -343,7 +391,22 @@ class TrailService : Service() {
             wifi = readWifi(triggerScan = triggerWifiScan)
         )
         lastFixSnapshot = LastFix(lat = location.latitude, lon = location.longitude, acc = acc ?: 0.0, ts = ts)
+        lastPersistedLocation = location
+        lastPersistedTs = ts
         persist(point)
+    }
+
+    // B.1: true if this attempt lands within DUP_RADIUS_M and DUP_WINDOW_S of the last
+    // fix actually persisted, from any provider/listener/state. Logged (tag TrailService)
+    // so the Phase 1 device-test checklist can verify suppression live.
+    private fun isDuplicateFix(location: Location, ts: Long, prov: String?): Boolean {
+        val last = lastPersistedLocation ?: return false
+        val dtMs = abs(ts - lastPersistedTs)
+        if (dtMs > DUP_WINDOW_S * 1000) return false
+        val dist = location.distanceTo(last)
+        if (dist > DUP_RADIUS_M) return false
+        Log.i(TAG, "dup suppressed: prov=${prov ?: "?"} d=${"%.1f".format(dist)}m dt=${dtMs}ms")
+        return true
     }
 
     private fun recordEvent(ev: String) {

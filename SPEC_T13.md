@@ -813,6 +813,94 @@ separately re-verify against a real GDPR export from a G60.
 
 ---
 
+### Block B.1 — duplicate-fix suppression hotfix — 2026-07-19
+
+**Trigger:** real-device data via the Block W viewer showed `trail_points` getting
+2–6 rows per fix instant — identical coords, same second, consecutive `seq` — at every
+MOVING sample, several times the §3.3 cadence overall.
+
+**Root cause (confirmed against the actual Block B/C code, not just the hypothesis
+in the prompt):** before this hotfix, `TrailService` had zero deduplication across its
+two always-active location listeners. `passiveListener` (§3.2's always-registered
+`PASSIVE_PROVIDER`) was requested at `minTimeMs=0, minDistanceM=0` — zero throttle —
+and unconditionally called `recordFix()`/persisted on *every* delivery, in *every*
+motion state, while `fixListener` (the active `FUSED_PROVIDER`/GPS+NETWORK
+registration) also unconditionally persisted every delivery it received. Since
+`PASSIVE_PROVIDER` mirrors every location handed to any registered listener
+system-wide — including our own active-provider request — this guaranteed **at least
+2 rows per MOVING fix instant** (one via `fixListener`, one via `passiveListener`
+echoing that same fix), confirmed straight from the pre-fix code, not inferred.
+
+**Why counts went above 2, specifically on Ivan's test devices:** both G60s run
+Android 12 (API 31) per `PROJECT_KNOWLEDGE.md`, so `registerActiveProviders()`'s
+`fused` check is true and only a single active provider (`FUSED_PROVIDER`) is ever
+registered — the below-31 GPS+NETWORK dual-registration fallback path exists in the
+code (`registerActiveProviders`'s `else` branch) but is **not** the mechanism on these
+specific devices; it remains a real latent contributor for any minSdk 26–30 device,
+now also covered by the same guard. On these Android 12 devices, the residual
+multiplicity beyond the guaranteed 2 (up to 6, "one instant ×6") is attributed to the
+same zero-throttle `PASSIVE_PROVIDER` registration also echoing **any other
+concurrently-running app's** location requests that happen to resolve to essentially
+the same fused-location computation at the same instant (Motorola/Google apps commonly
+poll location in the background) — each such coincident request produces its own
+passive echo, all landing within the same second at the same coordinates our own fix
+used, with `TrailService`'s own `fixSeq` counter making them look "consecutive" simply
+because they were persisted back-to-back. Batched delivery
+(`LocationListener.onLocationChanged(List<Location>)`, default since API 30, would
+silently fan out through the same single-`Location` code path since `fixListener`/
+`passiveListener` were plain SAM lambdas overriding only the single-`Location` method)
+could not be confirmed or ruled out from static code reading alone — the legacy
+5-arg `requestLocationUpdates(provider, minTimeMs, minDistanceM, listener, looper)`
+overload used here doesn't request batching explicitly, but OEM location stacks can
+still deliver batched callbacks through it. Handled defensively per instruction
+(item 4 below) rather than asserted as the live mechanism; the on-device
+`dup suppressed: prov=...` logcat line (device-test checklist, Block B) is what will
+tell us empirically whether any suppressed row's `prov` pattern looks like batching
+(many suppressions from the *same* listener back-to-back) versus the confirmed
+passive-echo mechanism (alternating `fused`/`passive`).
+
+**Change, `TrailService` only:**
+1. **MOVING:** `passiveListener` deliveries now feed only `evaluateStillEntry()` (the
+   STILL-entry distance/count logic) and never call `recordFix()` — the active
+   provider (fused; gps+network fallback below API 31) is the sole persisted MOVING
+   source, per §3.3's source table.
+2. **STILL:** `passiveListener` deliveries are unchanged — still persistable (§3.2's
+   designed bonus points) and still drive the >150 m exit-to-MOVING check.
+3. **Universal near-duplicate guard**, `isDuplicateFix()`, called at the top of
+   `recordFix()` before any enrichment work (battery/cells/wifi reads, the
+   opportunistic wifi scan) is spent: suppresses a persist attempt landing within
+   `DUP_RADIUS_M` (10 m) and `DUP_WINDOW_S` (5 s) of the last fix *actually written* to
+   Room, regardless of which provider/listener/state produced it. Applies uniformly to
+   `fixListener` (covering the below-31 GPS+NETWORK double-source case, latent on
+   these devices but real on older ones) and to STILL-state `passiveListener`
+   persists. `fixSeq` is only incremented for fixes that actually persist, so
+   suppressed duplicates don't create seq gaps.
+4. `fixListener`/`passiveListener` converted from SAM lambdas (which only override
+   single-`Location` `onLocationChanged`) to explicit `object : LocationListener`
+   instances overriding both `onLocationChanged(Location)` and
+   `onLocationChanged(List<Location>)`, the latter iterating explicitly and routing
+   each item through the identical per-fix handler (and therefore the same dup guard)
+   — makes any batched delivery visible/intentional rather than relying on the
+   platform interface's own inherited default fan-out.
+5. Suppressed duplicates are logged: `Log.i(TAG, "dup suppressed: prov=... d=...m
+   dt=...ms")`.
+
+**Not done (per instruction):** no migration/cleanup of existing duplicate rows —
+Ivan's test data is disposable, wipeable via the Block E viewer's own wipe action if a
+clean baseline is wanted. No server/schema/protocol change. `DUP_RADIUS_M`/
+`DUP_WINDOW_S` constants live at the top of `TrailService.kt`'s companion object,
+commented as B.1, per instruction, in case the 10 m/5 s values need tuning after the
+device-test checklist runs.
+
+**Build type: UPDATE.** No new manifest permissions, no Room schema change — pure
+logic change inside `TrailService`.
+
+**Verification status:** could not run Gradle/adb (project rule). Needs Ivan's build +
+the updated Block B device-test checklist items above (single row per ~3-min MOVING
+mark, `dup suppressed` logcat line present).
+
+---
+
 ## Phase 1 device-test checklist (batch test, on the G60s, after Block E)
 
 Seeded by Blocks A/B/C; each later block appends its own subsection below.
@@ -838,7 +926,12 @@ Seeded by Blocks A/B/C; each later block appends its own subsection below.
 - [ ] Logcat (`TrailService` tag) shows `provider registered: fused ...` (or the
       `gps`/`network` fallback below API 31) and `provider registered: passive` on start.
 - [ ] Walking around for several minutes produces MOVING fixes in `trail_points`
-      (`mot='moving'`, non-null lat/lon) roughly every ~3 min.
+      (`mot='moving'`, non-null lat/lon) — **exactly one row per ~3-min mark** (not
+      2–6, per the B.1 dup-suppression hotfix — see Block B.1 below).
+- [ ] Logcat (`TrailService` tag) shows `dup suppressed: prov=... d=...m dt=...ms`
+      lines while walking/at each MOVING fix (the FUSED_PROVIDER fix's own
+      PASSIVE_PROVIDER echo, and any other app's coincident request, being
+      suppressed) — confirms B.1 is actually firing on-device, not just compiling.
 - [ ] Leaving the phone stationary (~20 min, or 3 consecutive fixes within 100 m)
       triggers STILL: logcat shows `state -> STILL` and `provider unregistered:
       fused/gps/network`, confirming GPS/FUSED registration is provably gone.
