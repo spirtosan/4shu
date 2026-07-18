@@ -345,6 +345,43 @@ object Prefs {
         } catch (_: Exception) { username }
     }
 
+    // T13 Block D — Trail enable state, guardian picker (local-only, Phase 2/3 wire
+    // not built yet), and restart-count health surfaced on the status card (§6.6).
+    fun isTrailEnabled(ctx: Context): Boolean =
+        ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE).getBoolean("trail_enabled", false)
+
+    fun setTrailEnabled(ctx: Context, value: Boolean) =
+        ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE).edit().putBoolean("trail_enabled", value).apply()
+
+    /** Epoch ms Trail was last enabled; 0 = never. Drives the status card's "collecting since". */
+    fun getTrailEnabledAt(ctx: Context): Long =
+        ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE).getLong("trail_enabled_at", 0L)
+
+    fun setTrailEnabledAt(ctx: Context, value: Long) =
+        ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE).edit().putLong("trail_enabled_at", value).apply()
+
+    /** OS-triggered TrailService restarts (svc_restart) since Trail was last (re-)enabled. */
+    fun getTrailRestartCount(ctx: Context): Int =
+        ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE).getInt("trail_restart_count", 0)
+
+    fun incrementTrailRestartCount(ctx: Context) {
+        val p = ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE)
+        p.edit().putInt("trail_restart_count", p.getInt("trail_restart_count", 0) + 1).apply()
+    }
+
+    fun resetTrailRestartCount(ctx: Context) =
+        ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE).edit().putInt("trail_restart_count", 0).apply()
+
+    /** Guardian usernames picked locally (§6.2). Grant/accept wire protocol is Phase 2/3 —
+     *  this is purely a local list until then, cap enforced by the picker UI, not here. */
+    fun getTrailGuardians(ctx: Context): Set<String> =
+        ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE)
+            .getStringSet("trail_guardians", emptySet()) ?: emptySet()
+
+    fun setTrailGuardians(ctx: Context, guardians: Set<String>) =
+        ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE)
+            .edit().putStringSet("trail_guardians", guardians).apply()
+
     private fun getSecurePrefs(ctx: Context): SharedPreferences {
         return try {
             val masterKeyAlias = MasterKeys.getOrCreate(MasterKeys.AES256_GCM_SPEC)

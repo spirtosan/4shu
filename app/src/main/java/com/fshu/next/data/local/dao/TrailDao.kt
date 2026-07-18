@@ -31,4 +31,18 @@ interface TrailDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertUploadWatermark(state: TrailUploadState)
+
+    // T13 Block D — status card (§6.6).
+    @Query("SELECT COUNT(*) FROM trail_points")
+    suspend fun getCount(): Int
+
+    @Query("SELECT MIN(ts) FROM trail_points")
+    suspend fun getOldestTs(): Long?
+
+    @Query("SELECT MAX(ts) FROM trail_points")
+    suspend fun getNewestTs(): Long?
+
+    /** One-tap disable (§6.5): local wipe. Server-side trail-wipe rides Phase 2/3. */
+    @Query("DELETE FROM trail_points")
+    suspend fun deleteAll()
 }

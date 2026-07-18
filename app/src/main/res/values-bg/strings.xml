@@ -276,6 +276,37 @@
     <string name="notif_channel_trail">Проследяване на местоположение</string>
     <string name="notif_trail_title">4shu — Проследяване</string>
     <string name="notif_trail_text">4shu — проследяването на местоположение е активно</string>
+
+    <!-- T13 Block D: Trail settings screen, permission walkthrough, guardians, status card -->
+    <string name="label_trail">Проследяване</string>
+    <string name="desc_trail">Проследяване на местоположението за довереници при спешен случай</string>
+    <string name="trail_intro">Проследяването пази непрекъсната криптирана история на местоположението на телефона ви, за да могат избраните от вас довереници винаги да знаят последното място, на което сте били, и как сте стигнали дотам — дори ако телефонът ви е офлайн. Изключено по подразбиране; само вие можете да го включите на това устройство.</string>
+    <string name="label_trail_enable">Включи проследяването</string>
+    <string name="label_trail_status">Състояние</string>
+    <string name="trail_status_since">Събира от %1$s</string>
+    <string name="trail_status_points">%1$d точки запазени</string>
+    <string name="trail_status_range">Най-стара %1$s · Най-нова %2$s</string>
+    <string name="trail_status_range_empty">Все още няма записани точки</string>
+    <string name="trail_status_restarts">Рестартирания на услугата: %1$d</string>
+    <string name="label_trail_guardians">Довереници</string>
+    <string name="trail_guardians_local_only_note">Засега се запазва само на това устройство — заявките за довереници все още не се изпращат. Този списък ще започне да се синхронизира, когато функцията за довереници бъде напълно завършена.</string>
+    <string name="trail_guardians_empty">Все още няма добавени довереници.</string>
+    <string name="btn_add_guardian">Добави довереник</string>
+    <string name="toast_trail_guardian_cap">Можете да имате най-много %1$d довереници.</string>
+    <string name="toast_trail_no_guardian_candidates">Първо добавете взаимен контакт — доверениците трябва вече да са ваши контакти.</string>
+    <string name="dialog_trail_disable_title">Изключване на проследяването?</string>
+    <string name="dialog_trail_disable_message">Това спира събирането на местоположението ви и трайно изтрива запазеното проследяване от това устройство. Това не може да бъде отменено.</string>
+    <string name="btn_trail_disable">Изключи и изтрий</string>
+    <string name="toast_trail_disabled">Проследяването е изключено — локалните данни са изтрити.</string>
+    <string name="btn_open_settings">Отвори настройки</string>
+    <string name="toast_trail_location_required">Проследяването се нуждае от достъп до местоположение — разрешете го и опитайте отново.</string>
+    <string name="trail_permission_location_title">Достъп до местоположение</string>
+    <string name="trail_permission_location_desc">Проследяването се нуждае от непрекъснат достъп до GPS местоположението ви, за да изгради вашия маршрут. Само лично избраните от вас довереници ще могат да го виждат.</string>
+    <string name="trail_permission_location_button">Разреши местоположение</string>
+    <string name="trail_permission_background_title">Разреши през цялото време</string>
+    <string name="trail_permission_background_desc">За да продължи проследяването да работи, когато 4shu не е отворено, изберете „Разреши през цялото време“ за местоположението на следващия екран. Можете да пропуснете това, но проследяването може да спира, когато приложението не работи.</string>
+    <string name="trail_permission_battery_title">Оптимизация на батерията</string>
+    <string name="trail_permission_battery_desc">Някои телефони (включително Motorola от серия G) агресивно спират приложения на заден план, за да пестят батерия. Изключването на 4shu от тази оптимизация прави проследяването по-надеждно. Можете да пропуснете това.</string>
     <string name="connection_test_testing_with">Тест с %s</string>
     <string name="connection_test_peer_label">Сървър → %s</string>
     <string name="permission_step_indicator">Стъпка %1$d от %2$d</string>

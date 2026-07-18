@@ -536,6 +536,97 @@ net reads all fail closed (return `null`/omit the field) on any exception or mis
 permission rather than crashing the service — consistent with §2.1's "nullable fields
 omitted when unavailable." Needs Ivan's build + the device-test checklist below.
 
+**Follow-up (2026-07-18, same day):** Ivan's build failed on this block — three root
+causes, all fixed, no new features. Full detail in `PROJECT_MEMORY.md`'s Block C
+compile-fix changelog entry; the short version: (1) `CellInfoNr`'s identity/signal-
+strength getters are typed to return the BASE `CellIdentity`/`CellSignalStrength`
+(unlike Lte/Wcdma/Gsm), needing explicit casts; (2) `readConnectedWifiAp`'s nullable-
+typed if/else-then-elvis shape didn't carry a smart-cast guarantee, restructured
+two-step; (3) `TelephonyManager.ACTION_SIM_STATE_CHANGED` isn't public SDK at all —
+**implementation note #6 above was wrong about this and has been corrected in place**;
+fixed with the literal action string instead. Ivan then confirmed BUILD SUCCESSFUL.
+
+### Phase 1 Block D — 2026-07-18
+
+**MATCH EXISTING resolutions:**
+
+1. **Staged-permission-walkthrough style.** New `TrailPermissionActivity` mirrors
+   `PermissionSetupActivity`'s step-list/step-indicator pattern (title/description/
+   button, `Step` data class, `currentStep`/`advance()`) on its own layout/activity
+   rather than reusing that one directly — this flow is re-enterable from Trail
+   settings at any time, not a one-shot first-launch screen the other one is. Unlike
+   `PermissionSetupActivity`'s hardcoded-English step descriptions, every Trail step
+   string is a proper `@string` resource with an EN+BG pair — Block D's own instruction
+   requires that; not a criticism of the precedent, just a stricter bar this block sits
+   under.
+2. **Background location — guided to Settings, not an in-app runtime dialog.** §3.6
+   says "guided walkthrough screen," and Android's own policy (10+) restricts
+   requesting `ACCESS_BACKGROUND_LOCATION` via a normal in-app permission dialog
+   (behavior varies by OEM/API level when attempted). Sent uniformly to
+   `Settings.ACTION_APPLICATION_DETAILS_SETTINGS` for API 29+ instead — one code path,
+   correct on every OEM, matches the spec's own wording rather than fighting a
+   restricted API.
+3. **Settings-screen visual language.** `activity_trail_settings.xml` matches
+   `PrivacySettingsActivity`/`fragment_settings.xml`'s card+row idiom exactly
+   (`MaterialCardView` with `colorSurfaceElevated`/`radius_card`, `SwitchCompat` — not
+   `SwitchMaterial`, which isn't used anywhere else in the app — matched after an
+   initial wrong guess). Guardian-add dialog matches T16's member-picker precedent
+   verbatim (`MaterialAlertDialogBuilder(...).setItems(names) { _, index -> ... }`,
+   `ChatActivity.showTransferOwnershipDialog`).
+4. **Boot-restart wiring lives in the existing `ServiceRestartReceiver`,** not a new
+   receiver — it's already the app's one `BOOT_COMPLETED`-family receiver
+   (`directBootAware="true"`, already handles `LOCKED_BOOT_COMPLETED`/
+   `USER_UNLOCKED`/the alarm-watchdog check for `FshuService`). `Intent.
+   ACTION_BOOT_COMPLETED` previously had no explicit branch there (fell through to a
+   generic fallback with identical `FshuService` behavior) — given one now so Trail's
+   `boot` trigger attaches only to a genuine boot completion, not the generic
+   `ACTION_RESTART_SERVICE` case that also reaches that fallback.
+5. **Direct-boot storage — deliberately NOT matched for Trail.** `FshuService`'s
+   `LOCKED_BOOT_COMPLETED` branch reads a separate plain-prefs flag (`fshu_boot` /
+   `was_logged_in`) instead of the main `Prefs`, because normal (credential-encrypted)
+   SharedPreferences aren't reliably readable before first unlock. `trail_enabled`
+   lives in the same normal prefs as everything else Trail — reading it during
+   `LOCKED_BOOT_COMPLETED` would be unreliable the same way. Rather than duplicating
+   that direct-boot-safe-flag machinery for Trail, the boot-restart check was scoped to
+   `USER_UNLOCKED` and `BOOT_COMPLETED` only, both of which run once storage is
+   actually available in normal operation — simpler, and the gap (missing the
+   direct-boot phase specifically) is a rare, narrow window, not a functional loss.
+6. **`svc_restart` detection needs no new state at all.** Android redelivers
+   `onStartCommand` with a **null** `Intent` specifically and only when it auto-restarts
+   a previously-killed `START_STICKY` service — this is already unambiguous on its own
+   (documented platform behavior), so no restart-generation counter or persisted flag
+   was needed to distinguish it from a normal `startService`/`startForegroundService`
+   call (which always delivers a real Intent, even with no extras).
+
+**Deliberate omission (not a bug):** the status card skips the "last upload" row from
+§6.6's list. Nothing uploads yet in Phase 1 (upload lands in Block I, Phase 3) — there
+is no last-upload state to show, so the row isn't rendered rather than showing a
+permanently-empty placeholder.
+
+**§3.6 API 31+ interaction, noted per instruction, not coded around:** a location
+foreground service started from the background (e.g. by the boot receiver, with no
+activity in the foreground) only actually receives location updates if
+`ACCESS_BACKGROUND_LOCATION` is granted. This needs no extra runtime handling — it's
+exactly why the staged walkthrough asks for that permission before Trail can be
+enabled at all; if the user skipped that step, `TrailService` still starts and still
+runs its state machine/enrichment/events correctly, it just won't receive GPS fixes
+reliably once the app leaves the foreground, which is an accurate (not broken)
+reflection of what the user chose to skip.
+
+**Deliberately deferred to later blocks (not built now):** the access-log screen and
+`trail-accessed` notification from §6.4 (Phase 2/3 — no fetches can happen yet, there's
+nothing to log); guardian grant/accept wire messages (Phase 2/3, per instruction — the
+picker is honestly labeled local-only); PANIC-state overrides (Block J); my-trail
+viewer / GDPR export wiring (Block E, next).
+
+**New permission: `ACCESS_BACKGROUND_LOCATION`** (manifest) — adds to the same
+REINSTALL-vs-UPDATE tension already flagged in `PROJECT_MEMORY.md`'s Open Questions
+for Block A (schema bump) and Block C (`CHANGE_WIFI_STATE`); not re-litigated here,
+same open item.
+
+**Verification status:** could not run Gradle/adb (project rule). Needs Ivan's build +
+the device-test checklist below.
+
 ---
 
 ## Phase 1 device-test checklist (batch test, on the G60s, after Block E)
@@ -588,3 +679,41 @@ Seeded by Blocks A/B/C; each later block appends its own subsection below.
       readiness on some OEMs) produces a `sim_changed` event.
 - [ ] `PROJECT_MEMORY.md`/spec note the new `CHANGE_WIFI_STATE` permission — confirm
       this install was a REINSTALL, not an UPDATE over a pre-Block-C build.
+
+### Block D
+- [ ] On a clean Android 12 install (or an account with Trail never enabled), the
+      Settings → Trail row opens `TrailSettingsActivity` with the toggle off and the
+      status/guardian sections hidden.
+- [ ] Turning the toggle on launches the staged walkthrough; each visible step's text
+      plainly states what's collected and who can see it (§6.1) before its button acts.
+- [ ] **Deny path, location step:** denying fine location aborts the walkthrough,
+      shows the "Trail needs Location access" toast, returns to Trail settings with
+      the toggle back off, and `TrailService` never starts.
+- [ ] **Skip path, background location step:** tapping Skip advances without opening
+      Settings; Trail still ends up enabled at the end of the flow.
+- [ ] **Skip path, battery step:** same — skip advances, Trail still ends up enabled.
+- [ ] Completing (or skipping) every step returns to Trail settings with the toggle
+      on, the status card visible, and `TrailService` running (persistent notification
+      present).
+- [ ] Re-opening Trail settings while already enabled does NOT re-trigger the
+      walkthrough (toggle just reflects the stored state via `onResume`).
+- [ ] Status card shows a real "Collecting since" timestamp, a growing point count,
+      and a real oldest/newest range once at least one point has been written.
+- [ ] "Add guardian" lists only mutual (accepted) contacts, excludes ones already
+      added, and is disabled once 5 guardians are added (toast on attempting a 6th via
+      any other path). The on-screen note makes clear this list isn't sent anywhere yet.
+- [ ] Removing a guardian updates the list immediately and re-enables "Add guardian"
+      if it had hit the cap.
+- [ ] Rebooting the device with Trail enabled: `TrailService` restarts on its own
+      (persistent notification reappears without opening the app), and logcat /
+      `trail_points` shows one `boot` event shortly after.
+- [ ] Force-stopping/killing `TrailService`'s process (not via the app) while Trail is
+      enabled and waiting for the OS to restart it produces a `svc_restart` event, and
+      the status card's restart count increments.
+- [ ] Toggling Trail off shows the disable confirmation dialog; confirming stops the
+      service (notification clears) and empties `trail_points` (status card reverts to
+      hidden); cancelling leaves everything running and the toggle back on.
+- [ ] The Block B debug long-press on the Settings version line no longer does
+      anything Trail-related (removed this block) — long-pressing it is inert.
+- [ ] Confirm this install required a REINSTALL (new `ACCESS_BACKGROUND_LOCATION`
+      permission, same open question as Blocks A/C's REINSTALL labels).

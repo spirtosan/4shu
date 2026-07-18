@@ -52,6 +52,22 @@ class ServiceRestartReceiver : BroadcastReceiver() {
                     Intent(context, FshuService::class.java)
                 )
             }
+            maybeRestartTrail(context)
+            return
+        }
+        // T13 Block D: BOOT_COMPLETED previously had no explicit branch here and fell
+        // through to the generic block below (same FshuService-start result) -- given
+        // its own branch now so the "boot" trigger for Trail is only attached to a
+        // genuine device-boot completion, not the generic ACTION_RESTART_SERVICE case
+        // that also reaches the fallback block.
+        if (intentAction == Intent.ACTION_BOOT_COMPLETED) {
+            if (Prefs.getUsername(context).isNotEmpty()) {
+                ContextCompat.startForegroundService(
+                    context,
+                    Intent(context, FshuService::class.java)
+                )
+            }
+            maybeRestartTrail(context)
             return
         }
         if (Prefs.getUsername(context).isNotEmpty()) {
@@ -60,6 +76,23 @@ class ServiceRestartReceiver : BroadcastReceiver() {
                 Intent(context, FshuService::class.java)
             )
         }
+    }
+
+    /** Restarts TrailService with the boot trigger if Trail is enabled (§3.1/§3.6).
+     *  Not called from LOCKED_BOOT_COMPLETED: trail_enabled lives in normal
+     *  (credential-encrypted) prefs, same as FshuService's own username check there --
+     *  neither is reliably readable before first unlock, which is why FshuService's
+     *  own LOCKED_BOOT_COMPLETED branch above uses a separate direct-boot-safe flag
+     *  instead. Not duplicating that machinery for Trail here; USER_UNLOCKED and
+     *  BOOT_COMPLETED already cover the case once storage is actually available. */
+    private fun maybeRestartTrail(context: Context) {
+        if (!Prefs.isTrailEnabled(context)) return
+        ContextCompat.startForegroundService(
+            context,
+            Intent(context, TrailService::class.java).apply {
+                putExtra(TrailService.EXTRA_TRIGGER, TrailService.TRIGGER_BOOT)
+            }
+        )
     }
 
     @Suppress("DEPRECATION")

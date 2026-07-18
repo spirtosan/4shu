@@ -25,7 +25,6 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.content.ContextCompat
 import androidx.core.os.LocaleListCompat
@@ -39,7 +38,7 @@ import com.fshu.next.data.local.AppDatabase
 import com.fshu.next.data.remote.WebSocketClient
 import com.fshu.next.databinding.FragmentSettingsBinding
 import com.fshu.next.service.FshuService
-import com.fshu.next.service.TrailService
+import com.fshu.next.ui.trail.TrailSettingsActivity
 import com.fshu.next.ui.admin.ChangePasswordDialog
 import com.fshu.next.ui.login.LoginActivity
 import com.fshu.next.ui.settings.BlockListActivity
@@ -85,7 +84,7 @@ class SettingsFragment : Fragment() {
         setupAdmin()
         setupDataAccount()
         setupVersion()
-        setupTrailDebugToggle()
+        setupTrail()
     }
 
     override fun onResume() {
@@ -684,39 +683,9 @@ class SettingsFragment : Fragment() {
         _binding?.tvVersion?.text = "v${BuildConfig.VERSION_NAME} · ${BuildConfig.BUILD_TIME}"
     }
 
-    // T13 Block B — TEMP: DEBUG-only start/stop hook for TrailService, long-press the
-    // version line (unused gesture, always present). Real consent-driven toggle lands
-    // in Block D; remove this once that exists.
-    private val trailLocationPermissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestMultiplePermissions()
-    ) { grants -> if (grants.values.any { it }) toggleTrailDebug() }
-
-    private fun setupTrailDebugToggle() {
-        if (!BuildConfig.DEBUG) return
-        binding.tvVersion.setOnLongClickListener {
-            val ctx = requireContext()
-            val hasFineLocation = ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_FINE_LOCATION) ==
-                PackageManager.PERMISSION_GRANTED
-            if (!hasFineLocation) {
-                trailLocationPermissionLauncher.launch(arrayOf(
-                    Manifest.permission.ACCESS_FINE_LOCATION,
-                    Manifest.permission.ACCESS_COARSE_LOCATION
-                ))
-            } else {
-                toggleTrailDebug()
-            }
-            true
-        }
-    }
-
-    private fun toggleTrailDebug() {
-        val ctx = requireContext()
-        if (TrailService.isRunning) {
-            ctx.stopService(Intent(ctx, TrailService::class.java))
-            Toast.makeText(ctx, "Trail stopped (debug)", Toast.LENGTH_SHORT).show()
-        } else {
-            ContextCompat.startForegroundService(ctx, Intent(ctx, TrailService::class.java))
-            Toast.makeText(ctx, "Trail started (debug)", Toast.LENGTH_SHORT).show()
+    private fun setupTrail() {
+        binding.rowTrail.setOnClickListener {
+            startActivity(Intent(requireContext(), TrailSettingsActivity::class.java))
         }
     }
 

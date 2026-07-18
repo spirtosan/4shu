@@ -45,6 +45,7 @@ import com.fshu.next.trail.TrailPointKind
 import com.fshu.next.trail.WifiAp
 import com.fshu.next.trail.WifiInfo
 import com.fshu.next.trail.toEntity
+import com.fshu.next.util.Prefs
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -53,13 +54,16 @@ import kotlinx.coroutines.launch
 import java.util.concurrent.atomic.AtomicLong
 
 /**
- * SPEC_T13.md §2.1, §3.1–§3.4 (Phase 1 Blocks B+C). Foreground service that runs the
- * MOVING/STILL sampling state machine, enriches every written point with battery/net/
- * cells/wifi (§3.4), emits event points for system broadcasts (§2.1's `ev` set, minus
- * boot/svc_restart — deferred to Block D), and writes straight to Room via
- * [com.fshu.next.data.local.dao.TrailDao]. No upload/E2E (Phase 3), no real consent UI
- * (Block D) — this block wires collection + enrichment mechanics only. Start/stop is a
- * BuildConfig.DEBUG-only hook in SettingsFragment until Block D's real toggle exists.
+ * SPEC_T13.md §2.1, §3.1–§3.4, §3.6 (Phase 1 Blocks B+C+D). Foreground service that
+ * runs the MOVING/STILL sampling state machine, enriches every written point with
+ * battery/net/cells/wifi (§3.4), emits event points for system broadcasts including
+ * `boot` (started via [TrailPermissionActivity]/[com.fshu.next.service.
+ * ServiceRestartReceiver] with [EXTRA_TRIGGER]) and `svc_restart` (detected from a
+ * null [Intent] on [onStartCommand], the OS's own signal for a START_STICKY restart),
+ * and writes straight to Room via [com.fshu.next.data.local.dao.TrailDao]. Started
+ * from [com.fshu.next.ui.trail.TrailSettingsActivity]'s master toggle (behind the
+ * staged permission walkthrough) or by the boot receiver when Trail is enabled. No
+ * upload/E2E fan-out yet (Phase 2/3).
  */
 class TrailService : Service() {
 
@@ -115,6 +119,15 @@ class TrailService : Service() {
 
         @Volatile var isRunning: Boolean = false
             private set
+
+        // Set by ServiceRestartReceiver when it starts TrailService for a genuine
+        // device-boot completion (§3.6/§3.1) — distinguishes a "boot" event from a
+        // plain enable-triggered start. svc_restart needs no such extra: Android
+        // redelivers onStartCommand with a null Intent specifically (and only) when
+        // it auto-restarts a killed START_STICKY service, so intent == null is already
+        // the signal on its own.
+        const val EXTRA_TRIGGER = "trigger"
+        const val TRIGGER_BOOT = "boot"
     }
 
     override fun onCreate() {
@@ -132,6 +145,21 @@ class TrailService : Service() {
                 fixSeq.set(db.trailDao().getMaxSeq() ?: 0L)
                 registerPassive()
                 enterMoving()
+                when {
+                    // Android redelivers onStartCommand with a null Intent only when it
+                    // auto-restarts a previously-killed START_STICKY service -- never on
+                    // an explicit startService()/startForegroundService() call, so this
+                    // is unambiguously an OS-triggered restart (§3.1/§3.6 svc_restart).
+                    intent == null -> {
+                        Log.w(TAG, "onStartCommand null intent -> OS-triggered restart (svc_restart)")
+                        Prefs.incrementTrailRestartCount(this@TrailService)
+                        recordEvent("svc_restart")
+                    }
+                    intent.getStringExtra(EXTRA_TRIGGER) == TRIGGER_BOOT -> {
+                        Log.i(TAG, "started via boot trigger")
+                        recordEvent("boot")
+                    }
+                }
             }
         }
         return START_STICKY
