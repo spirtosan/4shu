@@ -110,13 +110,23 @@ On first launch, `LoginActivity` collects username and server URL (`wss://…`),
 
 ### Build type guidance (state this at the start of every task)
 - **Update install (default)** — includes DB version bumps that ship a Room
-  migration, and new install-time/normal permissions (auto-granted on update).
+  migration, and new manifest permissions — normal ones auto-grant on update;
+  dangerous ones don't auto-grant, but a new dangerous permission still doesn't
+  by itself force a reinstall (see the enumerated Clean reinstall cases below —
+  a new dangerous/runtime permission is not among them; it becomes requestable
+  at runtime instead, same as it would on any other update).
   Command: `./gradlew assembleDebug` then adb install -r
 - **Clean reinstall** — only when a schema change ships without a migration,
   when fresh-install behavior itself is under test, or when APK signatures differ.
   Command: `./gradlew assembleDebug` then adb uninstall com.fshu && adb install
 
   _(Amended 2026-07-18 — resolved the T13 Open Question; see PROJECT_MEMORY.md.)_
+  _(Corrected 2026-07-18, same day — the amendment above originally described_
+  _`ACCESS_BACKGROUND_LOCATION` as install-time/auto-granted; it is actually_
+  _protectionLevel dangerous, a runtime permission requiring a Settings-only_
+  _grant on Android 11+. The UPDATE conclusion for Block D was still correct —_
+  _a new dangerous permission isn't one of the three Clean reinstall cases —_
+  _but the reasoning stated was wrong. See PROJECT_MEMORY.md for detail.)_
 
 ### Server deploy
   ssh root@<your-server-ip>

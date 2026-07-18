@@ -47,9 +47,12 @@ class TrailPointCodecTest {
 
         assertEquals(point, parsed)
         // Nullable fields must be omitted, not serialized as JSON null (§2.1).
-        assertFalse(json.contains("\"lat\""))
-        assertFalse(json.contains("\"cells\""))
-        assertFalse(json.contains("\"wifi\""))
+        // Scoped to before "last": LastFix legitimately carries its own lat/lon,
+        // which would otherwise false-positive the substring check below.
+        val topLevelJson = json.substringBefore("\"last\"")
+        assertFalse(topLevelJson.contains("\"lat\""))
+        assertFalse(topLevelJson.contains("\"cells\""))
+        assertFalse(topLevelJson.contains("\"wifi\""))
         assertTrue(json.contains("\"ev\":\"shutdown\""))
     }
 

@@ -718,9 +718,16 @@ Seeded by Blocks A/B/C; each later block appends its own subsection below.
 
 ### Block A
 - [x] App builds (Gradle) — confirmed by Ivan, SUCCESSFUL (52s), 2026-07-18.
-- [ ] `./gradlew test` passes (`TrailPointCodecTest`, `TrailPointMapperTest`).
-- [ ] Migration 25→26 runs cleanly installing as an UPDATE over a v25 app — no data
-      loss on existing tables (messages/contacts/groups/etc. still intact after).
+- [x] `./gradlew test` passes (`TrailPointCodecTest`, `TrailPointMapperTest`) —
+      21/21 green (smoke 2026-07-18; one test-only assertion bug found and fixed
+      in `TrailPointCodecTest`, not a codec bug — see `PROJECT_MEMORY.md`).
+- [N/A] Migration 25→26 runs cleanly installing as an UPDATE over a v25 app — no
+      data loss on existing tables (messages/contacts/groups/etc. still intact
+      after). **N/A (2026-07-18):** migration testing dropped this session — the
+      app lives only on the two disposable-data test G60s; all installs go fresh
+      to v26 from here on (see `PROJECT_MEMORY.md` Decisions Log,
+      2026-07-18). `MIGRATION_25_26` stays registered for any real-world v25
+      install but is untested on these phones.
 
 ### Block B
 - [ ] Long-press the version line in Settings (debug build): grants location
@@ -760,10 +767,15 @@ Seeded by Blocks A/B/C; each later block appends its own subsection below.
 - [ ] Plugging in / unplugging the charger produces `charge_on`/`charge_off` events.
 - [ ] Ejecting/reinserting the SIM (or toggling airplane mode, which also flips SIM
       readiness on some OEMs) produces a `sim_changed` event.
-- [ ] `PROJECT_MEMORY.md`/spec note the new `CHANGE_WIFI_STATE` permission — confirm
+- [N/A] `PROJECT_MEMORY.md`/spec note the new `CHANGE_WIFI_STATE` permission — confirm
       the batch test installed this build as an UPDATE over the v25 app (per the
       amended `CLAUDE.md` build-type rule, resolved 2026-07-18 — `CHANGE_WIFI_STATE`
-      is a normal install-time permission, auto-granted on update).
+      is a normal install-time permission, auto-granted on update). **N/A
+      (2026-07-18):** migration/UPDATE testing dropped this session — see
+      `PROJECT_MEMORY.md` Decisions Log, 2026-07-18. `CHANGE_WIFI_STATE`'s
+      install-time/auto-granted status is unaffected and confirmed empirically
+      (`granted=true` on the fresh install this session); there's just no v25
+      baseline left on these phones to update over.
 
 ### Block D
 - [ ] On a clean Android 12 install (or an account with Trail never enabled), the
@@ -800,9 +812,15 @@ Seeded by Blocks A/B/C; each later block appends its own subsection below.
       hidden); cancelling leaves everything running and the toggle back on.
 - [ ] The Block B debug long-press on the Settings version line no longer does
       anything Trail-related (removed this block) — long-pressing it is inert.
-- [ ] Confirm the batch test installed this build as an UPDATE over the v25 app (new
+- [N/A] Confirm the batch test installed this build as an UPDATE over the v25 app (new
       `ACCESS_BACKGROUND_LOCATION` permission; per the amended `CLAUDE.md` build-type
       rule, resolved 2026-07-18 — same as Blocks A/C, all UPDATE-installable now).
+      **N/A (2026-07-18):** migration/UPDATE testing dropped this session — see
+      `PROJECT_MEMORY.md` Decisions Log, 2026-07-18. The clean-install item above
+      (fresh `adb uninstall` + `adb install`) is now the live path on these two
+      phones instead — confirmed this session: clean install, v26 DB created
+      fresh, no Room/migration errors, `versionCode=1`,
+      `firstInstallTime`==`lastUpdateTime` (smoke 2026-07-18).
 
 ### Block E
 - [ ] With Trail enabled and at least a few points collected, "View my trail" appears
