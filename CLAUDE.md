@@ -109,10 +109,14 @@ On first launch, `LoginActivity` collects username and server URL (`wss://…`),
 - Never ask clarifying questions mid-task — make a decision and note it.
 
 ### Build type guidance (state this at the start of every task)
-- **Update install** — no protocol changes, no DB migration, no new permissions.
+- **Update install (default)** — includes DB version bumps that ship a Room
+  migration, and new install-time/normal permissions (auto-granted on update).
   Command: `./gradlew assembleDebug` then adb install -r
-- **Clean reinstall** — protocol changes, DB version bump, new permissions, or server changes.
+- **Clean reinstall** — only when a schema change ships without a migration,
+  when fresh-install behavior itself is under test, or when APK signatures differ.
   Command: `./gradlew assembleDebug` then adb uninstall com.fshu && adb install
+
+  _(Amended 2026-07-18 — resolved the T13 Open Question; see PROJECT_MEMORY.md.)_
 
 ### Server deploy
   ssh root@<your-server-ip>

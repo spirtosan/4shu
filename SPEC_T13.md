@@ -678,7 +678,9 @@ Seeded by Blocks A/B/C; each later block appends its own subsection below.
 - [ ] Ejecting/reinserting the SIM (or toggling airplane mode, which also flips SIM
       readiness on some OEMs) produces a `sim_changed` event.
 - [ ] `PROJECT_MEMORY.md`/spec note the new `CHANGE_WIFI_STATE` permission — confirm
-      this install was a REINSTALL, not an UPDATE over a pre-Block-C build.
+      the batch test installed this build as an UPDATE over the v25 app (per the
+      amended `CLAUDE.md` build-type rule, resolved 2026-07-18 — `CHANGE_WIFI_STATE`
+      is a normal install-time permission, auto-granted on update).
 
 ### Block D
 - [ ] On a clean Android 12 install (or an account with Trail never enabled), the
@@ -715,5 +717,6 @@ Seeded by Blocks A/B/C; each later block appends its own subsection below.
       hidden); cancelling leaves everything running and the toggle back on.
 - [ ] The Block B debug long-press on the Settings version line no longer does
       anything Trail-related (removed this block) — long-pressing it is inert.
-- [ ] Confirm this install required a REINSTALL (new `ACCESS_BACKGROUND_LOCATION`
-      permission, same open question as Blocks A/C's REINSTALL labels).
+- [ ] Confirm the batch test installed this build as an UPDATE over the v25 app (new
+      `ACCESS_BACKGROUND_LOCATION` permission; per the amended `CLAUDE.md` build-type
+      rule, resolved 2026-07-18 — same as Blocks A/C, all UPDATE-installable now).
