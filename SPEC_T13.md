@@ -1126,6 +1126,104 @@ control-flow restructuring inside `evaluateStillEntry()` plus one log-line addit
 **Verification status:** could not run Gradle/adb (project rule). Needs Ivan's build +
 the new Block B checklist item below.
 
+### Block B.1.4 — TrailService liveness (watchdog scope + FshuService supervision + mandatory background location) — 2026-07-25
+
+**Symptom.** Ivan's on-device trail export stopped dead at 2026-07-18 22:14:58 — seven
+days, zero rows. The last entries were healthy (battery 99%, `charge_off` at 21:55,
+motion had just gone `moving`) and carried no self-logged reason: no `shutdown`, no
+`loc_off`, no `batt_low`, and no `svc_restart` anywhere in the export.
+
+**Initial hypothesis, checked against the device before writing any code.** Read
+`ServiceWatchdogWorker.kt` first (per this block's own instruction to confirm exact
+names rather than assume them), then ran a read-only `adb` sweep on Ivan's phone
+(`ZY22FG7ZWV`). Three candidate causes from a symptom-only read of §3.6 were **all
+falsified**:
+1. *"No in-app watchdog."* False — `ServiceWatchdogWorker` exists, is scheduled every
+   15 min from `FshuService.scheduleWatchdog()`, and a run had just logged `Worker
+   result SUCCESS` in logcat.
+2. *"Battery-optimization exemption was skipped."* False — `dumpsys deviceidle
+   whitelist` listed `com.fshu.next`, and `am get-standby-bucket` returned `5`
+   (EXEMPTED, the best bucket).
+3. *"App was force-stopped."* False — `dumpsys package com.fshu.next` showed
+   `stopped=false`.
+
+**True root cause, found by reading `ServiceWatchdogWorker.doWork()` against a live
+`dumpsys activity services com.fshu.next` dump.** The worker's `isServiceRunning()`
+check only ever looked for `FshuService::class.java` — it has never checked or
+restarted `TrailService`. The live dump confirmed this exactly: `FshuService` was the
+*only* entry in the active-services list (`createTime` ~5d23h ago, `restartCount=1`),
+`TrailService` was absent entirely. `FshuService` has three independent recovery paths
+(`onTaskRemoved`'s 1s `AlarmManager` kick, `ServiceRestartReceiver`'s 3-min
+`ACTION_ALARM_CHECK` loop, the watchdog's 15-min job) and stayed reachable; `TrailService`
+— same process, but evidently independently stoppable by the OEM killer without taking
+`FshuService` down with it (§3.6's "G60s are aggressive app-killers" note, now observed
+in the wild) — had none of those paths and simply never came back. `/proc/uptime`
+showed no reboot since well before the 18th, so `BOOT_COMPLETED`/`USER_UNLOCKED`'s
+`maybeRestartTrail()` never got a chance to fire either — this was the first real
+exercise of the restart machinery Block D's checklist deferred device-verifying.
+Secondary, compounding factor: `ACCESS_BACKGROUND_LOCATION` was denied (foreground-only
+grant) — even a successfully restarted `TrailService` would be running on borrowed
+reliability, and the old staged walkthrough let Trail finish enabling without it.
+
+**Fix — three surgical, additive pieces, all gated on `Prefs.isTrailEnabled()`, no
+server/protocol/schema change, UPDATE build:**
+
+1. **`ServiceWatchdogWorker`** gains a second, independent check alongside its existing
+   `FshuService` one: if Trail is enabled and `TrailService.isRunning` is false, restart
+   it with `EXTRA_TRIGGER = TrailService.TRIGGER_WATCHDOG` (new constant, parallel to
+   the existing `TRIGGER_BOOT`). `TrailService.onStartCommand`'s trigger `when` gained a
+   matching branch: increments `Prefs.trailRestartCount` (same reliability signal
+   `svc_restart` feeds) and records a distinct `watchdog_restart` event — kept separate
+   from `svc_restart` (the OS's own null-`Intent` `START_STICKY` redelivery signal) and
+   `boot` so the exported trail says *which* mechanism caught the gap, not just that a
+   restart happened. `TrailLabels.event()` and both EN/BG string tables gained a label
+   (`trail_event_watchdog_restart`) so the viewer renders it like any other event, not
+   as a raw fallback string.
+2. **`FshuService` also self-checks Trail**, via a new private `ensureTrailServiceRunning()`
+   (same not-running check, same `TRIGGER_WATCHDOG` tag) called from two places: inside
+   `onStartCommand`'s existing credential-gated block (alongside `scheduleAlarmCheck()`),
+   and off the existing `WebSocketClient.onHeartbeat` callback, throttled to ~60s via a
+   new `lastTrailCheckTs` field since that callback can fire every 10–20s.
+3. **`TrailPermissionActivity`'s background-location step changes from skippable to
+   mandatory** (§3.6/§6 amendment, deliberate, recorded here rather than re-litigated
+   elsewhere). `finishAfterAllSteps()` now requires both `ACCESS_FINE_LOCATION` and
+   `ACCESS_BACKGROUND_LOCATION` for `RESULT_OK`; the `settingsLauncher` callback
+   verifies the grant actually landed (Settings' `ACTION_APPLICATION_DETAILS_SETTINGS`
+   always returns `RESULT_CANCELED` regardless of what happened inside it, so the check
+   reads the permission directly) and re-shows the step with an explanatory toast if
+   not. EN/BG copy updated to explain why, both in the walkthrough step description and
+   the new toast.
+4. **`TrailSettingsActivity`'s status card gains an honest health check** (new
+   `TrailDao.getNewestFixTs()` — the newest *FIX*-kind point specifically, so a string
+   of restart/event points alone can't read as "still collecting"): if the newest fix is
+   stale beyond `staleThresholdMs` (45 min — generous relative to `STILL_INTERVAL_MS`'s
+   20-min heartbeat, to absorb one missed cycle without false-alarming) or background
+   location is missing, a new amber warning line (`tv_status_health`, reusing
+   `@color/color_star`, the same amber Block E already uses for event rows) replaces the
+   implied-healthy silence — this is exactly the gap that let the outage go unnoticed
+   for 7 days: the toggle read "enabled" the entire time because `Prefs.isTrailEnabled()`
+   records intent, not liveness.
+
+**Why not fold `TrailService` into `FshuService` (one process, one service) instead of
+running two independent supervisors?** Considered and rejected for this hotfix.
+`TrailService` is deliberately its own `foregroundServiceType="location"` service with
+its own lifecycle, notification, and consent-gated enable/disable (§3.1, Block D) —
+merging it into `FshuService` would conflate Trail's consent boundary with the
+always-on chat/call service's, complicate the notification story (§3.1 requires Trail's
+own visible notification while it runs), and touch far more surface than a liveness
+bug warrants. Piggybacking supervision onto `FshuService` — which is already the most
+reliably-alive component in the app — without merging the services gets the same
+reliability win at a fraction of the risk. The two supervisors (`ServiceWatchdogWorker`'s
+15-min job, `FshuService`'s own onStartCommand/heartbeat checks) are deliberately
+redundant, not duplicated effort: either alone would have caught this specific outage,
+but they cover different failure shapes (`FshuService` dead too vs. `FshuService` alive
+but `TrailService` independently dead, which is what the sweep actually found).
+
+**Verification status:** could not run Gradle/adb-install (project rule — read-only
+`adb` sweep only, no build/install performed). Needs Ivan's build + the four-step
+on-device verification below, since this is the first real exercise of the
+boot/watchdog/force-stop recovery paths Block D's checklist deferred on 2026-07-18.
+
 ---
 
 ## Phase 1 device-test checklist (batch test, on the G60s, after Block E)
@@ -1283,3 +1381,46 @@ Seeded by Blocks A/B/C; each later block appends its own subsection below.
       `"trail"` array with one object per locally stored trail point, each shaped like
       the §2.1 wire format (spot-check a few `seq`/`ts`/`kind` values against what the
       viewer shows for the same points).
+
+### Block B.1.4
+
+Proves the heal, not just the symptom disappearing — the notification reappearing
+isn't enough; each step needs a NEW post-kill trail point/event landing.
+
+- [ ] **Walkthrough now requires background location.** On a fresh enable, the
+      "Allow all the time" step no longer shows a Skip button; tapping "Open Settings"
+      and returning *without* picking "Allow all the time" re-shows the same step with
+      the new toast instead of advancing; picking it advances normally. Trail cannot
+      end up enabled (`TrailSettingsActivity`'s toggle reverts) if background location
+      is never granted.
+- [ ] **Status card shows the new warning when it should.** With Trail enabled and a
+      fresh fix within the last 45 min, no warning line appears. Manually revoke
+      "Allow all the time" (Settings → Apps → 4shu → Permissions → Location → "Allow
+      only while using the app") without disabling Trail, then reopen Trail settings —
+      the amber "Location isn't set to Allow all the time" warning appears immediately
+      (no 45-min wait needed for this one). Re-grant and confirm it clears.
+- [ ] **Isolated `TrailService` kill (not a process kill):** with Trail enabled and
+      "Allow all the time" granted, run `adb shell am stopservice
+      com.fshu.next/.service.TrailService`, confirm the notification disappears, then
+      wait up to ~60s — `FshuService`'s heartbeat-driven `ensureTrailServiceRunning()`
+      should restart it before the next 15-min `ServiceWatchdogWorker` cycle would; the
+      status card's restart count increments and a `watchdog_restart` event (not
+      `svc_restart`) appears in the trail viewer with a fresh fix following shortly
+      after.
+- [ ] **Simulated OEM-style process kill:** `adb shell am kill com.fshu.next` (not
+      `force-stop` — that disables everything until manual relaunch and isn't what a
+      battery-manager kill does). Confirm the process is gone (`adb shell pidof
+      com.fshu.next` empty), then wait up to the `ServiceWatchdogWorker` period (15 min,
+      or trigger it sooner via `adb shell cmd jobscheduler run` if convenient) —
+      `FshuService` and `TrailService` both come back, restart count increments once
+      more, a `watchdog_restart` event lands, and a fresh fix follows.
+- [ ] **Reboot recovery:** with Trail enabled, reboot the phone. Confirm
+      `ServiceRestartReceiver`'s `BOOT_COMPLETED`/`USER_UNLOCKED` path brings
+      `TrailService` back on its own (notification reappears without opening the app)
+      and a `boot` event (not `watchdog_restart`) lands, distinguishing this recovery
+      path from the other two above.
+- [ ] Re-export (Settings → Export my data) after all four steps above and re-run the
+      Block W trail-viewer QA read: confirm no multi-day gap remains, restart-count on
+      the status card matches the number of kill/restart cycles actually performed, and
+      `watchdog_restart`/`boot` events appear at the expected points with correct
+      `last` fix snapshots.

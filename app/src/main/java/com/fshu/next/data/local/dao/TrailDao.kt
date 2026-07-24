@@ -46,6 +46,11 @@ interface TrailDao {
     @Query("SELECT MAX(ts) FROM trail_points")
     suspend fun getNewestTs(): Long?
 
+    /** B.1.4 — status card health check: newest actual FIX (not event) timestamp, so a
+     *  string of restart/event points alone doesn't get read as "still collecting". */
+    @Query("SELECT MAX(ts) FROM trail_points WHERE kind = 'fix'")
+    suspend fun getNewestFixTs(): Long?
+
     /** One-tap disable (§6.5): local wipe. Server-side trail-wipe rides Phase 2/3. */
     @Query("DELETE FROM trail_points")
     suspend fun deleteAll()

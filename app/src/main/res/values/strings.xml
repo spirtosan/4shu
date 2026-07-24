@@ -303,6 +303,8 @@
     <string name="trail_status_range">Oldest %1$s · Newest %2$s</string>
     <string name="trail_status_range_empty">No points recorded yet</string>
     <string name="trail_status_restarts">Service restarts: %1$d</string>
+    <string name="trail_status_warning_stale">⚠ No location update in a while — Trail may not actually be running right now.</string>
+    <string name="trail_status_warning_no_background">⚠ Location isn\'t set to \"Allow all the time\" — Trail may pause when 4shu isn\'t open. Fix in Settings.</string>
     <string name="label_trail_guardians">Guardians</string>
     <string name="trail_guardians_local_only_note">Saved on this device only for now — guardian requests aren\'t sent yet. This list will start syncing once Trail\'s guardian feature is fully built.</string>
     <string name="trail_guardians_empty">No guardians added yet.</string>
@@ -315,11 +317,12 @@
     <string name="toast_trail_disabled">Trail disabled — local trail data deleted.</string>
     <string name="btn_open_settings">Open Settings</string>
     <string name="toast_trail_location_required">Trail needs Location access to work — enable it and try again.</string>
+    <string name="toast_trail_background_required">Trail needs \"Allow all the time\" for Location to keep working when 4shu isn\'t open — choose it in Settings and try again.</string>
     <string name="trail_permission_location_title">Location access</string>
     <string name="trail_permission_location_desc">Trail needs continuous access to your GPS location to build your trail. Only guardians you personally choose will ever be able to see it.</string>
     <string name="trail_permission_location_button">Allow Location</string>
     <string name="trail_permission_background_title">Allow all the time</string>
-    <string name="trail_permission_background_desc">To keep building your trail when 4shu isn\'t open, choose \"Allow all the time\" for Location on the next screen. You can skip this, but Trail may pause when the app isn\'t running.</string>
+    <string name="trail_permission_background_desc">A trail that has to survive your phone backgrounding or killing the app needs to keep tracking without it open. Choose \"Allow all the time\" for Location on the next screen — Trail can\'t start without it.</string>
     <string name="trail_permission_battery_title">Battery optimization</string>
     <string name="trail_permission_battery_desc">Some phones (including Motorola G-series) aggressively stop background apps to save battery. Exempting 4shu keeps Trail running reliably. You can skip this.</string>
 
@@ -375,6 +378,7 @@
     <string name="trail_event_charge_on">Charger connected</string>
     <string name="trail_event_charge_off">Charger disconnected</string>
     <string name="trail_event_svc_restart">Trail service restarted</string>
+    <string name="trail_event_watchdog_restart">Trail service restarted (watchdog)</string>
 
     <string name="connection_test_testing_with">Testing with %s</string>
     <string name="connection_test_peer_label">Server → %s</string>

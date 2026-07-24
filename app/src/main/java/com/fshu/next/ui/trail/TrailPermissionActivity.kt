@@ -17,19 +17,21 @@ import com.fshu.next.R
 import com.fshu.next.databinding.ActivityTrailPermissionStepBinding
 
 /**
- * SPEC_T13.md §3.6 staged permission flow (Block D), scoped to what Trail itself
- * needs: fine location (mandatory) -> background location "Allow all the time"
- * (skippable, guided to Settings) -> battery-optimization exemption (skippable,
- * guided to Settings). Mirrors [com.fshu.next.ui.permission.PermissionSetupActivity]'s
- * step-list/step-indicator style, on its own layout/activity rather than reusing that
- * one directly — this flow is re-enterable from Trail settings any time, not a
- * one-shot first-launch screen.
+ * SPEC_T13.md §3.6 staged permission flow (Block D, amended Block B.1.4), scoped to
+ * what Trail itself needs: fine location (mandatory) -> background location "Allow all
+ * the time" (mandatory as of B.1.4, guided to Settings) -> battery-optimization
+ * exemption (skippable, guided to Settings). Mirrors [com.fshu.next.ui.permission.
+ * PermissionSetupActivity]'s step-list/step-indicator style, on its own layout/activity
+ * rather than reusing that one directly — this flow is re-enterable from Trail settings
+ * any time, not a one-shot first-launch screen.
  *
- * Result: RESULT_OK only if ACCESS_FINE_LOCATION ends up granted (the one truly
- * mandatory permission — Trail cannot start without it); RESULT_CANCELED otherwise.
- * Background location and battery exemption are best-effort asks: skipping them still
- * lets Trail start, just less reliably in the background (§3.6's own reasoning —
- * `svc_restart` events exist specifically to surface that reliability gap honestly).
+ * Result: RESULT_OK only if both ACCESS_FINE_LOCATION and (API 30+)
+ * ACCESS_BACKGROUND_LOCATION end up granted; RESULT_CANCELED otherwise. B.1.4 made
+ * background location mandatory — a real-device outage (TrailService died silently for
+ * 7 days) showed a foreground-only grant leaves a restarted service running on
+ * borrowed reliability, which the honest-status card can warn about but not fix. The
+ * battery-optimization exemption stays a best-effort ask: skipping it still lets Trail
+ * start, just less reliably in the background.
  */
 class TrailPermissionActivity : AppCompatActivity() {
 
@@ -61,7 +63,24 @@ class TrailPermissionActivity : AppCompatActivity() {
 
     private val settingsLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
-    ) { advance() }
+    ) {
+        // B.1.4: background location is now mandatory — unlike the battery-exemption
+        // step (still best-effort, always advances), verify the grant actually landed
+        // before moving on. Settings doesn't return a result code we can trust here
+        // (ACTION_APPLICATION_DETAILS_SETTINGS always finishes with RESULT_CANCELED
+        // regardless of what the user did inside it), so check the permission directly.
+        if (steps[currentStep].kind == StepKind.BACKGROUND_LOCATION && !isBackgroundLocationGranted()) {
+            Toast.makeText(this, getString(R.string.toast_trail_background_required), Toast.LENGTH_LONG).show()
+            showStep(currentStep)
+        } else {
+            advance()
+        }
+    }
+
+    private fun isBackgroundLocationGranted(): Boolean =
+        Build.VERSION.SDK_INT < Build.VERSION_CODES.Q ||
+            ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_BACKGROUND_LOCATION) ==
+                PackageManager.PERMISSION_GRANTED
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -70,9 +89,7 @@ class TrailPermissionActivity : AppCompatActivity() {
 
         val fineGranted = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) ==
             PackageManager.PERMISSION_GRANTED
-        val backgroundGranted = Build.VERSION.SDK_INT < Build.VERSION_CODES.Q ||
-            ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_BACKGROUND_LOCATION) ==
-                PackageManager.PERMISSION_GRANTED
+        val backgroundGranted = isBackgroundLocationGranted()
         val batteryExempt = getSystemService(PowerManager::class.java).isIgnoringBatteryOptimizations(packageName)
 
         steps = buildList {
@@ -88,7 +105,7 @@ class TrailPermissionActivity : AppCompatActivity() {
                 title = getString(R.string.trail_permission_background_title),
                 description = getString(R.string.trail_permission_background_desc),
                 buttonLabel = getString(R.string.btn_open_settings),
-                skippable = true
+                skippable = false // B.1.4: was skippable — see class doc
             ))
             if (!batteryExempt) add(Step(
                 kind = StepKind.BATTERY,
@@ -144,9 +161,10 @@ class TrailPermissionActivity : AppCompatActivity() {
     }
 
     private fun finishAfterAllSteps() {
-        val granted = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) ==
+        val fineGranted = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) ==
             PackageManager.PERMISSION_GRANTED
-        setResult(if (granted) RESULT_OK else RESULT_CANCELED)
+        // B.1.4: both mandatory now — see class doc.
+        setResult(if (fineGranted && isBackgroundLocationGranted()) RESULT_OK else RESULT_CANCELED)
         finish()
     }
 }

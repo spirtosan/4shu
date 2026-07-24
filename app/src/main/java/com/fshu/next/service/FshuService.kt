@@ -26,6 +26,7 @@ import android.os.VibratorManager
 import android.provider.MediaStore
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
@@ -69,6 +70,10 @@ class FshuService : Service() {
     private var lastNetworkId: Long = -1L
     private var serviceStartTime: Long = 0L
     private var connectionWatchdogJob: Job? = null
+
+    // B.1.4: throttles the WS-heartbeat-driven TrailService liveness check below —
+    // onHeartbeat can fire as often as every 10s, far more often than needed for this.
+    @Volatile private var lastTrailCheckTs: Long = 0L
     private val pendingDecryptQueue = mutableMapOf<String, MutableList<Pair<Long, String>>>()
 
     companion object {
@@ -86,6 +91,10 @@ class FshuService : Service() {
         const val ACTION_DISMISS_SOS = "com.fshu.next.ACTION_DISMISS_SOS"
         private const val ALARM_INTERVAL_MS = 3 * 60 * 1000L  // 3 minutes
         private const val WATCHDOG_WORK_NAME = "fshu_service_watchdog"
+
+        // B.1.4: minimum spacing between ensureTrailServiceRunning() checks off the WS
+        // heartbeat tick — see lastTrailCheckTs.
+        private const val TRAIL_CHECK_INTERVAL_MS = 60 * 1000L
 
         private val notifCounter = AtomicInteger(1000)
 
@@ -247,6 +256,17 @@ class FshuService : Service() {
         }
         WebSocketClient.onHeartbeat = {
             scope.launch { checkStaleSending() }
+            // B.1.4: piggyback Trail's liveness check on FshuService's own heartbeat
+            // tick rather than standing up a separate periodic mechanism — FshuService
+            // already has the AlarmManager/WorkManager restart machinery that keeps it
+            // reliably alive, so this is the same reasoning as the onStartCommand check
+            // below, just for the case where FshuService itself never restarts (stays
+            // running, TrailService is the one that died independently).
+            val now = System.currentTimeMillis()
+            if (now - lastTrailCheckTs >= TRAIL_CHECK_INTERVAL_MS) {
+                lastTrailCheckTs = now
+                ensureTrailServiceRunning()
+            }
         }
         WebSocketClient.onPong = { latencyMs ->
             lastLatencyMs = latencyMs
@@ -370,11 +390,31 @@ class FshuService : Service() {
                 registerNetworkCallback(url, username, password)
                 startConnectionWatchdog(url, username, password)
                 scheduleAlarmCheck()
+                ensureTrailServiceRunning()
             }
         } catch (e: Exception) {
             Log.w("FshuService", "Could not read credentials (pre-unlock?): ${e.message}")
         }
         return START_STICKY
+    }
+
+    // B.1.4: FshuService has three independent recovery paths of its own
+    // (onTaskRemoved's 1s AlarmManager kick, ServiceRestartReceiver's 3-min
+    // ACTION_ALARM_CHECK loop, the 15-min ServiceWatchdogWorker job) and is therefore
+    // the most reliably-alive component in the app — piggybacking Trail's supervision
+    // here (plus the watchdog's own TrailService branch) covers the case where
+    // TrailService died independently while FshuService kept running, which neither
+    // supervisor alone would catch as quickly. See SPEC_T13.md's Block B.1.4.
+    private fun ensureTrailServiceRunning() {
+        if (!Prefs.isTrailEnabled(this)) return
+        if (TrailService.isRunning) return
+        Log.w("FshuService", "Trail enabled but TrailService not running — restarting")
+        ContextCompat.startForegroundService(
+            this,
+            Intent(this, TrailService::class.java).apply {
+                putExtra(TrailService.EXTRA_TRIGGER, TrailService.TRIGGER_WATCHDOG)
+            }
+        )
     }
 
     override fun onTaskRemoved(rootIntent: Intent?) {

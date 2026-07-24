@@ -1,6 +1,9 @@
 package com.fshu.next.ui.trail
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.MenuItem
@@ -38,6 +41,12 @@ class TrailSettingsActivity : AppCompatActivity() {
 
     // Cap per SPEC_T13.md §1.5 (Locked decision 5).
     private val maxGuardians = 5
+
+    // B.1.4: how long since the last real fix (or since enabling, if none yet) before
+    // the status card stops calling itself "collecting" and shows a warning instead.
+    // Generous relative to TrailService's own STILL_INTERVAL_MS (20 min) to absorb one
+    // missed heartbeat without false-alarming on ordinary STILL behavior.
+    private val staleThresholdMs = 45 * 60 * 1000L
 
     private val permissionWalkthroughLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -142,10 +151,15 @@ class TrailSettingsActivity : AppCompatActivity() {
         )
         binding.tvStatusRestarts.text = getString(R.string.trail_status_restarts, Prefs.getTrailRestartCount(this))
 
+        val backgroundGranted = Build.VERSION.SDK_INT < Build.VERSION_CODES.Q ||
+            ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_BACKGROUND_LOCATION) ==
+                PackageManager.PERMISSION_GRANTED
+
         lifecycleScope.launch(Dispatchers.IO) {
             val count = db.trailDao().getCount()
             val oldest = db.trailDao().getOldestTs()
             val newest = db.trailDao().getNewestTs()
+            val newestFix = db.trailDao().getNewestFixTs()
             withContext(Dispatchers.Main) {
                 binding.tvStatusPoints.text = getString(R.string.trail_status_points, count)
                 binding.tvStatusRange.text = if (oldest != null && newest != null) {
@@ -153,9 +167,28 @@ class TrailSettingsActivity : AppCompatActivity() {
                 } else {
                     getString(R.string.trail_status_range_empty)
                 }
+                refreshHealthWarning(enabledAt, newestFix, backgroundGranted)
             }
         }
         refreshGuardianList()
+    }
+
+    // B.1.4: an "enabled" toggle only reflects Prefs.isTrailEnabled() — recorded
+    // intent, not whether TrailService is actually alive and producing fixes (the
+    // exact gap that let a real-device outage read as healthy for 7 days). Warn
+    // explicitly instead of letting the status card imply collection is happening
+    // when the data doesn't back that up. See SPEC_T13.md's Block B.1.4.
+    private fun refreshHealthWarning(enabledAt: Long, newestFixTs: Long?, backgroundGranted: Boolean) {
+        val now = System.currentTimeMillis()
+        val gracePassed = enabledAt > 0 && now - enabledAt >= staleThresholdMs
+        val stale = gracePassed && (newestFixTs == null || now - newestFixTs >= staleThresholdMs)
+        val warning = when {
+            stale -> getString(R.string.trail_status_warning_stale)
+            !backgroundGranted -> getString(R.string.trail_status_warning_no_background)
+            else -> null
+        }
+        binding.tvStatusHealth.text = warning
+        binding.tvStatusHealth.visibility = if (warning != null) View.VISIBLE else View.GONE
     }
 
     // --- guardians (local-only, §6.2) ---

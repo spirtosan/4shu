@@ -48,6 +48,7 @@ object TrailLabels {
         "charge_on" -> ctx.getString(R.string.trail_event_charge_on)
         "charge_off" -> ctx.getString(R.string.trail_event_charge_off)
         "svc_restart" -> ctx.getString(R.string.trail_event_svc_restart)
+        "watchdog_restart" -> ctx.getString(R.string.trail_event_watchdog_restart)
         else -> ev ?: ctx.getString(R.string.trail_field_event)
     }
 }

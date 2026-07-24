@@ -164,6 +164,12 @@ class TrailService : Service() {
         // the signal on its own.
         const val EXTRA_TRIGGER = "trigger"
         const val TRIGGER_BOOT = "boot"
+
+        // B.1.4: distinguishes a supervisor-initiated restart (ServiceWatchdogWorker's
+        // TrailService branch, or FshuService's own in-process check) from the OS's own
+        // null-intent svc_restart signal and from a genuine boot — restart telemetry
+        // needs to say WHICH mechanism caught the gap. See SPEC_T13.md's Block B.1.4.
+        const val TRIGGER_WATCHDOG = "watchdog"
     }
 
     override fun onCreate() {
@@ -194,6 +200,18 @@ class TrailService : Service() {
                     intent.getStringExtra(EXTRA_TRIGGER) == TRIGGER_BOOT -> {
                         Log.i(TAG, "started via boot trigger")
                         recordEvent("boot")
+                    }
+                    // B.1.4: a supervisor (ServiceWatchdogWorker or FshuService) found
+                    // Trail enabled but not running and restarted it — the process was
+                    // down and nothing else (not the OS's own START_STICKY redelivery,
+                    // not a device boot) brought it back. Counts toward the same
+                    // restart-count health signal as svc_restart (same underlying
+                    // problem: an unwanted kill), under its own event name so the two
+                    // recovery paths stay distinguishable in the exported trail.
+                    intent.getStringExtra(EXTRA_TRIGGER) == TRIGGER_WATCHDOG -> {
+                        Log.w(TAG, "started via watchdog trigger -> supervisor-initiated restart")
+                        Prefs.incrementTrailRestartCount(this@TrailService)
+                        recordEvent("watchdog_restart")
                     }
                 }
             }
