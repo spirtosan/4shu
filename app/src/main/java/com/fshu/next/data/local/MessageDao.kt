@@ -189,21 +189,50 @@ interface MessageDao {
     @Query("UPDATE messages SET isRequest = 0 WHERE `to` = :peer AND isRequest = 1")
     suspend fun clearRequestFlagSent(peer: String)
 
+    /** B.1.5 — GDPR export streaming (§7): distinct DM peers of [me], ordered by each
+     *  peer's earliest message — matches the encounter order the removed full-load
+     *  getAllDmMessages() + stable groupBy would have produced, without materializing
+     *  the full message list. */
     @Query("""
-        SELECT * FROM messages
-        WHERE groupId IS NULL
-        AND type != 'deleted'
-        ORDER BY timestamp ASC
+        SELECT CASE WHEN `from` = :me THEN `to` ELSE `from` END as peer
+        FROM messages
+        WHERE groupId IS NULL AND type != 'deleted'
+        GROUP BY peer
+        ORDER BY MIN(timestamp) ASC
     """)
-    suspend fun getAllDmMessages(): List<Message>
+    suspend fun getDmPeersOrdered(me: String): List<String>
 
+    /** B.1.5 — one page of a single DM conversation; same groupId-IS-NULL/type filter and
+     *  timestamp ASC order the removed getAllDmMessages() used. */
     @Query("""
         SELECT * FROM messages
-        WHERE groupId IS NOT NULL
-        AND type != 'deleted'
+        WHERE ((`from` = :me AND `to` = :peer) OR (`from` = :peer AND `to` = :me))
+        AND groupId IS NULL AND type != 'deleted'
         ORDER BY timestamp ASC
+        LIMIT :limit OFFSET :offset
     """)
-    suspend fun getAllGroupMessages(): List<Message>
+    suspend fun getDmMessagesForPeerPage(me: String, peer: String, limit: Int, offset: Int): List<Message>
+
+    /** B.1.5 — distinct group IDs ordered by each group's earliest message — matches the
+     *  encounter order the removed full-load getAllGroupMessages() + stable groupBy would
+     *  have produced. */
+    @Query("""
+        SELECT groupId FROM messages
+        WHERE groupId IS NOT NULL AND type != 'deleted'
+        GROUP BY groupId
+        ORDER BY MIN(timestamp) ASC
+    """)
+    suspend fun getGroupIdsOrdered(): List<String>
+
+    /** B.1.5 — one page of a single group's messages; same filter and timestamp ASC order
+     *  the removed getAllGroupMessages() used. */
+    @Query("""
+        SELECT * FROM messages
+        WHERE groupId = :groupId AND type != 'deleted'
+        ORDER BY timestamp ASC
+        LIMIT :limit OFFSET :offset
+    """)
+    suspend fun getGroupMessagesPage(groupId: String, limit: Int, offset: Int): List<Message>
 
     /** Deletes all received messages (isSent=0) from [peer] — used to clear stale dedup state. */
     @Query("DELETE FROM messages WHERE `from` = :peer AND isSent = 0")

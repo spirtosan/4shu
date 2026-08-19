@@ -1224,6 +1224,79 @@ but `TrailService` independently dead, which is what the sweep actually found).
 on-device verification below, since this is the first real exercise of the
 boot/watchdog/force-stop recovery paths Block D's checklist deferred on 2026-07-18.
 
+### Block B.1.5 — memory-safe GDPR export (stream instead of buffering the whole tree) — 2026-08-19
+
+**Symptom, confirmed by this session's read-only survey (not re-derived here).**
+`SettingsFragment.performLocalExport` OOM'd on real-world data. It held 3-4 full
+copies of the entire export in heap at once before a single byte reached the output
+file: (1) `db.messageDao().getAllDmMessages()`/`getAllGroupMessages()` and
+`db.trailDao().getAll()` each materialized their full table as a `List` — no paged or
+cursor query existed for any of the three; (2) every row was re-parsed/wrapped into a
+resident `org.json.JSONObject`, and all of them lived inside one root `JSONObject`
+holding `conversations` + `groups` + `trail` simultaneously; (3) `exportObj.toString(2)`
+built one giant pretty-printed `String` for the whole tree; (4) `.toByteArray()` made a
+second full UTF-8 copy of that string. Crash signature: OOM on a ~72MB `StringBuilder`
+grow inside `JSONObject.toString()`.
+
+**Fix — stream instead of buffer, phone-only, no server/protocol/schema change, UPDATE
+build.** Replaced the build-tree-then-`toString()` path with `android.util.JsonWriter`
+(`setIndent("  ")` — same 2-space pretty-print `toString(2)` used; streaming didn't
+require dropping it) wrapped around `BufferedWriter(OutputStreamWriter(out,
+Charsets.UTF_8))`, writing every top-level key incrementally in the **same order** the
+old `exportObj` used (`exportedAt`, `username`, `conversations`, `groups`, `trail`).
+Paged DAO reads back it so no table is ever fully resident:
+- `TrailDao.getPage(limit, offset)` — `SELECT * FROM trail_points ORDER BY seq ASC
+  LIMIT :limit OFFSET :offset`, same `ORDER BY` as the `getAll()` call site it replaces.
+- `MessageDao.getDmPeersOrdered(me)` — distinct DM peers ordered by `MIN(timestamp)`,
+  reproducing the encounter order the old `getAllDmMessages().groupBy{}` (stable, so
+  first-occurrence order) used to produce — plus `getDmMessagesForPeerPage(me, peer,
+  limit, offset)`, same `groupId IS NULL AND type != 'deleted'` filter and
+  `timestamp ASC` order the removed full-load query used, scoped to one peer per page.
+- `MessageDao.getGroupIdsOrdered()` / `getGroupMessagesPage(groupId, limit, offset)` —
+  same pattern for group conversations.
+
+Pages are 500 rows (`SettingsFragment.EXPORT_PAGE_SIZE`); each page is encoded and
+written straight through the `JsonWriter`, never accumulated across pages or peers.
+Trail points still go through the unchanged `TrailPointCodec.toJson` for shape parity;
+the per-point `org.json.JSONObject` it's parsed into is now transcribed directly into
+`JsonWriter` tokens by a new `JsonWriter.writeParsedJson()` bridge (handles nested
+objects/arrays/strings/booleans, and numbers via the same long-vs-double distinction
+`org.json.JSONObject.toString()` itself makes) and discarded per element instead of
+being `put()` into a parent `JSONArray` that would otherwise outlive it.
+
+**Shape parity is the hard constraint and is exact:** field names, nesting, value
+types, and both array/object key order are unchanged from the old export — a
+previously-produced export and a new one differ only in whitespace, if at all. Nothing
+about the on-disk JSON format changed; only how it's assembled did.
+
+**Housekeeping:** `MessageDao.getAllDmMessages()`/`getAllGroupMessages()` had no other
+call sites (confirmed by repo-wide grep) once `performLocalExport` stopped using them,
+so they were removed rather than left as dead code — this block is what orphaned them.
+
+**Purge left deliberately untouched.** The same survey that found the export bug also
+confirmed `TrailDao.purgeOlderThanFrozenWindow` has zero call sites anywhere in the app
+and that no periodic `WorkManager` job ever invokes it — `ServiceWatchdogWorker`, the
+app's only periodic job, restarts `FshuService`/`TrailService` and nothing else. It is
+dead code today, independent of anything in this block. **Not fixed here** — whether
+and how to wire a daily purge (table-cap vs. the existing frozen-clock-preservation
+design §1.2 already committed to) is its own planning decision. Flagged for Ivan.
+
+**Test coverage.** No unit test exercises the new `JsonWriter` streaming path directly:
+`android.util.JsonWriter` is a real Android framework class, and this project's
+`app/src/test` unit tests run under plain JUnit with no Robolectric and no
+`testOptions.unitTests.returnDefaultValues` (checked `app/build.gradle` — only
+`junit:junit:4.13.2` is declared). Calling `JsonWriter`'s constructor/methods from a
+local JVM unit test throws against the stub Android SDK jar rather than executing, so
+there's no pure-logic way to assert on its output in this harness; a real assertion
+needs an instrumented test or Ivan's device pass, not a fabricated local test — left
+for the device-test checklist below. `TrailPointCodecTest`/`TrailPointMapperTest` are
+unaffected (the codec/mapper themselves are unchanged).
+
+**Verification status:** could not run Gradle/adb (project rule). Needs Ivan's build +
+the new checklist item below, ideally against the phone's current on-device DB (largest
+available real dataset) rather than a fresh/small one, since the bug only reproduces at
+volume.
+
 ---
 
 ## Phase 1 device-test checklist (batch test, on the G60s, after Block E)
@@ -1424,3 +1497,26 @@ isn't enough; each step needs a NEW post-kill trail point/event landing.
       the status card matches the number of kill/restart cycles actually performed, and
       `watchdog_restart`/`boot` events appear at the expected points with correct
       `last` fix snapshots.
+
+### Block B.1.5
+
+- [ ] **No OOM on the phone's actual, current trail/message history** (not a fresh/small
+      test dataset — the bug only reproduces at volume): Settings → Export my data
+      completes without a crash and without the app becoming unresponsive.
+- [ ] **File parses and shape matches the pre-fix export:** the exported `.json` opens
+      cleanly (e.g. in the Block W desktop trail-viewer tool, or any JSON validator);
+      top-level keys are `exportedAt`, `username`, `conversations`, `groups`, `trail` in
+      that order; a `conversations[].messages[]` entry has exactly `from`/`to`/
+      `timestamp`/`type`/`content`; a `groups[].messages[]` entry has exactly `from`/
+      `timestamp`/`type`/`content`; if a pre-B.1.5 export is available for the same
+      account, diff the two — only whitespace should differ.
+- [ ] **Trail viewer QA stats match a direct DB query of the same rows:** open the
+      Block W trail-viewer on the new export and compare its point count / fix-vs-event
+      counts / seq-gap list against `TrailDao.getCount()`/a manual `sqlite3` query on
+      `trail_points` for the same account — should match exactly (this also verifies the
+      paged `TrailDao.getPage` loop didn't skip or duplicate rows across page
+      boundaries).
+- [ ] **Conversation/group completeness spot-check:** pick a DM peer and a group with a
+      non-trivial message count, count their messages in the export, and compare against
+      `SELECT COUNT(*) FROM messages WHERE ...` for the same filters — catches an
+      off-by-one in the peer/group paging loops if one exists.

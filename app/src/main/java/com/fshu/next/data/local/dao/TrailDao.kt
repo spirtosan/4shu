@@ -15,6 +15,11 @@ interface TrailDao {
     @Query("SELECT * FROM trail_points ORDER BY seq ASC")
     suspend fun getAll(): List<TrailPoint>
 
+    /** B.1.5 — GDPR export streaming (§7): pages through trail_points instead of loading
+     *  the whole table, same ORDER BY as [getAll] so page order matches it exactly. */
+    @Query("SELECT * FROM trail_points ORDER BY seq ASC LIMIT :limit OFFSET :offset")
+    suspend fun getPage(limit: Int, offset: Int): List<TrailPoint>
+
     /** T13 Block E — my-trail viewer (§7 Phase 1 Block E): reverse-chronological. */
     @Query("SELECT * FROM trail_points ORDER BY seq DESC")
     suspend fun getAllDesc(): List<TrailPoint>

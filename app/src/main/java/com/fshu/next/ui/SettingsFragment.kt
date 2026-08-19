@@ -59,12 +59,20 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import android.util.JsonWriter
+import java.io.BufferedWriter
 import java.io.File
+import java.io.OutputStreamWriter
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
 class SettingsFragment : Fragment() {
+
+    companion object {
+        // B.1.5: page size for the streamed GDPR export's paged DAO reads.
+        private const val EXPORT_PAGE_SIZE = 500
+    }
 
     private var _binding: FragmentSettingsBinding? = null
     private val binding get() = _binding!!
@@ -586,71 +594,6 @@ class SettingsFragment : Fragment() {
                 val me = Prefs.getUsername(ctx)
                 val db = AppDatabase.getInstance(ctx)
 
-                val dmMessages    = db.messageDao().getAllDmMessages()
-                val groupMessages = db.messageDao().getAllGroupMessages()
-
-                val exportObj = org.json.JSONObject()
-                exportObj.put("exportedAt",
-                    SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).format(Date()))
-                exportObj.put("username", me)
-
-                val dmArray  = org.json.JSONArray()
-                val dmByPeer = dmMessages.groupBy { msg -> if (msg.from == me) msg.to else msg.from }
-                for ((peer, msgs) in dmByPeer) {
-                    val convObj  = org.json.JSONObject()
-                    convObj.put("peer", peer)
-                    val msgArray = org.json.JSONArray()
-                    for (msg in msgs) {
-                        val msgObj  = org.json.JSONObject()
-                        msgObj.put("from",      msg.from)
-                        msgObj.put("to",        msg.to)
-                        msgObj.put("timestamp", msg.timestamp)
-                        msgObj.put("type",      msg.type)
-                        val content = try {
-                            if (msg.content.length >= 64 &&
-                                msg.content.all { it in '0'..'9' || it in 'a'..'f' || it in 'A'..'F' }) {
-                                val peerPubHex = Prefs.getPeerPublicKey(ctx, peer)
-                                CryptoHelper.decryptFromPeer(ctx, peer, peerPubHex, msg.id, msg.content) ?: msg.content
-                            } else {
-                                msg.content
-                            }
-                        } catch (e: Exception) { msg.content }
-                        msgObj.put("content", content)
-                        msgArray.put(msgObj)
-                    }
-                    convObj.put("messages", msgArray)
-                    dmArray.put(convObj)
-                }
-                exportObj.put("conversations", dmArray)
-
-                val groupArray   = org.json.JSONArray()
-                val groupByGroup = groupMessages.groupBy { it.groupId }
-                for ((groupId, msgs) in groupByGroup) {
-                    val grpObj   = org.json.JSONObject()
-                    grpObj.put("groupId", groupId)
-                    val msgArray = org.json.JSONArray()
-                    for (msg in msgs) {
-                        val msgObj = org.json.JSONObject()
-                        msgObj.put("from",      msg.from)
-                        msgObj.put("timestamp", msg.timestamp)
-                        msgObj.put("type",      msg.type)
-                        msgObj.put("content",   msg.content)
-                        msgArray.put(msgObj)
-                    }
-                    grpObj.put("messages", msgArray)
-                    groupArray.put(grpObj)
-                }
-                exportObj.put("groups", groupArray)
-
-                // T13 Block E: trail export (§7 "GDPR export... append the full trail as
-                // wire-format JSON via TrailPointCodec"). Same TrailPointCodec used for the
-                // trail-batch wire format — each point serialized exactly as it would be sent.
-                val trailArray = org.json.JSONArray()
-                for (trailPoint in db.trailDao().getAll()) {
-                    trailArray.put(org.json.JSONObject(TrailPointCodec.toJson(trailPoint.toData())))
-                }
-                exportObj.put("trail", trailArray)
-
                 val fileName = "fshu_export_${me}_${
                     SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())}.json"
 
@@ -663,8 +606,112 @@ class SettingsFragment : Fragment() {
                     contentValues)
 
                 if (uri != null) {
+                    // B.1.5: streams the export via JsonWriter + paged DAO reads instead of
+                    // building one JSONObject tree and calling toString(2) on it — the old
+                    // path held 3-4 full copies of the whole export in heap at once (the
+                    // fully-loaded message/trail lists, the resident JSONObject/JSONArray
+                    // tree, the pretty-printed String, and its toByteArray() copy) and OOM'd
+                    // on real-world data. Key/array order below matches the old exportObj
+                    // exactly so a previously-produced export and a new one differ only in
+                    // whitespace. See SPEC_T13.md Block B.1.5 for the full writeup.
                     ctx.contentResolver.openOutputStream(uri)?.use { out ->
-                        out.write(exportObj.toString(2).toByteArray())
+                        JsonWriter(BufferedWriter(OutputStreamWriter(out, Charsets.UTF_8))).use { writer ->
+                            writer.setIndent("  ")
+                            writer.beginObject()
+
+                            writer.name("exportedAt").value(
+                                SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).format(Date()))
+                            writer.name("username").value(me)
+
+                            writer.name("conversations")
+                            writer.beginArray()
+                            for (peer in db.messageDao().getDmPeersOrdered(me)) {
+                                writer.beginObject()
+                                writer.name("peer").value(peer)
+                                writer.name("messages")
+                                writer.beginArray()
+                                var offset = 0
+                                while (true) {
+                                    val page = db.messageDao().getDmMessagesForPeerPage(
+                                        me, peer, EXPORT_PAGE_SIZE, offset)
+                                    if (page.isEmpty()) break
+                                    for (msg in page) {
+                                        writer.beginObject()
+                                        writer.name("from").value(msg.from)
+                                        writer.name("to").value(msg.to)
+                                        writer.name("timestamp").value(msg.timestamp)
+                                        writer.name("type").value(msg.type)
+                                        val content = try {
+                                            if (msg.content.length >= 64 &&
+                                                msg.content.all { it in '0'..'9' || it in 'a'..'f' || it in 'A'..'F' }) {
+                                                val peerPubHex = Prefs.getPeerPublicKey(ctx, peer)
+                                                CryptoHelper.decryptFromPeer(ctx, peer, peerPubHex, msg.id, msg.content) ?: msg.content
+                                            } else {
+                                                msg.content
+                                            }
+                                        } catch (e: Exception) { msg.content }
+                                        writer.name("content").value(content)
+                                        writer.endObject()
+                                    }
+                                    if (page.size < EXPORT_PAGE_SIZE) break
+                                    offset += EXPORT_PAGE_SIZE
+                                }
+                                writer.endArray()
+                                writer.endObject()
+                            }
+                            writer.endArray()
+
+                            writer.name("groups")
+                            writer.beginArray()
+                            for (groupId in db.messageDao().getGroupIdsOrdered()) {
+                                writer.beginObject()
+                                writer.name("groupId").value(groupId)
+                                writer.name("messages")
+                                writer.beginArray()
+                                var offset = 0
+                                while (true) {
+                                    val page = db.messageDao().getGroupMessagesPage(
+                                        groupId, EXPORT_PAGE_SIZE, offset)
+                                    if (page.isEmpty()) break
+                                    for (msg in page) {
+                                        writer.beginObject()
+                                        writer.name("from").value(msg.from)
+                                        writer.name("timestamp").value(msg.timestamp)
+                                        writer.name("type").value(msg.type)
+                                        writer.name("content").value(msg.content)
+                                        writer.endObject()
+                                    }
+                                    if (page.size < EXPORT_PAGE_SIZE) break
+                                    offset += EXPORT_PAGE_SIZE
+                                }
+                                writer.endArray()
+                                writer.endObject()
+                            }
+                            writer.endArray()
+
+                            // T13 Block E: trail export (§7 "GDPR export... append the full trail
+                            // as wire-format JSON via TrailPointCodec"). Same TrailPointCodec used
+                            // for the trail-batch wire format — each point serialized exactly as it
+                            // would be sent. B.1.5: paged via TrailDao.getPage instead of getAll,
+                            // and each point's parsed JSONObject is streamed and discarded rather
+                            // than accumulated into a parent JSONArray.
+                            writer.name("trail")
+                            writer.beginArray()
+                            var trailOffset = 0
+                            while (true) {
+                                val page = db.trailDao().getPage(EXPORT_PAGE_SIZE, trailOffset)
+                                if (page.isEmpty()) break
+                                for (trailPoint in page) {
+                                    val pointJson = org.json.JSONObject(TrailPointCodec.toJson(trailPoint.toData()))
+                                    writer.writeParsedJson(pointJson)
+                                }
+                                if (page.size < EXPORT_PAGE_SIZE) break
+                                trailOffset += EXPORT_PAGE_SIZE
+                            }
+                            writer.endArray()
+
+                            writer.endObject()
+                        }
                     }
                     withContext(Dispatchers.Main) {
                         progressDialog.dismiss()
@@ -703,5 +750,46 @@ class SettingsFragment : Fragment() {
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
+    }
+}
+
+/**
+ * B.1.5: transcribes an already-parsed org.json value (object/array/primitive) into a
+ * [JsonWriter] token stream, so a single point/element can be streamed and discarded
+ * instead of accumulated into a parent JSONArray that outlives it. Reused as-is for any
+ * org.json tree — shape (keys, nesting, value types) is preserved exactly; only the
+ * lifetime of the intermediate object changes.
+ */
+private fun JsonWriter.writeParsedJson(node: Any?) {
+    when {
+        node == null || node === org.json.JSONObject.NULL -> nullValue()
+        node is org.json.JSONObject -> {
+            beginObject()
+            val keys = node.keys()
+            while (keys.hasNext()) {
+                val key = keys.next()
+                name(key)
+                writeParsedJson(node.get(key))
+            }
+            endObject()
+        }
+        node is org.json.JSONArray -> {
+            beginArray()
+            for (i in 0 until node.length()) {
+                writeParsedJson(node.get(i))
+            }
+            endArray()
+        }
+        node is String -> value(node)
+        node is Boolean -> value(node)
+        node is Number -> {
+            val d = node.toDouble()
+            if (!d.isNaN() && !d.isInfinite() && d == d.toLong().toDouble()) {
+                value(d.toLong())
+            } else {
+                value(d)
+            }
+        }
+        else -> value(node.toString())
     }
 }
