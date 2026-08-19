@@ -24,6 +24,10 @@ secret.key
 *.bak
 *.bak*
 
+# GDPR/trail export artifacts pulled from a device for verification — real
+# location/message data, never a source file.
+fshu_export_*.json
+
 # Internal planning docs (Claude Code session files)
 BRIEFING.md
 4shu_master_plan.md

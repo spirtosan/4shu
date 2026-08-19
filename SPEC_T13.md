@@ -1219,10 +1219,19 @@ redundant, not duplicated effort: either alone would have caught this specific o
 but they cover different failure shapes (`FshuService` dead too vs. `FshuService` alive
 but `TrailService` independently dead, which is what the sweep actually found).
 
-**Verification status:** could not run Gradle/adb-install (project rule — read-only
-`adb` sweep only, no build/install performed). Needs Ivan's build + the four-step
-on-device verification below, since this is the first real exercise of the
-boot/watchdog/force-stop recovery paths Block D's checklist deferred on 2026-07-18.
+**Verification status: STILL OPEN, not device-verified (updated 2026-08-19).** A large
+organic export pulled this session (`fshu_export_ivan_20260819_193806.json`, 26 days,
+6,361 points) gives circumstantial evidence the watchdog + service-supervision legs are
+firing for real on-device — 3 `watchdog_restart` events and 2 `svc_restart` events
+cluster in a 2026-08-19 15:53-16:38 UTC window, consistent with an induced test pass —
+but that's event-presence/timing read from the export only, not the logcat trace this
+block's own checklist calls for (restart-count-on-status-card confirmation, `last`
+snapshot sanity, confirming events aren't confused with each other). **The
+reboot-recovery leg is UNTESTED**: zero `boot` events appear anywhere in the entire
+month of collected data — the phone has run ~54 days uptime with no reboot inside the
+collection window, so that recovery path has literally never had a chance to fire.
+**The logcat read this block's four-step plan calls for has not been done.** Needs
+Ivan's build + the still-outstanding checklist items below before this can close.
 
 ### Block B.1.5 — memory-safe GDPR export (stream instead of buffering the whole tree) — 2026-08-19
 
@@ -1292,10 +1301,27 @@ needs an instrumented test or Ivan's device pass, not a fabricated local test �
 for the device-test checklist below. `TrailPointCodecTest`/`TrailPointMapperTest` are
 unaffected (the codec/mapper themselves are unchanged).
 
-**Verification status:** could not run Gradle/adb (project rule). Needs Ivan's build +
-the new checklist item below, ideally against the phone's current on-device DB (largest
-available real dataset) rather than a fresh/small one, since the bug only reproduces at
-volume.
+**Verification status: CLOSED, device-verified at organic scale (2026-08-19), three
+caveats recorded honestly rather than overstated:**
+1. **Organic-scale export, no OOM** — exported the phone's actual 26-day/6,361-point
+   trail (`fshu_export_ivan_20260819_193806.json`, 31MB), completed cleanly. This is
+   real data, not a synthetic/small test set — the case that actually mattered.
+2. **Shape parity — substituted method, not the originally-planned check.** Confirmed
+   via `seq` contiguity (1-6,361, zero gaps/duplicates, proving the paged reads neither
+   skip nor double-emit rows across page boundaries) plus a visual map/geography review
+   of the exported points. This is **not** a live-viewer-vs-DB query: `adb shell run-as
+   com.fshu.next` returned `package not debuggable`, and no device was attached to try
+   another path, so there was no way to query the live DB directly in this environment.
+3. **Message-export path only lightly exercised.** `conversations`/`groups` were both
+   empty on this account (zero DM/group messages ever sent from it) — confirmed the new
+   paged `MessageDao` queries don't crash on an empty account, but paging correctness at
+   real message-history scale is **not yet confirmed**. Needs a device/account with
+   actual conversation history to close that gap.
+
+Two data-quality backlog items (unrelated to this block's correctness, not blockers on
+its closure) were opened from reviewing this same export's geographic outliers — see
+`PROJECT_MEMORY.md` To Do T18 (accuracy-filter-on-persist) and T19 (provider-accuracy
+fidelity). Pushed to `origin/main` as `6957923`.
 
 ---
 
@@ -1479,44 +1505,76 @@ isn't enough; each step needs a NEW post-kill trail point/event landing.
       should restart it before the next 15-min `ServiceWatchdogWorker` cycle would; the
       status card's restart count increments and a `watchdog_restart` event (not
       `svc_restart`) appears in the trail viewer with a fresh fix following shortly
-      after.
+      after. **Partial/circumstantial evidence only (2026-08-19):** the 2026-08-19
+      organic export shows 3 `watchdog_restart` + 2 `svc_restart` events clustered in a
+      15:53-16:38 UTC window, consistent with a kill/restart pass having happened — but
+      this is event-presence read from the export, not a logcat trace, so it doesn't
+      confirm restart count on the status card, `last`-snapshot sanity, or that events
+      aren't confused with each other. Box stays unchecked until the logcat read happens.
 - [ ] **Simulated OEM-style process kill:** `adb shell am kill com.fshu.next` (not
       `force-stop` — that disables everything until manual relaunch and isn't what a
       battery-manager kill does). Confirm the process is gone (`adb shell pidof
       com.fshu.next` empty), then wait up to the `ServiceWatchdogWorker` period (15 min,
       or trigger it sooner via `adb shell cmd jobscheduler run` if convenient) —
       `FshuService` and `TrailService` both come back, restart count increments once
-      more, a `watchdog_restart` event lands, and a fresh fix follows.
+      more, a `watchdog_restart` event lands, and a fresh fix follows. Same
+      partial/circumstantial status as the item above — same 2026-08-19 window is the
+      only evidence, not logcat-confirmed.
 - [ ] **Reboot recovery:** with Trail enabled, reboot the phone. Confirm
       `ServiceRestartReceiver`'s `BOOT_COMPLETED`/`USER_UNLOCKED` path brings
       `TrailService` back on its own (notification reappears without opening the app)
       and a `boot` event (not `watchdog_restart`) lands, distinguishing this recovery
-      path from the other two above.
+      path from the other two above. **UNTESTED (2026-08-19):** zero `boot` events
+      appear anywhere in the entire month of exported data — the phone has run ~54 days
+      of uptime with no reboot inside the collection window, so this leg has not had a
+      chance to fire yet. Needs an actual reboot in the test window before this can be
+      checked either way.
 - [ ] Re-export (Settings → Export my data) after all four steps above and re-run the
       Block W trail-viewer QA read: confirm no multi-day gap remains, restart-count on
       the status card matches the number of kill/restart cycles actually performed, and
       `watchdog_restart`/`boot` events appear at the expected points with correct
-      `last` fix snapshots.
+      `last` fix snapshots. **Not done** — the 2026-08-19 export was read directly with
+      a script, not run through the Block W trail-viewer's QA panel, and restart count
+      on the status card was never cross-checked against actual cycles run.
 
 ### Block B.1.5
 
-- [ ] **No OOM on the phone's actual, current trail/message history** (not a fresh/small
-      test dataset — the bug only reproduces at volume): Settings → Export my data
-      completes without a crash and without the app becoming unresponsive.
-- [ ] **File parses and shape matches the pre-fix export:** the exported `.json` opens
+- [x] **No OOM on the phone's actual, current trail/message history** (not a
+      fresh/small test dataset — the bug only reproduces at volume): Settings → Export
+      my data completes without a crash and without the app becoming unresponsive.
+      **Confirmed 2026-08-19** — exported the phone's real 26-day/6,361-point trail
+      (`fshu_export_ivan_20260819_193806.json`, 31MB), no OOM, no crash.
+- [x] **File parses and shape matches the pre-fix export:** the exported `.json` opens
       cleanly (e.g. in the Block W desktop trail-viewer tool, or any JSON validator);
       top-level keys are `exportedAt`, `username`, `conversations`, `groups`, `trail` in
       that order; a `conversations[].messages[]` entry has exactly `from`/`to`/
       `timestamp`/`type`/`content`; a `groups[].messages[]` entry has exactly `from`/
       `timestamp`/`type`/`content`; if a pre-B.1.5 export is available for the same
-      account, diff the two — only whitespace should differ.
+      account, diff the two — only whitespace should differ. **Confirmed 2026-08-19**
+      for parseability/key-order/per-point shape (checked with a script, not the Block W
+      viewer). **Not checked:** no pre-B.1.5 export of the same account exists to diff
+      against — this account's `conversations`/`groups` were both empty, so there was
+      nothing to compare on the message side either.
 - [ ] **Trail viewer QA stats match a direct DB query of the same rows:** open the
       Block W trail-viewer on the new export and compare its point count / fix-vs-event
       counts / seq-gap list against `TrailDao.getCount()`/a manual `sqlite3` query on
       `trail_points` for the same account — should match exactly (this also verifies the
       paged `TrailDao.getPage` loop didn't skip or duplicate rows across page
-      boundaries).
+      boundaries). **Not done as specified — substituted method used instead
+      (2026-08-19):** `adb shell run-as com.fshu.next` returned `package not
+      debuggable`, and no device was attached to try another read path, so there is no
+      way to query the live DB directly in this environment. Substituted: verified
+      `seq` contiguity within the export itself (1-6,361, zero gaps/duplicates, which
+      does confirm the paged `TrailDao.getPage` loop isn't skipping or double-emitting
+      rows across page boundaries) plus a visual map/geography review of the exported
+      points (see the geographic-outlier review this session). This is weaker than a
+      live-DB comparison and the box stays unchecked until an actual DB query is
+      possible.
 - [ ] **Conversation/group completeness spot-check:** pick a DM peer and a group with a
       non-trivial message count, count their messages in the export, and compare against
       `SELECT COUNT(*) FROM messages WHERE ...` for the same filters — catches an
-      off-by-one in the peer/group paging loops if one exists.
+      off-by-one in the peer/group paging loops if one exists. **Could not run
+      (2026-08-19):** this account has zero DM/group messages, so the new peer/group
+      paging queries were exercised only against an empty result set (confirmed: no
+      crash on empty) — paging correctness at real message-history scale is unconfirmed.
+      Needs a device/account with actual conversation history.
