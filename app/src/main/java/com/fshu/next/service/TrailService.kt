@@ -39,6 +39,7 @@ import androidx.core.content.ContextCompat
 import com.fshu.next.R
 import com.fshu.next.data.local.AppDatabase
 import com.fshu.next.trail.CellInfo
+import com.fshu.next.trail.TrailFixQuality
 import com.fshu.next.trail.LastFix
 import com.fshu.next.trail.TrailPointData
 import com.fshu.next.trail.TrailPointKind
@@ -107,6 +108,15 @@ class TrailService : Service() {
     // deliveries (those never reach recordFix at all, see passiveListener).
     @Volatile private var lastPersistedLocation: Location? = null
     @Volatile private var lastPersistedTs: Long = 0L
+
+    // SPEC_T13_GLITCH_FILTER.md: last NON-SUSPECT ("good") fix, used as the speed
+    // baseline by TrailFixQuality. Kept separate from lastPersisted* (the dup guard)
+    // so a flagged glitch AND the good fix that snaps back after it are not both
+    // flagged. Deliberately survives STILL/MOVING transitions -- a glitch can straddle
+    // a state change; a long STILL gap just yields a small implied speed, which never
+    // false-fires.
+    @Volatile private var lastGoodLocation: Location? = null
+    @Volatile private var lastGoodTs: Long = 0L
 
     // Dedupe PROVIDERS_CHANGED_ACTION (fires per-provider) down to real loc_on/loc_off
     // aggregate transitions only.
@@ -456,6 +466,15 @@ class TrailService : Service() {
         val seq = fixSeq.incrementAndGet()
         val (battPct, charging) = readBattery()
         val acc = if (location.hasAccuracy()) location.accuracy.toDouble() else null
+        // SPEC_T13_GLITCH_FILTER.md: flag physically-implausible fixes (impossible
+        // speed since the last good fix, corroborated by poor accuracy). Stored, never
+        // dropped (locked decision 7 "collect maximally").
+        val susp = TrailFixQuality.classify(
+            prevLat = lastGoodLocation?.latitude,
+            prevLon = lastGoodLocation?.longitude,
+            prevTs = lastGoodLocation?.let { lastGoodTs },
+            lat = location.latitude, lon = location.longitude, ts = ts, acc = acc
+        )
         val point = TrailPointData(
             seq = seq,
             kind = TrailPointKind.FIX,
@@ -472,12 +491,17 @@ class TrailService : Service() {
             batt = battPct,
             chg = charging,
             net = readNetType(),
+            susp = susp,
             cells = readCells(),
             wifi = readWifi(triggerScan = triggerWifiScan)
         )
         lastFixSnapshot = LastFix(lat = location.latitude, lon = location.longitude, acc = acc ?: 0.0, ts = ts)
         lastPersistedLocation = location
         lastPersistedTs = ts
+        if (susp == null) {
+            lastGoodLocation = location
+            lastGoodTs = ts
+        }
         persist(point)
     }
 

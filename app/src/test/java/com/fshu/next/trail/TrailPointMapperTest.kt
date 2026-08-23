@@ -13,7 +13,7 @@ class TrailPointMapperTest {
             kind = TrailPointKind.FIX,
             ts = 1752741000000,
             lat = 42.1354, lon = 24.7453, acc = 12.5, alt = 164.0, spd = 1.4, brg = 270.0,
-            prov = "fused", mock = false, mot = "moving",
+            prov = "fused", mock = false, mot = "moving", susp = "jump",
             batt = 63, chg = false, net = "cell",
             cells = listOf(CellInfo(t = "lte", mcc = 284, mnc = 3, tac = 21901, ci = 123456789L, pci = 211, sig = -97, reg = true)),
             wifi = WifiInfo(
@@ -44,6 +44,17 @@ class TrailPointMapperTest {
         assertNull(entity.cellsJson)
         assertNull(entity.wifiJson)
         assertEquals(point, entity.toData())
+    }
+
+    @Test
+    fun `susp flag defaults null and round-trips when set`() {
+        val clean = TrailPointData(seq = 1, kind = TrailPointKind.FIX, ts = 0)
+        assertNull(clean.toEntity().susp)
+        assertNull(clean.toEntity().toData().susp)
+
+        val flagged = TrailPointData(seq = 2, kind = TrailPointKind.FIX, ts = 0, susp = "jump")
+        assertEquals("jump", flagged.toEntity().susp)
+        assertEquals("jump", flagged.toEntity().toData().susp)
     }
 
     @Test

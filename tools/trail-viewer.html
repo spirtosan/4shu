@@ -165,6 +165,8 @@
   .tl-time { flex: 0 0 auto; color: var(--text-dim); font-variant-numeric: tabular-nums; }
   .tl-label { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; }
   .tl-event .tl-label { color: #92400e; font-weight: 600; }
+  .tl-suspect .tl-icon-fix { color: #b91c1c; }
+  .tl-suspect .tl-label { color: #b91c1c; font-weight: 600; }
 
   .overlay {
     position: fixed;
@@ -375,6 +377,13 @@ const TrailLabels = {
       svc_restart: 'Trail service restarted',
     };
     return map[ev] || ev || 'Event';
+  },
+  susp(s) {
+    switch (s) {
+      case 'jump': return 'Suspect \u2014 impossible speed (likely GPS glitch)';
+      case 'acc': return 'Suspect \u2014 poor accuracy';
+      default: return s ? 'Suspect \u2014 ' + s : s;
+    }
   }
 };
 
@@ -392,6 +401,7 @@ function formatTime(ts) {
   return `${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`;
 }
 function hasPos(p) { return p && typeof p.lat === 'number' && typeof p.lon === 'number'; }
+function isSuspect(p) { return p && p.susp != null; }  // SPEC_T13_GLITCH_FILTER.md glitch flag
 
 /* ---------- Loading & parsing (§2.1) ---------- */
 function extractTrailArray(json) {
@@ -443,9 +453,12 @@ function renderMap() {
   // Segments: polyline + direction arrows + per-fix clickable dots
   currentSegments.forEach(seg => {
     if (seg.length === 0) return;
-    const coords = seg.map(p => [p.lat, p.lon]);
+    // SPEC_T13_GLITCH_FILTER.md: suspect fixes are drawn as red dots but excluded from
+    // the route line and the fit-bounds, so a teleport glitch no longer spikes the map.
+    const good = seg.filter(p => !isSuspect(p));
+    const coords = good.map(p => [p.lat, p.lon]);
     coords.forEach(c => bounds.push(c));
-    if (seg.length > 1) {
+    if (good.length > 1) {
       const line = L.polyline(coords, { renderer: canvasRenderer, color: '#2563eb', weight: 3, opacity: 0.85 });
       mapLayerGroup.addLayer(line);
       if (typeof L.polylineDecorator === 'function') {
@@ -461,9 +474,10 @@ function renderMap() {
       }
     }
     seg.forEach(p => {
-      const marker = L.circleMarker([p.lat, p.lon], {
-        renderer: canvasRenderer, radius: 4, color: '#1d4ed8', weight: 1, fillColor: '#3b82f6', fillOpacity: 0.85
-      });
+      const bad = isSuspect(p);
+      const marker = L.circleMarker([p.lat, p.lon], bad
+        ? { renderer: canvasRenderer, radius: 5, color: '#b91c1c', weight: 2, fillColor: '#ef4444', fillOpacity: 0.9 }
+        : { renderer: canvasRenderer, radius: 4, color: '#1d4ed8', weight: 1, fillColor: '#3b82f6', fillOpacity: 0.85 });
       marker.on('click', () => selectPoint(p, { fromMap: true }));
       mapLayerGroup.addLayer(marker);
     });
@@ -480,7 +494,7 @@ function renderMap() {
   });
 
   // Start / end markers (chronological first/last positioned fix)
-  const posFixes = filteredPoints.filter(p => p.kind === 'fix' && hasPos(p));
+  const posFixes = filteredPoints.filter(p => p.kind === 'fix' && hasPos(p) && !isSuspect(p));
   if (posFixes.length) {
     const first = posFixes[0], last = posFixes[posFixes.length - 1];
     const startM = L.marker([first.lat, first.lon], { icon: dotIcon('#16a34a', 18, '#065f46') });
@@ -533,7 +547,7 @@ function buildSegments(sortedAsc, gaps, timeGapMs) {
 /* ---------- Stats / QA ---------- */
 function computeStats(points) {
   const byKind = {}, byProv = {}, byMot = {}, byEv = {};
-  let nullBatt = 0, nullChg = 0, nullNet = 0, withCells = 0, withWifi = 0, invariant = 0;
+  let nullBatt = 0, nullChg = 0, nullNet = 0, withCells = 0, withWifi = 0, invariant = 0, suspect = 0;
   points.forEach(p => {
     byKind[p.kind] = (byKind[p.kind] || 0) + 1;
     if (p.prov) byProv[p.prov] = (byProv[p.prov] || 0) + 1;
@@ -545,8 +559,9 @@ function computeStats(points) {
     if (Array.isArray(p.cells) && p.cells.length > 0) withCells++;
     if (p.wifi && (p.wifi.conn || (Array.isArray(p.wifi.scan) && p.wifi.scan.length > 0))) withWifi++;
     if ((p.prov === 'gps' || p.prov === 'fused') && p.mot === 'still') invariant++;
+    if (isSuspect(p)) suspect++;
   });
-  return { total: points.length, byKind, byProv, byMot, byEv, nullBatt, nullChg, nullNet, withCells, withWifi, invariant };
+  return { total: points.length, byKind, byProv, byMot, byEv, nullBatt, nullChg, nullNet, withCells, withWifi, invariant, suspect };
 }
 
 function renderCountTable(obj) {
@@ -574,6 +589,8 @@ function renderStats() {
       <table class="stat-table">
         <tr><td>prov ∈ (gps, fused) AND mot = 'still' (expected 0)</td>
             <td class="${s.invariant === 0 ? 'ok' : 'warn'}">${s.invariant}</td></tr>
+        <tr><td>suspect fixes (impossible speed / glitch)</td>
+            <td class="${s.suspect === 0 ? 'ok' : 'warn'}">${s.suspect}</td></tr>
       </table>
     </div>
     <div class="stat-section">
@@ -639,13 +656,15 @@ function renderEntryRow(entry) {
   }
   const p = entry.point;
   div.className = 'tl-row ' + (p.kind === 'event' ? 'tl-event' : 'tl-fix');
+  if (p.kind === 'fix' && isSuspect(p)) div.classList.add('tl-suspect');
   if (p.seq === currentSelectedSeq) div.classList.add('selected');
   const time = formatTime(p.ts);
   if (p.kind === 'event') {
     div.innerHTML = `<span class="tl-icon tl-icon-event">&#9679;</span><span class="tl-time">${time}</span><span class="tl-label">${escapeHtml(TrailLabels.event(p.ev))}</span>`;
   } else {
     const loc = hasPos(p) ? `${p.lat.toFixed(4)}, ${p.lon.toFixed(4)}` : '(no position)';
-    div.innerHTML = `<span class="tl-icon tl-icon-fix">&#9679;</span><span class="tl-time">${time}</span><span class="tl-label">${escapeHtml(loc)}</span>`;
+    const warn = isSuspect(p) ? ' \u26a0' : '';
+    div.innerHTML = `<span class="tl-icon tl-icon-fix">&#9679;</span><span class="tl-time">${time}</span><span class="tl-label">${escapeHtml(loc)}${warn}</span>`;
   }
   div.addEventListener('click', () => selectPoint(p, { fromTimeline: true }));
   return div;
@@ -729,6 +748,7 @@ function openDetail(point) {
     addDetailRow(rows, 'Battery', `${point.batt}%${chgSuffix}`);
   }
   if (point.net != null) addDetailRow(rows, 'Network', TrailLabels.network(point.net));
+  if (point.susp != null) addDetailRow(rows, 'Quality flag', TrailLabels.susp(point.susp));
 
   if (Array.isArray(point.cells) && point.cells.length) {
     const serving = point.cells.find(c => c.reg) || point.cells[0];

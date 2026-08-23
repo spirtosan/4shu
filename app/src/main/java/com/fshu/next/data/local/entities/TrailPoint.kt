@@ -25,6 +25,7 @@ data class TrailPoint(
     val batt: Int? = null,
     val chg: Boolean? = null,
     val net: String? = null,
+    val susp: String? = null,  // glitch flag (SPEC_T13_GLITCH_FILTER.md); null when clean
     val cellsJson: String? = null,
     val wifiJson: String? = null,
     val ev: String? = null,

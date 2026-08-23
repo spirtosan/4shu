@@ -61,6 +61,7 @@ data class TrailPointData(
     val batt: Int? = null,
     val chg: Boolean? = null,
     val net: String? = null,
+    val susp: String? = null,  // SPEC_T13_GLITCH_FILTER.md: "jump"|"acc" when the fix is physically implausible; null/omitted when clean
     val cells: List<CellInfo>? = null,
     val wifi: WifiInfo? = null,
     val ev: String? = null,      // kind=event only

@@ -10,7 +10,7 @@ private val gson = Gson()
 fun TrailPointData.toEntity(uploaded: Boolean = false): TrailPoint = TrailPoint(
     seq = seq, kind = kind, ts = ts,
     lat = lat, lon = lon, acc = acc, alt = alt, spd = spd, brg = brg,
-    prov = prov, mock = mock, mot = mot, batt = batt, chg = chg, net = net,
+    prov = prov, mock = mock, mot = mot, batt = batt, chg = chg, net = net, susp = susp,
     cellsJson = cells?.let { gson.toJson(it) },
     wifiJson = wifi?.let { gson.toJson(it) },
     ev = ev,
@@ -21,7 +21,7 @@ fun TrailPointData.toEntity(uploaded: Boolean = false): TrailPoint = TrailPoint(
 fun TrailPoint.toData(): TrailPointData = TrailPointData(
     seq = seq, kind = kind, ts = ts,
     lat = lat, lon = lon, acc = acc, alt = alt, spd = spd, brg = brg,
-    prov = prov, mock = mock, mot = mot, batt = batt, chg = chg, net = net,
+    prov = prov, mock = mock, mot = mot, batt = batt, chg = chg, net = net, susp = susp,
     cells = cellsJson?.let { gson.fromJson(it, Array<CellInfo>::class.java).toList() },
     wifi = wifiJson?.let { gson.fromJson(it, WifiInfo::class.java) },
     ev = ev,
