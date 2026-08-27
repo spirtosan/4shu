@@ -382,6 +382,14 @@ object Prefs {
         ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE)
             .edit().putStringSet("trail_guardians", guardians).apply()
 
+    /** T13 Block I — admin trail recipients (id + hex pub) as a JSON string, from auth-ok.
+     *  Persisted so the uploader can still fan out to admins after a process-death restart. */
+    fun getTrailAdmins(ctx: Context): String =
+        ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE).getString("trail_admins", "") ?: ""
+
+    fun setTrailAdmins(ctx: Context, json: String) =
+        ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE).edit().putString("trail_admins", json).apply()
+
     private fun getSecurePrefs(ctx: Context): SharedPreferences {
         return try {
             val masterKeyAlias = MasterKeys.getOrCreate(MasterKeys.AES256_GCM_SPEC)

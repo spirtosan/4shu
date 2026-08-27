@@ -43,6 +43,7 @@ import com.fshu.next.data.model.GroupMember
 import com.fshu.next.data.model.Message
 import com.fshu.next.util.EcdhHelper
 import com.fshu.next.data.remote.WebSocketClient
+import com.fshu.next.trail.TrailUploader
 import com.fshu.next.ui.call.CallActivity
 import com.fshu.next.ui.login.LoginActivity
 import com.fshu.next.util.CryptoHelper
@@ -254,8 +255,11 @@ class FshuService : Service() {
             }
             scope.launch { dispatch(json) }
         }
+        // T13 Block I — route trail upload acks / admin config / guardian-accept to the uploader.
+        WebSocketClient.addHandler { json -> TrailUploader.onServerMessage(this@FshuService, json) }
         WebSocketClient.onHeartbeat = {
             scope.launch { checkStaleSending() }
+            TrailUploader.tick(this@FshuService)   // T13 Block I — periodic backlog flush
             // B.1.4: piggyback Trail's liveness check on FshuService's own heartbeat
             // tick rather than standing up a separate periodic mechanism — FshuService
             // already has the AlarmManager/WorkManager restart machinery that keeps it
@@ -289,6 +293,7 @@ class FshuService : Service() {
         // Register FCM token with server after connect
         WebSocketClient.onConnectedCallback = {
             // Upload our public key on every connect so server can store/distribute it (Phase 1f)
+            TrailUploader.onConnected(this@FshuService)   // T13 Block I — priority resend of trail backlog
             val myPub = Prefs.getEcPublicKey(this@FshuService)
             if (myPub.isNotEmpty()) {
                 WebSocketClient.send(mapOf("type" to "public-key", "publicKey" to myPub))

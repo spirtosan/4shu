@@ -42,6 +42,7 @@ import com.fshu.next.trail.CellInfo
 import com.fshu.next.trail.TrailFixQuality
 import com.fshu.next.trail.LastFix
 import com.fshu.next.trail.TrailPointData
+import com.fshu.next.trail.TrailUploader
 import com.fshu.next.trail.TrailPointKind
 import com.fshu.next.trail.WifiAp
 import com.fshu.next.trail.WifiInfo
@@ -538,6 +539,7 @@ class TrailService : Service() {
             try {
                 db.trailDao().insert(point.toEntity())
                 Log.d(TAG, "point seq=${point.seq} kind=${point.kind} ev=${point.ev ?: "-"} prov=${point.prov ?: "-"} mot=${point.mot ?: "-"}")
+                TrailUploader.tick(applicationContext)   // T13 Block I — nudge upload after each new point
             } catch (e: Exception) {
                 Log.w(TAG, "insert failed: ${e.message}")
             }

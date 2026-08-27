@@ -34,6 +34,12 @@ interpret how the trail ended — even if the phone has been dead or offline for
    only. Per-guardian fanout using the **existing DM message crypto** (X25519 ECDH +
    HKDF + AES-256-GCM, per guardian device — MATCH EXISTING envelope). No new crypto
    primitives, no shared "location key" (that variant deferred, §8).
+   > **AMENDED 2026-08-27 (Ivan):** the trail is now *admin-readable*, not purely
+   > guardian-E2E. The admin is added as a **mandatory extra recipient** in this same
+   > per-recipient fanout (no new primitive); the admin private key lives on the server
+   > **passphrase-wrapped**, so the server can decrypt only inside an authenticated admin
+   > session, never at rest. Guardian E2E is unchanged. Full design + rationale:
+   > `SPEC_T13_PHASE2_SERVER_PERSISTENCE.md`.
 2. **Retention — frozen clock:** keep points newer than `MAX(ts) − 7 days` **measured
    from the newest point of that user**, not from now. Uploads stop → window freezes →
    trail of a missing person survives indefinitely. Config `locationRetentionDays: 7`.
@@ -225,11 +231,19 @@ DELETE FROM trail_batches WHERE user=@u AND
 Stale alert (only if `trailStaleAlertHours > 0`): newest `ts_hi` older than threshold →
 one `trail-stale` push to guardians (existing push/FCM path), re-armed when uploads
 resume. This is the "trail went silent" tripwire — the earliest possible signal that a
-search should start. Metadata-only; server never reads positions.
+search should start. Metadata-only; server never reads positions. *(AMENDED 2026-08-27: still true of the purge/stale jobs themselves — they never read positions — but the server is now admin-readable via the passphrase-unlocked admin recipient; see the §5 note and `SPEC_T13_PHASE2_SERVER_PERSISTENCE.md`.)*
 
 ---
 
 ## 5. E2E scheme
+
+> **AMENDED 2026-08-27:** the "server = ciphertext post office that never reads
+> positions" promise below is now scoped. An **admin** is a standing recipient on every
+> batch; an authenticated admin who supplies the passphrase can decrypt any trail (the
+> admin private key is stored passphrase-wrapped, unreadable at rest). This is the
+> deliberate safety/privacy trade Ivan chose: the trail must survive off-device AND be
+> reachable by the admin. The guardian fanout below is otherwise unchanged. See
+> `SPEC_T13_PHASE2_SERVER_PERSISTENCE.md`.
 
 - Per-batch, per-guardian(-device) fanout with the existing DM derivation. Server =
   ciphertext post office, same promise as messages.
@@ -1578,3 +1592,199 @@ isn't enough; each step needs a NEW post-kill trail point/event landing.
       paging queries were exercised only against an empty result set (confirmed: no
       crash on empty) — paging correctness at real message-history scale is unconfirmed.
       Needs a device/account with actual conversation history.
+
+### Phase 2 Block F — server schema + config + admin key mint — 2026-08-27
+
+**Design decision this block implements (Ivan, 2026-08-27):** trail is *admin-readable*
+(server admin + in-program admin), encrypted in transit and at rest, and must reliably
+land server-side. Admin-key placement = **passphrase-unlocked** (server holds the admin
+private key wrapped under a passphrase; can decrypt only in an authenticated admin
+session). Number of admins = **one now, list-extensible later without a schema change.**
+Passphrase-loss mitigation = **dual passphrase** (daily + offline recovery, same key).
+Full design: `SPEC_T13_PHASE2_SERVER_PERSISTENCE.md`. Amends §1(1), §5, §4.4 above.
+
+**Additive, non-behavioral — the server behaves identically; only new empty tables +
+new config keys + a standalone tool were added.** No existing message/DM path touched
+(drift rule §1.8).
+
+Changes (all under `C:\Users\spirt\fshu-next`):
+- `server.js` — new `db.exec` block creating `trail_guardians`, `trail_batches`,
+  `trail_access_log` (all `IF NOT EXISTS`), a UNIQUE dedup index
+  `(user,device,guardian,batch_id)` and a fetch index `(user,guardian,ts_hi)`. Added a
+  `batch_id TEXT` column vs. the §4.1 sketch (idempotency key from §2.2's `batchId`).
+  New `defaultConfig` keys: `locationRetentionDays:7`, `trailMaxGuardians:5`,
+  `trailStaleAlertHours:0`, `adminAccessNotifiesUser:false`, `trailAdmins:[]`.
+  `node --check` clean. No handlers yet (Block G).
+- `install-fshu-next.sh` — same five keys added to the `config.json` heredoc so fresh
+  installs get them. `bash -n` clean.
+- `tools/trail-admin-keygen.js` — NEW. One-time, dependency-free (Node built-in crypto):
+  mints one X25519 admin keypair, wraps the private key under a daily + a recovery
+  passphrase (scrypt N=2^15,r=8,p=1 → AES-256-GCM), prints a `trailAdmins[]` entry to
+  paste into `config.json`. Passphrases never stored. Verified this session: dual-pass
+  unwrap yields the identical key, wrong passphrase is GCM-rejected, and the device↔admin
+  ECDH shared secret matches for both the raw-32 and SPKI-DER public-key forms.
+
+**MATCH EXISTING resolved:** DB uses `better-sqlite3` with `db.exec` for
+`CREATE TABLE IF NOT EXISTS` + `try{db.exec('ALTER…')}catch{}` migrations and a `stmt`
+prepared-statement object; config is `data/config.json` merged over `defaultConfig`;
+admin gating is `user.admin === 1`. Trail schema/config follow these verbatim.
+
+**Open for Block G/I (flagged, not resolved here):**
+- Confirm whether the Android envelope (`EcdhHelper`/`CryptoHelper`/`PeerKeyDao`) consumes
+  raw-32 or SPKI-DER peer public keys, and hand the app `admin` public key in that form.
+- The server-side admin passphrase-unlock + decrypt path is Block G (`trail-fetch` for
+  admin + `trail_access_log`). `adminAccessNotifiesUser` policy default before Block G.
+
+**For Ivan:** no Gradle here (server-only, Node) — but no build needed; `node --check`
+passed on all three JS files. Server changes must also be applied to live
+`/opt/fshu5/server.js` identically (drift rule) — Claude Code has server access per Ivan.
+Scoped commit command provided in chat.
+
+### Phase 2 Block G — trail handlers + guardian/admin access + admin decrypt — 2026-08-27
+
+**Additive to `server.js` (drift rule §1.8): new prepared statements, new crypto helpers,
+new `switch` cases. No existing message/DM path touched.** `node --check` clean.
+
+New message handlers (all inside the authenticated `switch`, so `username`/`ws`/`msg` are
+in scope, mirroring the existing location/admin handlers):
+- `trail-grant` — tracked user grants a guardian. Enforces **mutual contacts**
+  (`areContacts` both ways, decision 5) and the `trailMaxGuardians` cap; upserts
+  `trail_guardians`; pushes `trail-guardian-changed{state:'granted'}` to the guardian
+  (offline-queued via `deliverOrQueue`).
+- `trail-accept` — guardian accepts (`msg.user` = tracked person); sets `accepted_ts`;
+  notifies both.
+- `trail-revoke` — either side (tracked user passes `guardian`, guardian passes `user`);
+  deletes the row; existing ciphertext ages out naturally (§4.3); notifies both.
+- `trail-batch` — stores one `trail_batches` row per `for[]` recipient. A recipient is
+  accepted **iff** it is a configured admin id (`isTrailAdminId`) **or** an accepted
+  guardian; non-recipients are dropped silently and logged (§4.3). `INSERT OR IGNORE`
+  against the UNIQUE `(user,device,guardian,batch_id)` index makes re-sends idempotent
+  (at-least-once safe). Acks `trail-batch-ack{batchId,seqHi,stored}`.
+- `trail-fetch` — guardian pulls a tracked user's ciphertext in a ts-range; writes a
+  `trail_access_log` row; pushes `trail-accessed` to the tracked user (transparency
+  §6.4); returns `trail-data{batches:[…iv,ct…]}` (server serves ciphertext, does not
+  decrypt for guardians).
+- `trail-wipe` — tracked user deletes all their server batches.
+- `trail-admin-unlock` / `trail-admin-lock` / `trail-admin-view` — admin-gated
+  (`stmt.getUser.get(username)?.admin`). Unlock tries the passphrase against each
+  `config.trailAdmins[].wraps`; on success caches the decrypted admin private key **in
+  memory only**, keyed by the admin's username, for `TRAIL_ADMIN_UNLOCK_MS` (15 min).
+  `trail-admin-view` requires an active unlock, derives the per-recipient conversation
+  key (`trailConvKey`, reproducing `EcdhHelper.deriveConversationKey` exactly), decrypts
+  that user's `__admin__` batches, sorts points by `seq`, logs the access, optionally
+  notifies the user (`adminAccessNotifiesUser`), and returns `trail-admin-data{points}`.
+  The admin private key is never written to disk and is dropped on lock/expiry.
+
+**Trail batch envelope — LOCKED here, Block I (client) MUST match** (see
+`SPEC_T13_PHASE2_SERVER_PERSISTENCE.md` §9a): per recipient,
+`convKey = HKDF-SHA256(X25519(senderPriv, recipientPubHex), SHA256("lo:hi"),
+"fshu-next-1-1-v1", 32)` with `lo/hi = sorted(senderUsername, recipientId)`; `iv` = 12
+random bytes; `ct` = AES-256-GCM(convKey, iv, JSON points) as `ciphertext||tag`; `for[]`
+entry = `{g, iv:b64, ct:b64}`. This is the DM primitive with an **explicit random IV**
+(a batch has no messageId). The admin public key reaches the app as **hex** (`pub_hex`).
+
+**MATCH EXISTING resolved (read from source this session):** `EcdhHelper.kt` = Bouncy
+Castle X25519 (raw hex keys) + RFC-5869 HKDF-SHA256 (salt `SHA256("lo:hi")`,
+info `"fshu-next-1-1-v1"`) + AES-256-GCM (128-bit tag appended to ciphertext);
+`users.public_key` is hex. The server's `trailConvKey`/`trailDecryptBatch` reproduce this
+with Node built-ins (`crypto.diffieHellman`, `crypto.hkdfSync`, `aes-256-gcm`).
+
+**Verified this session (executable, Node):** encrypting a 2-point batch (incl. a
+`susp:"jump"` point) the way `EcdhHelper` will, then running it through the server's
+admin-unlock→derive→decrypt path: server conversation key is **bit-identical** to the
+client's; points round-trip exactly; `susp` preserved; both daily and recovery
+passphrases decrypt; a wrong passphrase yields no key. The guardian path stores/returns
+ciphertext unchanged (server never derives a guardian key).
+
+**Not run here (no server deps on this machine — `ws`/`better-sqlite3`/`bcrypt` absent;
+native modules can't build in the bridge shell).** The live WS plumbing is Block G's
+acceptance, to run on the server (Claude Code has server access per Ivan):
+
+Block G acceptance checklist (scripted WS session, two mutual-contact test users A=tracked,
+B=guardian, plus an admin account and a minted `trailAdmins` entry):
+1. A `trail-grant{guardian:B}` → A and B both receive `trail-guardian-changed{granted}`.
+2. B `trail-accept{user:A}` → both receive `{accepted}`; `trail_guardians.accepted_ts` set.
+3. Cap: grant a 6th guardian → `trail-error{guardian-cap}`. Non-mutual guardian →
+   `trail-error{not-mutual-contact}`.
+4. A `trail-batch{batchId, for:[{g:B,…},{g:'__admin__',…}]}` → `trail-batch-ack{stored:2}`;
+   re-send same `batchId` → ack again, still one row each (dedup index holds).
+5. B `trail-fetch{user:A}` → `trail-data` with the ciphertext rows; A receives
+   `trail-accessed`; a `trail_access_log` row exists. A non-guardian fetch →
+   `trail-error{not-guardian}`.
+6. Admin `trail-admin-unlock{passphrase}` → `trail-admin-unlocked{adminId}`; then
+   `trail-admin-view{user:A}` → `trail-admin-data{points}` with the decrypted points;
+   `trail_access_log` gets an admin row. Wrong passphrase → `trail-error{bad-passphrase}`;
+   view before unlock/after expiry → `trail-error{locked}`.
+7. A `trail-revoke{guardian:B}` (and B `trail-revoke{user:A}`) → both get `{revoked}`; a
+   subsequent B `trail-fetch{user:A}` → `trail-error{not-guardian}`.
+8. A `trail-wipe` → A's `trail_batches` rows gone; admin view returns `batches:0`.
+
+**Open for Block I (client):** implement the batch envelope above in the app
+(`WebSocketClient` + a new trail uploader) with per-recipient fanout to accepted guardians
++ every `config.trailAdmins` id, watermark bookkeeping, and priority resend on reconnect.
+Distribute the admin `pub_hex` to the app. Decide `adminAccessNotifiesUser` default.
+
+### Phase 3 Block I — trail upload engine (client) + admin-pub distribution — 2026-08-27
+
+**The block that makes trips land server-side.** Implements the locked batch envelope
+(Block G / doc §9a) on the Android side with watermark-driven, at-least-once, priority-
+resend upload. Client (Kotlin) + a tiny additive server change to hand the app the admin
+public key(s).
+
+New/changed:
+- `trail/TrailUploader.kt` (NEW) — the engine. Persist-first, watermark-driven
+  (`TrailUploadState("__batch__", lastAckedSeq)`), single in-flight batch, resend on
+  ack/reconnect, server-side dedup by `batch_id` makes the at-least-once resend safe.
+  Recipients = every configured admin (guaranteed) + each locally-picked guardian whose
+  public key is already in `peer_keys` (best-effort; the server drops non-accepted
+  recipients anyway). Per recipient it derives the conversation key via
+  `EcdhHelper.deriveConversationKey(myPriv, recipientPubHex, me, recipientId)` and calls
+  the new `encryptTrailBatch`. `susp` rides through automatically (it's a field on the
+  serialized point). Re-encrypt-on-grant (§5): on `trail-guardian-changed{accepted}` for
+  us, the whole local window is backfilled to that guardian.
+- `util/EcdhHelper.kt` — new `encryptTrailBatch(convKey, plaintext)`: explicit random
+  12-byte IV, returns `Pair(base64(iv), base64(ciphertext||tag))`. Reuses the existing
+  X25519/HKDF/AES-GCM primitive; only the IV source differs from the messageId-nonce DM
+  path (a batch has no messageId).
+- `util/Prefs.kt` — `get/setTrailAdmins` (JSON string) so admin recipients survive a
+  process-death restart.
+- `data/remote/WebSocketClient.kt` — passes `trailAdmins` from `auth-ok` into the bus
+  event (one line, mirrors the existing `autoLocationPeers` passthrough).
+- `service/FshuService.kt` — registers `TrailUploader.onServerMessage` as a WS handler
+  (acks / admin config / guardian-accept), calls `TrailUploader.tick` on each heartbeat
+  (~20 s periodic drain), and `TrailUploader.onConnected` in `onConnectedCallback`
+  (**priority resend the moment the socket is back** — guardrail #2). Additive; existing
+  handler/callbacks untouched.
+- `service/TrailService.kt` — `TrailUploader.tick(applicationContext)` after each point
+  persists (near-real-time nudge while moving).
+- `server.js` — `auth-ok` now includes `trailAdmins:[{id,pub}]` (hex pub) via a new
+  `trailAdminPubs()` helper, both send sites. Additive.
+
+**Cadence:** flush when ≥10 points pending, or the oldest pending point is ≥5 min old, or
+forced (on connect / after ack). Catch-up batches cap at 200 points so a long outage lands
+in a few round-trips. Backoff is implicit: a failed/unacked send is simply re-driven from
+the unchanged watermark on the next heartbeat/reconnect (server dedups).
+
+**Verification:** the envelope itself was proven executably in Block G (client-style
+encrypt → server admin-decrypt: bit-identical key, exact round-trip, `susp` preserved).
+**Kotlin NOT compiled here** (no Gradle over the bridge — Ivan builds in Android Studio,
+standing rule). Structural check only: brace/paren/bracket balance verified on all six
+touched Kotlin files; `node --check` clean on `server.js`.
+
+**Known limitations / follow-ups (for Ivan):**
+- Guardian fanout is best-effort — a guardian with no cached public key is skipped until
+  their key arrives; they get history via the accept-time backfill. Admin delivery is
+  unconditional.
+- Backfill uses a fresh `batchId` each time, so repeated accepts by the same guardian can
+  create duplicate server rows (harmless, ages out in ≤7 days). Dedup-by-seq refinement
+  deferred.
+- The `TrailPoint.uploaded` column is left unused — the watermark is the single source of
+  truth. (Could be surfaced in the status card later.)
+- Near-real-time is 10 pts / 5 min / reconnect. Per-point PANIC/SOS flush is **Block J**.
+- Local retention purge (`purgeOlderThanFrozenWindow`) is still unwired — **Block H**.
+
+Block I acceptance (needs Block F+G live on the server, a minted admin, and a build):
+enable Trail → drive/collect → confirm `trail_batches` fills for `__admin__`; put the
+phone in airplane mode for a while, then reconnect → the backlog lands within seconds
+(priority resend), `seq` contiguous, no gaps; admin `trail-admin-view` reconstructs the
+run including any `susp` points.

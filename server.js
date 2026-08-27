@@ -100,6 +100,15 @@ const defaultConfig = {
     turnUsername:          'fshu',
     turnPassword:          '',
     publicUrl:             '',
+    // T13 Trail (Phase 2) — server persistence + admin-readable design.
+    // See SPEC_T13_PHASE2_SERVER_PERSISTENCE.md. trailAdmins[] holds the admin
+    // recipient key material (public key + passphrase-wrapped private key); it is
+    // minted once by tools/trail-admin-keygen.js — never hand-edit or commit real keys.
+    locationRetentionDays:   7,
+    trailMaxGuardians:       5,
+    trailStaleAlertHours:    0,
+    adminAccessNotifiesUser: false,
+    trailAdmins:             [],
     features: {
         multiDevice:      true,
         ecdh:             false,
@@ -330,6 +339,126 @@ CREATE TABLE IF NOT EXISTS auto_location (
   PRIMARY KEY (owner, peer)
 );
 `);
+
+// ---------------------------------------------------------------------------
+// T13 Trail — Phase 2 server persistence (schema). Additive; touches no existing
+// path. Batches are stored CIPHERTEXT-ONLY, one row per recipient (a guardian or
+// an admin id). See SPEC_T13.md §4.1 and SPEC_T13_PHASE2_SERVER_PERSISTENCE.md.
+// ---------------------------------------------------------------------------
+db.exec(`
+CREATE TABLE IF NOT EXISTS trail_guardians (
+  user        TEXT NOT NULL,
+  guardian    TEXT NOT NULL,
+  granted_ts  INTEGER,
+  accepted_ts INTEGER,
+  PRIMARY KEY (user, guardian)
+);
+CREATE TABLE IF NOT EXISTS trail_batches (
+  id        INTEGER PRIMARY KEY AUTOINCREMENT,
+  user      TEXT NOT NULL,
+  device    TEXT NOT NULL,
+  guardian  TEXT NOT NULL,          -- recipient id: a guardian username, or an admin id ('__admin__')
+  batch_id  TEXT NOT NULL,          -- client-generated uuid (idempotency key)
+  seq_lo    INTEGER,
+  seq_hi    INTEGER,
+  ts_lo     INTEGER,
+  ts_hi     INTEGER,
+  server_ts INTEGER,                -- arrival time; free cross-check vs client clock
+  iv        TEXT,
+  ct        TEXT
+);
+-- Idempotent upload: a re-sent (user,device,guardian,batch_id) is a no-op insert.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_trail_batches_dedup
+  ON trail_batches(user, device, guardian, batch_id);
+CREATE INDEX IF NOT EXISTS idx_trail_batches_fetch
+  ON trail_batches(user, guardian, ts_hi);
+CREATE TABLE IF NOT EXISTS trail_access_log (
+  id       INTEGER PRIMARY KEY AUTOINCREMENT,
+  user     TEXT NOT NULL,
+  guardian TEXT NOT NULL,           -- reader id: a guardian username, or an admin id
+  fetch_ts INTEGER,
+  from_ts  INTEGER,
+  to_ts    INTEGER
+);
+`);
+
+// ---------------------------------------------------------------------------
+// T13 Trail — Phase 2 prepared statements + admin-decrypt helpers.
+// The server stores/serves ciphertext; it can decrypt ONLY inside an authenticated,
+// passphrase-unlocked admin session. See SPEC_T13_PHASE2_SERVER_PERSISTENCE.md §1.3.
+// ---------------------------------------------------------------------------
+const trailStmt = {
+  guardianRow:    db.prepare('SELECT * FROM trail_guardians WHERE user = ? AND guardian = ?'),
+  guardianCount:  db.prepare('SELECT COUNT(*) AS c FROM trail_guardians WHERE user = ?'),
+  upsertGuardian: db.prepare(`INSERT INTO trail_guardians (user, guardian, granted_ts, accepted_ts)
+                              VALUES (?, ?, ?, NULL)
+                              ON CONFLICT(user, guardian) DO UPDATE SET granted_ts = excluded.granted_ts`),
+  acceptGuardian: db.prepare('UPDATE trail_guardians SET accepted_ts = ? WHERE user = ? AND guardian = ?'),
+  deleteGuardian: db.prepare('DELETE FROM trail_guardians WHERE user = ? AND guardian = ?'),
+  insertBatch:    db.prepare(`INSERT OR IGNORE INTO trail_batches
+                              (user, device, guardian, batch_id, seq_lo, seq_hi, ts_lo, ts_hi, server_ts, iv, ct)
+                              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`),
+  fetchBatches:   db.prepare(`SELECT device, seq_lo, seq_hi, ts_lo, ts_hi, server_ts, iv, ct
+                              FROM trail_batches
+                              WHERE user = ? AND guardian = ? AND ts_hi >= ? AND ts_lo <= ?
+                              ORDER BY server_ts ASC`),
+  wipeUser:       db.prepare('DELETE FROM trail_batches WHERE user = ?'),
+  logAccess:      db.prepare(`INSERT INTO trail_access_log (user, guardian, fetch_ts, from_ts, to_ts)
+                              VALUES (?, ?, ?, ?, ?)`),
+};
+
+function trailAdminIds()      { return (config.trailAdmins || []).map(a => a.id); }
+function isTrailAdminId(id)    { return trailAdminIds().includes(id); }
+function trailAdminPubs()     { return (config.trailAdmins || []).map(a => ({ id: a.id, pub: a.pub_hex })); }
+
+// In-memory admin unlock cache: admin-username -> { adminId, priv(KeyObject), expiresAt }.
+// The decrypted admin private key lives ONLY here, only while unlocked, never on disk.
+const trailAdminUnlocked   = new Map();
+const TRAIL_ADMIN_UNLOCK_MS = 15 * 60 * 1000;
+
+// Unwrap an admin entry's private key with a passphrase -> Node KeyObject, or null.
+function trailUnwrapAdmin(entry, passphrase) {
+  for (const w of (entry.wraps || [])) {
+    try {
+      const key   = crypto.scryptSync(passphrase, Buffer.from(w.salt_b64, 'base64'), 32,
+                       { N: w.N, r: w.r, p: w.p, maxmem: 64 * 1024 * 1024 });
+      const buf   = Buffer.from(w.ct_b64, 'base64');
+      const d     = crypto.createDecipheriv('aes-256-gcm', key, Buffer.from(w.nonce_b64, 'base64'));
+      d.setAuthTag(buf.subarray(buf.length - 16));
+      const pkcs8 = Buffer.concat([d.update(buf.subarray(0, buf.length - 16)), d.final()]);
+      return crypto.createPrivateKey({ key: pkcs8, format: 'der', type: 'pkcs8' });
+    } catch { /* wrong passphrase for this wrap — try next */ }
+  }
+  return null;
+}
+
+// Reconstruct a Node X25519 public KeyObject from a raw 32-byte HEX key
+// (users.public_key is hex — EcdhHelper stores raw X25519).
+const X25519_SPKI_PREFIX = Buffer.from('302a300506032b656e032100', 'hex');
+function trailPubFromHex(hex) {
+  const raw = Buffer.from(hex, 'hex');
+  if (raw.length !== 32) throw new Error('bad x25519 pub length');
+  return crypto.createPublicKey({ key: Buffer.concat([X25519_SPKI_PREFIX, raw]), format: 'der', type: 'spki' });
+}
+
+// Reproduce EcdhHelper.deriveConversationKey EXACTLY:
+//   shared=X25519(adminPriv,userPub); salt=SHA256("lo:hi"); HKDF-SHA256(shared,salt,"fshu-next-1-1-v1",32)
+function trailConvKey(adminPriv, userPubHex, a, b) {
+  const shared = crypto.diffieHellman({ privateKey: adminPriv, publicKey: trailPubFromHex(userPubHex) });
+  const lo = a < b ? a : b, hi = a < b ? b : a;
+  const salt = crypto.createHash('sha256').update(`${lo}:${hi}`, 'utf8').digest();
+  return Buffer.from(crypto.hkdfSync('sha256', shared, salt, Buffer.from('fshu-next-1-1-v1', 'utf8'), 32));
+}
+
+// Decrypt one stored batch row (iv/ct base64; ct = ciphertext || 16-byte GCM tag) -> points array.
+function trailDecryptBatch(convKey, ivB64, ctB64) {
+  const iv  = Buffer.from(ivB64, 'base64');
+  const buf = Buffer.from(ctB64, 'base64');
+  const d   = crypto.createDecipheriv('aes-256-gcm', convKey, iv);
+  d.setAuthTag(buf.subarray(buf.length - 16));
+  const pt  = Buffer.concat([d.update(buf.subarray(0, buf.length - 16)), d.final()]).toString('utf8');
+  return JSON.parse(pt);
+}
 
 // Phase 1g migration: add nonce column to files if not present
 try { db.exec('ALTER TABLE files ADD COLUMN nonce TEXT'); } catch {}
@@ -1672,7 +1801,7 @@ wss.on('connection', (ws, req) => {
                 userDevices.set(deviceId, ws);
                 stmt.upsertDevice.run(username, deviceId, msg.deviceName || null, Date.now());
                 const contactNicknames = stmt.getContactNicknames.all(username);
-                send(ws, { type: 'auth-ok', appSecret: sharedAppSecret, admin: user.admin === 1, sessionToken: token, features: config.features, turnUsername: TURN_USERNAME, turnPassword: TURN_PASSWORD, publicKey: user.public_key || null, contactNicknames, profile: stmt.getMyProfile.get(username) || null, autoLocationPeers: stmt.getAutoLocationPeers.all(username).map(r => r.peer) });
+                send(ws, { type: 'auth-ok', appSecret: sharedAppSecret, admin: user.admin === 1, sessionToken: token, features: config.features, turnUsername: TURN_USERNAME, turnPassword: TURN_PASSWORD, publicKey: user.public_key || null, contactNicknames, profile: stmt.getMyProfile.get(username) || null, autoLocationPeers: stmt.getAutoLocationPeers.all(username).map(r => r.peer), trailAdmins: trailAdminPubs() });
                 sendAllAvatars(ws);
                 console.log(`~ ${username}/${deviceId} resumed (${clients.size} users online)`);
                 broadcastAllUsers();
@@ -1717,7 +1846,7 @@ wss.on('connection', (ws, req) => {
             stmt.insertSession.run(token, username, deviceId, Date.now());
             stmt.upsertDevice.run(username, deviceId, msg.deviceName || null, Date.now());
             const contactNicknames = stmt.getContactNicknames.all(username);
-            send(ws, { type: 'auth-ok', appSecret: sharedAppSecret, admin: user.admin === 1, sessionToken: token, features: config.features, turnUsername: TURN_USERNAME, turnPassword: TURN_PASSWORD, publicKey: user.public_key || null, contactNicknames, profile: stmt.getMyProfile.get(username) || null, autoLocationPeers: stmt.getAutoLocationPeers.all(username).map(r => r.peer) });
+            send(ws, { type: 'auth-ok', appSecret: sharedAppSecret, admin: user.admin === 1, sessionToken: token, features: config.features, turnUsername: TURN_USERNAME, turnPassword: TURN_PASSWORD, publicKey: user.public_key || null, contactNicknames, profile: stmt.getMyProfile.get(username) || null, autoLocationPeers: stmt.getAutoLocationPeers.all(username).map(r => r.peer), trailAdmins: trailAdminPubs() });
             sendAllAvatars(ws);
             console.log(`+ ${username}/${deviceId} (${clients.size} users online)`);
             broadcastAllUsers();
@@ -2186,6 +2315,135 @@ wss.on('connection', (ws, req) => {
                 if (!target || allow === undefined) break;
                 stmt.updateEmergencyLocation.run(allow ? 1 : 0, Date.now(), username, target);
                 send(ws, { type: 'ack-emergency-location-update', target });
+                break;
+            }
+
+            // ---- T13 Trail (Phase 2) — server persistence + guardian/admin access ----
+            case 'trail-grant': {
+                const guardian = (msg.guardian || '').trim().toLowerCase();
+                if (!guardian || guardian === username) { send(ws, { type: 'trail-error', reason: 'bad-guardian' }); break; }
+                if (!areContacts(username, guardian) || !areContacts(guardian, username)) {   // mutual contacts only (decision 5)
+                    send(ws, { type: 'trail-error', reason: 'not-mutual-contact', guardian }); break;
+                }
+                if (!trailStmt.guardianRow.get(username, guardian)) {
+                    const cap = config.trailMaxGuardians ?? 5;
+                    if ((trailStmt.guardianCount.get(username)?.c || 0) >= cap) {
+                        send(ws, { type: 'trail-error', reason: 'guardian-cap', cap }); break;
+                    }
+                }
+                trailStmt.upsertGuardian.run(username, guardian, Date.now());
+                deliverOrQueue(guardian, { type: 'trail-guardian-changed', user: username, guardian, state: 'granted' });
+                send(ws, { type: 'trail-guardian-changed', user: username, guardian, state: 'granted' });
+                break;
+            }
+
+            case 'trail-accept': {   // sent by the guardian; msg.user = tracked person
+                const trackedU = (msg.user || '').trim().toLowerCase();
+                if (!trackedU) break;
+                if (!trailStmt.guardianRow.get(trackedU, username)) { send(ws, { type: 'trail-error', reason: 'no-grant', user: trackedU }); break; }
+                trailStmt.acceptGuardian.run(Date.now(), trackedU, username);
+                deliverOrQueue(trackedU, { type: 'trail-guardian-changed', user: trackedU, guardian: username, state: 'accepted' });
+                send(ws, { type: 'trail-guardian-changed', user: trackedU, guardian: username, state: 'accepted' });
+                break;
+            }
+
+            case 'trail-revoke': {   // either side: tracked user passes guardian; guardian passes user
+                let tuser, tguardian;
+                if (msg.guardian)  { tuser = username; tguardian = (msg.guardian || '').trim().toLowerCase(); }
+                else if (msg.user) { tuser = (msg.user || '').trim().toLowerCase(); tguardian = username; }
+                else break;
+                trailStmt.deleteGuardian.run(tuser, tguardian);   // existing ciphertext ages out naturally (§4.3)
+                deliverOrQueue(tuser,     { type: 'trail-guardian-changed', user: tuser, guardian: tguardian, state: 'revoked' });
+                deliverOrQueue(tguardian, { type: 'trail-guardian-changed', user: tuser, guardian: tguardian, state: 'revoked' });
+                break;
+            }
+
+            case 'trail-batch': {   // tracked user uploads a batch, fanned out to guardians + admin(s)
+                const batchId = (msg.batchId || '').toString();
+                const forArr  = Array.isArray(msg.for) ? msg.for : [];
+                if (!batchId || !forArr.length) { send(ws, { type: 'trail-error', reason: 'bad-batch' }); break; }
+                const device  = ws.deviceId || 'default';
+                let stored = 0;
+                for (const r of forArr) {
+                    const g = (r.g || '').toString();
+                    if (!g || r.iv == null || r.ct == null) continue;
+                    const allowed = isTrailAdminId(g) || !!(trailStmt.guardianRow.get(username, g)?.accepted_ts);
+                    if (!allowed) { console.log(`  trail-batch: dropped non-recipient ${username}->${g}`); continue; }   // §4.3 silent drop
+                    trailStmt.insertBatch.run(username, device, g, batchId,
+                        msg.seqLo ?? null, msg.seqHi ?? null, msg.tsLo ?? null, msg.tsHi ?? null,
+                        Date.now(), String(r.iv), String(r.ct));
+                    stored++;
+                }
+                send(ws, { type: 'trail-batch-ack', batchId, seqHi: msg.seqHi ?? null, stored });   // idempotent: dedup index absorbs resends
+                break;
+            }
+
+            case 'trail-fetch': {   // guardian fetches a tracked user's trail ciphertext
+                const trackedU = (msg.user || '').trim().toLowerCase();
+                if (!trackedU) break;
+                if (!(trailStmt.guardianRow.get(trackedU, username)?.accepted_ts)) {
+                    send(ws, { type: 'trail-error', reason: 'not-guardian', user: trackedU }); break;
+                }
+                const fromTs = msg.fromTs ?? 0, toTs = msg.toTs ?? Number.MAX_SAFE_INTEGER;
+                const rows = trailStmt.fetchBatches.all(trackedU, username, fromTs, toTs).map(b => ({
+                    device: b.device, seqLo: b.seq_lo, seqHi: b.seq_hi, tsLo: b.ts_lo, tsHi: b.ts_hi,
+                    serverTs: b.server_ts, iv: b.iv, ct: b.ct,
+                }));
+                trailStmt.logAccess.run(trackedU, username, Date.now(), fromTs, toTs);
+                deliverOrQueue(trackedU, { type: 'trail-accessed', by: username, fromTs, toTs, ts: Date.now() });   // transparency §6.4
+                send(ws, { type: 'trail-data', user: trackedU, batches: rows });
+                break;
+            }
+
+            case 'trail-wipe': {   // tracked user deletes all their server-side batches
+                trailStmt.wipeUser.run(username);
+                send(ws, { type: 'trail-wiped' });
+                break;
+            }
+
+            case 'trail-admin-unlock': {   // admin enters the passphrase -> server can decrypt for this session only
+                if (!stmt.getUser.get(username)?.admin) { send(ws, { type: 'trail-error', reason: 'unauthorized' }); break; }
+                const pass = (msg.passphrase || '').toString();
+                if (!pass) { send(ws, { type: 'trail-error', reason: 'no-passphrase' }); break; }
+                let matched = null;
+                for (const entry of (config.trailAdmins || [])) {
+                    const priv = trailUnwrapAdmin(entry, pass);
+                    if (priv) { matched = { adminId: entry.id, priv, expiresAt: Date.now() + TRAIL_ADMIN_UNLOCK_MS }; break; }
+                }
+                if (!matched) { send(ws, { type: 'trail-error', reason: 'bad-passphrase' }); break; }
+                trailAdminUnlocked.set(username, matched);
+                send(ws, { type: 'trail-admin-unlocked', adminId: matched.adminId, expiresAt: matched.expiresAt });
+                break;
+            }
+
+            case 'trail-admin-lock': {
+                trailAdminUnlocked.delete(username);
+                send(ws, { type: 'trail-admin-locked' });
+                break;
+            }
+
+            case 'trail-admin-view': {   // admin reads a user's decrypted trail (requires an active unlock)
+                if (!stmt.getUser.get(username)?.admin) { send(ws, { type: 'trail-error', reason: 'unauthorized' }); break; }
+                const sess = trailAdminUnlocked.get(username);
+                if (!sess || sess.expiresAt < Date.now()) { trailAdminUnlocked.delete(username); send(ws, { type: 'trail-error', reason: 'locked' }); break; }
+                const trackedU = (msg.user || '').trim().toLowerCase();
+                if (!trackedU) break;
+                const targetUser = stmt.getUser.get(trackedU);
+                if (!targetUser?.public_key) { send(ws, { type: 'trail-error', reason: 'no-user-key', user: trackedU }); break; }
+                const fromTs = msg.fromTs ?? 0, toTs = msg.toTs ?? Number.MAX_SAFE_INTEGER;
+                let convKey;
+                try { convKey = trailConvKey(sess.priv, targetUser.public_key, trackedU, sess.adminId); }
+                catch (e) { send(ws, { type: 'trail-error', reason: 'derive-failed', detail: String(e.message) }); break; }
+                const rows = trailStmt.fetchBatches.all(trackedU, sess.adminId, fromTs, toTs);
+                const points = []; let failed = 0;
+                for (const b of rows) {
+                    try { const pts = trailDecryptBatch(convKey, b.iv, b.ct); if (Array.isArray(pts)) points.push(...pts); }
+                    catch { failed++; }
+                }
+                points.sort((x, y) => (x.seq ?? 0) - (y.seq ?? 0));
+                trailStmt.logAccess.run(trackedU, sess.adminId, Date.now(), fromTs, toTs);
+                if (config.adminAccessNotifiesUser) deliverOrQueue(trackedU, { type: 'trail-accessed', by: sess.adminId, fromTs, toTs, ts: Date.now() });
+                send(ws, { type: 'trail-admin-data', user: trackedU, adminId: sess.adminId, batches: rows.length, failed, points });
                 break;
             }
 

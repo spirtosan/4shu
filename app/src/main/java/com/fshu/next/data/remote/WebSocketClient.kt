@@ -191,6 +191,7 @@ object WebSocketClient {
                             json.get("turnPassword")?.takeIf { !it.isJsonNull }?.let { busEvent.add("turnPassword", it) }
                             json.get("contactNicknames")?.takeIf { !it.isJsonNull }?.let { busEvent.add("contactNicknames", it) }
                             json.get("autoLocationPeers")?.takeIf { !it.isJsonNull }?.let { busEvent.add("autoLocationPeers", it) }
+                            json.get("trailAdmins")?.takeIf { !it.isJsonNull }?.let { busEvent.add("trailAdmins", it) }
                             json.get("mutes")?.takeIf { !it.isJsonNull }?.let { busEvent.add("mutes", it) }
                             handlers.forEach { it(busEvent) }
                             startHeartbeat(webSocket)

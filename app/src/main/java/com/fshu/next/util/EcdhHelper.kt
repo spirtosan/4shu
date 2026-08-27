@@ -109,6 +109,22 @@ object EcdhHelper {
     }
 
     // -------------------------------------------------------------------------
+    // Trail batch envelope (SPEC_T13 §2.2 / Phase-2 doc §9a): explicit random 12-byte IV
+    // (a batch has no messageId), key = deriveConversationKey(...). Returns
+    // Pair(base64(iv), base64(ciphertext||16-byte tag)) — the server splits the tag off.
+    // -------------------------------------------------------------------------
+    fun encryptTrailBatch(convKey: ByteArray, plaintext: ByteArray): Pair<String, String> {
+        val iv = ByteArray(NONCE_BYTES).also { SecureRandom().nextBytes(it) }
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+        cipher.init(Cipher.ENCRYPT_MODE, SecretKeySpec(convKey, "AES"), GCMParameterSpec(GCM_TAG_BITS, iv))
+        val ct = cipher.doFinal(plaintext)
+        return Pair(
+            Base64.encodeToString(iv, Base64.NO_WRAP),
+            Base64.encodeToString(ct, Base64.NO_WRAP)
+        )
+    }
+
+    // -------------------------------------------------------------------------
     // Nonce: SHA-256(messageId as big-endian 8 bytes)[0:12]
     // -------------------------------------------------------------------------
 

@@ -208,6 +208,11 @@ cat > "$INSTALL_DIR/data/config.json" << EOF
   "turnUsername": "$TURN_USER",
   "turnPassword": "$TURN_PASS",
   "publicUrl": "https://$DOMAIN",
+  "locationRetentionDays": 7,
+  "trailMaxGuardians": 5,
+  "trailStaleAlertHours": 0,
+  "adminAccessNotifiesUser": false,
+  "trailAdmins": [],
   "features": {
     "multiDevice": true,
     "ecdh": false,
