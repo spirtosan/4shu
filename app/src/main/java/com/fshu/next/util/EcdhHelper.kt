@@ -125,6 +125,26 @@ object EcdhHelper {
     }
 
     // -------------------------------------------------------------------------
+    // T13 Block K — guardian-side trail batch decrypt. Exact reverse of
+    // encryptTrailBatch: ivB64 is the 12-byte GCM IV; ctB64 is ciphertext||16-byte
+    // tag (javax AES/GCM appends the tag on encrypt and expects it appended on
+    // decrypt). convKey = deriveConversationKey(guardianPriv, trackedPub,
+    // guardianName, trackedName) — the same key the tracked device derived for this
+    // guardian (X25519 + sorted-username salt are both symmetric). Returns the
+    // plaintext bytes (a JSON array of TrailPointData) or null if this key/blob
+    // does not authenticate (wrong guardian, corrupt row).
+    fun decryptTrailBatch(convKey: ByteArray, ivB64: String, ctB64: String): ByteArray? = try {
+        val iv = Base64.decode(ivB64, Base64.NO_WRAP)
+        val ct = Base64.decode(ctB64, Base64.NO_WRAP)
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+        cipher.init(Cipher.DECRYPT_MODE, SecretKeySpec(convKey, "AES"), GCMParameterSpec(GCM_TAG_BITS, iv))
+        cipher.doFinal(ct)
+    } catch (e: Exception) {
+        Log.w(TAG, "decryptTrailBatch: ${e.message}")
+        null
+    }
+
+    // -------------------------------------------------------------------------
     // Nonce: SHA-256(messageId as big-endian 8 bytes)[0:12]
     // -------------------------------------------------------------------------
 

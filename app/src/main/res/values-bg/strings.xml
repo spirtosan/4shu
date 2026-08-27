@@ -364,6 +364,8 @@
     <string name="trail_event_charge_off">Зарядното е изключено</string>
     <string name="trail_event_svc_restart">Услугата за проследяване е рестартирана</string>
     <string name="trail_event_watchdog_restart">Услугата за проследяване е рестартирана (пазач)</string>
+    <string name="trail_event_panic_on">Режим SOS — проследяването е ускорено</string>
+    <string name="trail_event_panic_off">Режим SOS е изключен — проследяването е нормално</string>
     <string name="connection_test_testing_with">Тест с %s</string>
     <string name="connection_test_peer_label">Сървър → %s</string>
     <string name="permission_step_indicator">Стъпка %1$d от %2$d</string>

@@ -407,6 +407,20 @@ const trailStmt = {
                     WHERE ts_hi < (SELECT MAX(ts_hi) FROM trail_batches b2 WHERE b2.user = trail_batches.user) - ?`),
   logAccess:      db.prepare(`INSERT INTO trail_access_log (user, guardian, fetch_ts, from_ts, to_ts)
                               VALUES (?, ?, ?, ?, ?)`),
+  // T13 (e) — backfill dedup-by-seq: detect an already-stored batch covering the
+  //   exact same seq range for this recipient+device (a re-encrypted backfill has a
+  //   fresh batch_id, so the batch_id unique index does not catch it).
+  existsBatchSeq: db.prepare(`SELECT 1 FROM trail_batches
+                              WHERE user = ? AND device = ? AND guardian = ? AND seq_lo = ? AND seq_hi = ?
+                              LIMIT 1`),
+  // T13 (d) — trail-stale alert support.
+  staleCandidates: db.prepare(`SELECT b.user AS user, MAX(b.ts_hi) AS newest
+                              FROM trail_batches b
+                              WHERE EXISTS (SELECT 1 FROM trail_guardians g
+                                            WHERE g.user = b.user AND g.accepted_ts IS NOT NULL)
+                              GROUP BY b.user`),
+  acceptedGuardians: db.prepare(`SELECT guardian FROM trail_guardians
+                              WHERE user = ? AND accepted_ts IS NOT NULL`),
 };
 
 function trailAdminIds()      { return (config.trailAdmins || []).map(a => a.id); }
@@ -1228,6 +1242,46 @@ function runMaintenance() {
 
 runMaintenance();
 setInterval(runMaintenance, 6 * 60 * 60 * 1000);
+
+// ---------------------------------------------------------------------------
+// T13 (d) — trail-stale guardian alert (SPEC_T13_PHASE2_SERVER_PERSISTENCE.md §2/§4).
+// When a tracked user's newest uploaded point is older than trailStaleAlertHours,
+// push ONE trail-stale to each accepted guardian (existing deliver/queue + FCM path).
+// Re-armed when the user's uploads resume (trail-batch clears the flag; a fresh newest
+// ts_hi here also clears it). Disabled when trailStaleAlertHours = 0 (default).
+// ---------------------------------------------------------------------------
+const trailStaleAlerted = new Set();   // users currently alerted-as-stale (one push per episode)
+function checkTrailStale() {
+    const hrs = config.trailStaleAlertHours ?? 0;
+    if (!hrs || hrs <= 0) return;
+    const thresholdMs = hrs * 60 * 60 * 1000;
+    const now = Date.now();
+    let rows;
+    try { rows = trailStmt.staleCandidates.all(); }
+    catch (e) { console.log('trail stale check skipped:', e.message); return; }
+    for (const row of rows) {
+        const user = row.user;
+        const newest = row.newest ?? 0;
+        if ((now - newest) > thresholdMs) {
+            if (trailStaleAlerted.has(user)) continue;   // already alerted this episode
+            const guardians = trailStmt.acceptedGuardians.all(user);
+            for (const gRow of guardians) {
+                const g = gRow.guardian;
+                const online = deliverOrQueue(g, { type: 'trail-stale', user, lastTs: newest, thresholdHours: hrs, ts: now });
+                if (!online) {
+                    const gu = stmt.getUser.get(g);
+                    if (gu?.fcm_token) sendFcmWakeup(gu.fcm_token).catch(() => {});
+                }
+            }
+            trailStaleAlerted.add(user);
+            console.log(`  trail-stale -> guardians of ${user} (silent ${Math.round((now - newest) / 3600000)}h)`);
+        } else {
+            trailStaleAlerted.delete(user);   // re-arm: fresh data present
+        }
+    }
+}
+const TRAIL_STALE_CHECK_INTERVAL_MS = 60 * 60 * 1000;   // hourly; threshold is hours-scale
+setInterval(checkTrailStale, TRAIL_STALE_CHECK_INTERVAL_MS);
 
 // ---------------------------------------------------------------------------
 // FCM keepalive — checks all devices per user, wakes if all are silent
@@ -2473,11 +2527,20 @@ wss.on('connection', (ws, req) => {
                     if (!g || r.iv == null || r.ct == null) continue;
                     const allowed = isTrailAdminId(g) || !!(trailStmt.guardianRow.get(username, g)?.accepted_ts);
                     if (!allowed) { console.log(`  trail-batch: dropped non-recipient ${username}->${g}`); continue; }   // §4.3 silent drop
+                    // T13 (e) — backfill dedup-by-seq: skip a re-encrypted backfill (new
+                    // batchId) that covers a seq range we already stored for this recipient+
+                    // device. Live batches carry monotonically increasing seq, so they never
+                    // collide here — only duplicate backfill windows do.
+                    if (msg.seqLo != null && msg.seqHi != null &&
+                        trailStmt.existsBatchSeq.get(username, device, g, msg.seqLo, msg.seqHi)) {
+                        continue;
+                    }
                     trailStmt.insertBatch.run(username, device, g, batchId,
                         msg.seqLo ?? null, msg.seqHi ?? null, msg.tsLo ?? null, msg.tsHi ?? null,
                         Date.now(), String(r.iv), String(r.ct));
                     stored++;
                 }
+                if (stored > 0) trailStaleAlerted.delete(username);   // T13 (d) — re-arm stale alert on fresh upload
                 send(ws, { type: 'trail-batch-ack', batchId, seqHi: msg.seqHi ?? null, stored });   // idempotent: dedup index absorbs resends
                 break;
             }

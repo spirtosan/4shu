@@ -878,6 +878,18 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                 "content" to contentJson, "clientId" to clientId,
                 "messageId" to id, "timestamp" to ts
             ))
+
+            // T13 Block J/K — SOS engages PANIC: accelerate this device's own trail
+            // sampling + per-point upload so guardians get dense last-known data.
+            // Guarded on isTrailEnabled: SOS must not silently start a location trail
+            // the user never opted into (consent-first Trail design). If Ivan wants
+            // SOS to force-enable Trail, drop this guard deliberately.
+            // NOTE: there is no sender-side "stand down" flow in the app yet; PANIC
+            // stays engaged until cleared. To add a dismiss later, call:
+            //   com.fshu.next.service.TrailService.engagePanic(getApplication(), false)
+            if (com.fshu.next.util.Prefs.isTrailEnabled(getApplication())) {
+                com.fshu.next.service.TrailService.engagePanic(getApplication(), true)
+            }
         }
     }
 

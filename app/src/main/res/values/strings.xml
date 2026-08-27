@@ -379,6 +379,8 @@
     <string name="trail_event_charge_off">Charger disconnected</string>
     <string name="trail_event_svc_restart">Trail service restarted</string>
     <string name="trail_event_watchdog_restart">Trail service restarted (watchdog)</string>
+    <string name="trail_event_panic_on">SOS mode on — tracking accelerated</string>
+    <string name="trail_event_panic_off">SOS mode off — tracking back to normal</string>
 
     <string name="connection_test_testing_with">Testing with %s</string>
     <string name="connection_test_peer_label">Server → %s</string>
