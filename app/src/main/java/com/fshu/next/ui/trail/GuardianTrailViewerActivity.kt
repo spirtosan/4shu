@@ -158,7 +158,7 @@ class GuardianTrailViewerActivity : AppCompatActivity() {
             val meta = StringBuilder(fmt.format(Date(last.ts)))
             last.acc?.let { meta.append(" · ±%.0fm".format(Locale.US, it)) }
             binding.tvLastKnownMeta.text = meta.toString()
-            val mapsUrl = LocationHelper.buildMapsUrl(last.lat!!, last.lon!!)
+            val mapsUrl = LocationHelper.buildMapsUrl(last.lat, last.lon)
             binding.btnOpenMaps.setOnClickListener {
                 try {
                     startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(mapsUrl)))
