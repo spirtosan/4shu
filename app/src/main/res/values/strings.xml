@@ -306,7 +306,7 @@
     <string name="trail_status_warning_stale">⚠ No location update in a while — Trail may not actually be running right now.</string>
     <string name="trail_status_warning_no_background">⚠ Location isn\'t set to \"Allow all the time\" — Trail may pause when 4shu isn\'t open. Fix in Settings.</string>
     <string name="label_trail_guardians">Guardians</string>
-    <string name="trail_guardians_local_only_note">Saved on this device only for now — guardian requests aren\'t sent yet. This list will start syncing once Trail\'s guardian feature is fully built.</string>
+    <string name="trail_guardians_local_only_note">Guardians you add are sent a request. They can see your trail only after they accept, and either of you can remove it at any time.</string>
     <string name="trail_guardians_empty">No guardians added yet.</string>
     <string name="btn_add_guardian">Add guardian</string>
     <string name="toast_trail_guardian_cap">You can have at most %1$d guardians.</string>

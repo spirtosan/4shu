@@ -291,7 +291,7 @@
     <string name="trail_status_warning_stale">⚠ Няма актуализация на местоположението от известно време — проследяването може в момента да не работи.</string>
     <string name="trail_status_warning_no_background">⚠ Местоположението не е зададено на „Разреши през цялото време“ — проследяването може да спира, когато 4shu не е отворено. Коригирайте в настройките.</string>
     <string name="label_trail_guardians">Довереници</string>
-    <string name="trail_guardians_local_only_note">Засега се запазва само на това устройство — заявките за довереници все още не се изпращат. Този списък ще започне да се синхронизира, когато функцията за довереници бъде напълно завършена.</string>
+    <string name="trail_guardians_local_only_note">Добавените довереници получават заявка. Те виждат маршрута ви само след като я приемат, и всеки от вас може да я премахне по всяко време.</string>
     <string name="trail_guardians_empty">Все още няма добавени довереници.</string>
     <string name="btn_add_guardian">Добави довереник</string>
     <string name="toast_trail_guardian_cap">Можете да имате най-много %1$d довереници.</string>

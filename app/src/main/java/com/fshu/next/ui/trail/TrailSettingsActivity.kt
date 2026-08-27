@@ -283,6 +283,7 @@ class TrailSettingsActivity : AppCompatActivity() {
             // rest of the app treats as a real contact relationship.
             val candidates = db.contactDao().getAcceptedContacts(me)
                 .map { it.contact }
+                .distinct()   // contacts table PK is autogen id, so (owner,contact) isn't unique — dedupe
                 .filter { it !in current }
                 .sorted()
             withContext(Dispatchers.Main) {
