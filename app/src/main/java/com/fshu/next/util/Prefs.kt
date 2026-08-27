@@ -382,6 +382,32 @@ object Prefs {
         ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE)
             .edit().putStringSet("trail_guardians", guardians).apply()
 
+    /** Chunk 2 — "wards": people who granted ME guardianship of their trail.
+     *  PENDING = granted, awaiting my accept; ACCEPTED = I sent trail-accept and may fetch.
+     *  Maintained from incoming trail-guardian-changed pushes (see FshuService). */
+    fun getTrailWardsPending(ctx: Context): Set<String> =
+        ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE)
+            .getStringSet("trail_wards_pending", emptySet()) ?: emptySet()
+
+    fun setTrailWardsPending(ctx: Context, wards: Set<String>) =
+        ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE)
+            .edit().putStringSet("trail_wards_pending", wards).apply()
+
+    fun getTrailWardsAccepted(ctx: Context): Set<String> =
+        ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE)
+            .getStringSet("trail_wards_accepted", emptySet()) ?: emptySet()
+
+    fun setTrailWardsAccepted(ctx: Context, wards: Set<String>) =
+        ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE)
+            .edit().putStringSet("trail_wards_accepted", wards).apply()
+
+    /** Chunk 4 — tracked-side access log (who fetched my trail), a JSON array string. */
+    fun getTrailAccessLogJson(ctx: Context): String =
+        ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE).getString("trail_access_log", "[]") ?: "[]"
+
+    fun setTrailAccessLogJson(ctx: Context, json: String) =
+        ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE).edit().putString("trail_access_log", json).apply()
+
     /** T13 Block I — admin trail recipients (id + hex pub) as a JSON string, from auth-ok.
      *  Persisted so the uploader can still fan out to admins after a process-death restart. */
     fun getTrailAdmins(ctx: Context): String =

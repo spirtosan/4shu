@@ -1447,6 +1447,7 @@ h1{font-size:18px} input{display:block;width:100%;box-sizing:border-box;margin:6
 .row{display:flex;gap:8px} .row input{width:50%}
 button{padding:10px 14px;border:0;border-radius:6px;background:#E8711A;color:#fff;font-weight:600;cursor:pointer;margin-right:8px}
 #status{margin:10px 0;color:#9ad} #map{height:420px;border-radius:8px;margin-top:10px;background:#222}
+#events{margin-top:12px} .ev{padding:4px 0;border-bottom:1px solid #222;font-size:13px} .ev b{color:#E8711A}
 small{color:#888}</style></head><body><div class="wrap">
 <h1>4shu — admin trail viewer</h1>
 <small>Admin login + trail passphrase. The passphrase never leaves the server unwrapped; access is logged.</small>
@@ -1456,7 +1457,7 @@ small{color:#888}</style></head><body><div class="wrap">
 <input id="t" placeholder="target username (whose trail)">
 <div class="row"><input id="from" placeholder="from (YYYY-MM-DD, optional)"><input id="to" placeholder="to (YYYY-MM-DD, optional)"></div>
 <button onclick="run()">View trail</button><button onclick="dl()">Download JSON</button>
-<div id="status"></div><div id="map"></div></div>
+<div id="status"></div><div id="map"></div><div id="events"></div></div>
 <script>
 function q(id){return document.getElementById(id);}
 function run(){
@@ -1469,19 +1470,46 @@ function run(){
    .then(function(d){
      if(d.error){q('status').textContent='Error: '+d.error;return;}
      var fixes=d.trail.filter(function(p){return p.kind==='fix'&&p.lat!=null;});
-     q('status').textContent=d.trail.length+' points ('+fixes.length+' fixes, '+d.batches+' batches, '+d.failed+' undecryptable) for '+d.username;
-     window._export=d; draw(fixes);
+     var events=d.trail.filter(function(p){return p.kind==='event';});
+     q('status').textContent=d.trail.length+' points ('+fixes.length+' fixes, '+events.length+' events, '+d.batches+' batches, '+d.failed+' undecryptable) for '+d.username;
+     window._export=d; draw(fixes,events); renderEvents(events);
    }).catch(function(e){q('status').textContent='Request failed';});
 }
-function draw(fixes){
+function draw(fixes,events){
   if(window._map){window._map.remove();}
   var m=L.map('map'); window._map=m;
   L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'OSM'}).addTo(m);
-  if(!fixes.length){m.setView([0,0],2);return;}
-  var pts=fixes.map(function(p){return [p.lat,p.lon];});
-  L.polyline(pts,{color:'#E8711A'}).addTo(m);
-  fixes.forEach(function(p){L.circleMarker([p.lat,p.lon],{radius:3,color:p.susp?'#d33':'#0a7'}).addTo(m).bindPopup('seq '+p.seq+(p.susp?(' susp:'+p.susp):''));});
-  m.fitBounds(pts);
+  var all=[];
+  if(fixes.length){
+    var pts=fixes.map(function(p){return [p.lat,p.lon];});
+    L.polyline(pts,{color:'#E8711A'}).addTo(m);
+    fixes.forEach(function(p){L.circleMarker([p.lat,p.lon],{radius:3,color:p.susp?'#d33':'#0a7'}).addTo(m).bindPopup('seq '+p.seq+(p.susp?(' susp:'+p.susp):''));});
+    all=all.concat(pts);
+  }
+  (events||[]).forEach(function(p){
+    if(p.last&&p.last.lat!=null){
+      var ll=[p.last.lat,p.last.lon];
+      L.circleMarker(ll,{radius:6,color:'#38f',weight:2,fillOpacity:0.6}).addTo(m).bindPopup(evlabel(p.ev)+'<br>'+new Date(p.ts).toLocaleString());
+      all.push(ll);
+    }
+  });
+  if(!all.length){m.setView([0,0],2);return;}
+  m.fitBounds(all);
+}
+var EVLABEL={shutdown:'Phone shut down',boot:'Phone started',airplane_on:'Airplane mode on',airplane_off:'Airplane mode off',loc_on:'Location on',loc_off:'Location off',sim_changed:'SIM changed',batt_low:'Battery low',batt_okay:'Battery back to normal',charge_on:'Charger connected',charge_off:'Charger disconnected',svc_restart:'Service restarted',watchdog_restart:'Service restarted (watchdog)',panic_on:'SOS mode on',panic_off:'SOS mode off'};
+function evlabel(ev){return EVLABEL[ev]||ev||'event';}
+function renderEvents(events){
+  var el=q('events'); el.innerHTML='';
+  if(!events.length){return;}
+  var h=document.createElement('div'); h.innerHTML='<b>Events</b>'; h.style.margin='8px 0'; el.appendChild(h);
+  events.slice().sort(function(a,b){return a.ts-b.ts;}).forEach(function(p){
+    var d=document.createElement('div'); d.className='ev';
+    var coords=(p.last&&p.last.lat!=null)?(' \u2014 '+p.last.lat.toFixed(5)+', '+p.last.lon.toFixed(5)):'';
+    var b=document.createElement('b'); b.textContent=evlabel(p.ev);
+    d.appendChild(b);
+    d.appendChild(document.createTextNode(' \u00b7 '+new Date(p.ts).toLocaleString()+coords));
+    el.appendChild(d);
+  });
 }
 function dl(){ if(!window._export)return; var blob=new Blob([JSON.stringify(window._export,null,2)],{type:'application/json'});
   var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='trail_'+window._export.username+'.json';a.click(); }

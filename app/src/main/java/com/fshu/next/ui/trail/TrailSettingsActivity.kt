@@ -14,8 +14,10 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.gson.JsonObject
 import com.fshu.next.R
 import com.fshu.next.data.local.AppDatabase
+import com.fshu.next.data.remote.WebSocketClient
 import com.fshu.next.databinding.ActivityTrailSettingsBinding
 import com.fshu.next.databinding.ItemTrailGuardianBinding
 import com.fshu.next.service.TrailService
@@ -38,6 +40,30 @@ class TrailSettingsActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityTrailSettingsBinding
     private val db by lazy { AppDatabase.getInstance(this) }
+
+    // Chunk 1 — surface server-side guardian errors (cap / not-mutual). Registered in
+    // onResume, removed in onPause. WS callbacks arrive off the main thread.
+    private val trailWsHandler: (JsonObject) -> Unit = { json ->
+        if (json.get("type")?.asString == "trail-error") {
+            val reason = json.get("reason")?.asString
+            val guardian = json.get("guardian")?.asString
+            when (reason) {
+                "guardian-cap" -> runOnUiThread {
+                    Toast.makeText(this, getString(R.string.toast_trail_guardian_cap, maxGuardians), Toast.LENGTH_LONG).show()
+                }
+                "not-mutual-contact", "bad-guardian" -> runOnUiThread {
+                    if (guardian != null) Prefs.setTrailGuardians(this, Prefs.getTrailGuardians(this) - guardian)
+                    Toast.makeText(this, getString(R.string.toast_trail_guardian_grant_failed, guardian ?: ""), Toast.LENGTH_LONG).show()
+                    refreshGuardianList()
+                }
+                else -> { /* ignore other trail-* traffic */ }
+            }
+        } else if (json.get("type")?.asString == "trail-guardian-changed") {
+            runOnUiThread { refreshGuardWardsCard() }
+        } else if (json.get("type")?.asString == "trail-accessed") {
+            runOnUiThread { refreshTrailAccessCard() }
+        }
+    }
 
     // Cap per SPEC_T13.md §1.5 (Locked decision 5).
     private val maxGuardians = 5
@@ -83,6 +109,14 @@ class TrailSettingsActivity : AppCompatActivity() {
         binding.rowViewTrail.setOnClickListener {
             startActivity(Intent(this, TrailViewerActivity::class.java))
         }
+
+        binding.rowGuardWards.setOnClickListener {
+            startActivity(Intent(this, GuardianWardsActivity::class.java))
+        }
+
+        binding.rowTrailAccess.setOnClickListener {
+            startActivity(Intent(this, TrailAccessLogActivity::class.java))
+        }
     }
 
     override fun onResume() {
@@ -90,6 +124,33 @@ class TrailSettingsActivity : AppCompatActivity() {
         binding.switchTrailEnabled.isChecked = Prefs.isTrailEnabled(this)
         refreshStatusSection()
         refreshViewTrailRow()
+        WebSocketClient.addHandler(trailWsHandler)
+        refreshGuardWardsCard()
+        refreshTrailAccessCard()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        WebSocketClient.removeHandler(trailWsHandler)
+    }
+
+    // Chunk 2 — guardian-side card: visible when I have any ward requests/relationships.
+    // Chunk 4 — "Who viewed my trail" card: visible once anyone has fetched my trail.
+    private fun refreshTrailAccessCard() {
+        val has = com.fshu.next.trail.AccessLogStore.getAll(this).isNotEmpty()
+        binding.cardTrailAccess.visibility = if (has) View.VISIBLE else View.GONE
+    }
+
+    private fun refreshGuardWardsCard() {
+        val pending = Prefs.getTrailWardsPending(this).size
+        val accepted = Prefs.getTrailWardsAccepted(this).size
+        binding.cardGuardWards.visibility = if (pending + accepted > 0) View.VISIBLE else View.GONE
+        if (pending > 0) {
+            binding.tvGuardWardsBadge.visibility = View.VISIBLE
+            binding.tvGuardWardsBadge.text = pending.toString()
+        } else {
+            binding.tvGuardWardsBadge.visibility = View.GONE
+        }
     }
 
     // Block E: "View my trail" stays visible whenever Trail is enabled, or points
@@ -202,6 +263,7 @@ class TrailSettingsActivity : AppCompatActivity() {
             row.tvGuardianUsername.text = Prefs.getContactNickname(this, username).ifEmpty { username }
             row.btnRemoveGuardian.setOnClickListener {
                 Prefs.setTrailGuardians(this, Prefs.getTrailGuardians(this) - username)
+                WebSocketClient.send(mapOf("type" to "trail-revoke", "guardian" to username))   // Chunk 1 — revoke wire
                 refreshGuardianList()
             }
             binding.llGuardians.addView(row.root)
@@ -232,7 +294,9 @@ class TrailSettingsActivity : AppCompatActivity() {
                 MaterialAlertDialogBuilder(this@TrailSettingsActivity)
                     .setTitle(getString(R.string.btn_add_guardian))
                     .setItems(names) { _, index ->
-                        Prefs.setTrailGuardians(this@TrailSettingsActivity, Prefs.getTrailGuardians(this@TrailSettingsActivity) + candidates[index])
+                        val g = candidates[index]
+                        Prefs.setTrailGuardians(this@TrailSettingsActivity, Prefs.getTrailGuardians(this@TrailSettingsActivity) + g)
+                        WebSocketClient.send(mapOf("type" to "trail-grant", "guardian" to g))   // Chunk 1 — grant wire
                         refreshGuardianList()
                     }
                     .setNegativeButton(getString(R.string.btn_cancel), null)

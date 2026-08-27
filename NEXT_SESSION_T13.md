@@ -1,90 +1,56 @@
-# T13 Phase 2/3 — Next Session Startup Notes (updated 2026-08-27, session 2)
+# T13 — Next Session Startup Notes (updated 2026-08-27, session 2)
 
-**Status:** T13 Phase 2/3 trail server persistence LIVE on /opt/fshu5 (app installed &
-working). This session cleared four of the five deferred items and wrote the SAFE half of
-the guardian viewer (crypto/merge/export logic). The guardian-facing UI (map/timeline/
-export screen/access-log screen) is the one build-bound piece still to do — deferred on
-purpose because it needs a live Android build to iterate against ("limited testing power").
+**Status:** T13 server persistence LIVE on /opt/fshu5. Deferred items (b)(c)(d)(e) done.
+The full **guardian trail feature is now written** (grant -> accept -> view -> export +
+access transparency) as Chunks 1-4. Chunks 1-2 built green; **Chunks 3-4 await an Android
+Studio build**. One further server.js change (PC admin-viewer event rendering) needs deploy.
 
-## Done this session (all edits are ADDITIVE; nothing existing removed)
+## Cowork-session changes (all additive)
 
-- **(c) labels + strings** — `panic_on`/`panic_off` added to `TrailLabels.event()`; EN
-  `values/strings.xml` + BG `values-bg/strings.xml` gained `trail_event_panic_on/off`.
-  (`sim_changed` / `svc_restart` were already mapped and already had strings.)
-- **(b) SOS -> PANIC** — `ChatViewModel.sendSosMessage()` now calls
-  `TrailService.engagePanic(getApplication(), true)` after the SOS send, **guarded on
-  `Prefs.isTrailEnabled(...)`** so an SOS never silently starts a location trail the user
-  never opted into. See "Open decision" below re: the (false) dismiss.
-- **(d) server trail-stale alert** — `server.js`: `checkTrailStale()` on an hourly
-  interval; when a tracked user's newest `ts_hi` is older than `trailStaleAlertHours`,
-  pushes ONE `trail-stale` to each accepted guardian via `deliverOrQueue` + `sendFcmWakeup`
-  for offline guardians. Re-armed when uploads resume (trail-batch clears the per-user
-  flag; a fresh newest ts_hi also clears it). Off when `trailStaleAlertHours = 0` (default).
-- **(e) backfill dedup-by-seq** — `server.js`: `trail-batch` now skips inserting a
-  re-encrypted backfill (fresh batchId) whose `(user, device, guardian, seq_lo, seq_hi)`
-  already exists. Live batches carry increasing seq so never collide; only duplicate
-  backfill windows are dropped up front. New prepared stmts: `existsBatchSeq`,
-  `staleCandidates`, `acceptedGuardians`.
-- **(a) guardian viewer — SAFE LOGIC LAYER only:**
-  - `EcdhHelper.decryptTrailBatch(convKey, ivB64, ctB64)` — exact reverse of
-    `encryptTrailBatch` (the client never decrypted a trail batch before).
-  - `trail/GuardianTrail.kt` — `assemble(myPriv, myUsername, trackedUsername,
-    trackedPubHex, batches)`: decrypt every batch with the shared conversation key, parse
-    the JSON point array, merge across devices, dedupe by `(device, seq)`, sort by ts, and
-    surface **`lastKnownFix`** + **`recentSegment`** (last-known first, as requested).
-  - `trail/TrailExport.kt` — pure GPX 1.1 + JSON string builders + `fileStem()`.
+### Server (server.js) — needs mirroring to live /opt/fshu5 + restart (Claude Code)
+- (d) hourly `checkTrailStale()` trail-stale guardian alert (off when trailStaleAlertHours=0).
+- (e) backfill dedup-by-seq guard in `trail-batch`.
+- **PC admin viewer** (`/admin/trail`): now renders EVENTS — map markers at each event's
+  `last` location + an events list with labels incl. panic_on/panic_off. Previously it
+  dropped all events and plotted only fixes. (First deploy already carried (d)+(e); this
+  admin-page change is an additional deploy.)
 
-`node --check server.js` passes. Kotlin was NOT compiled (no Gradle/kotlinc on this
-mount) — brace-balance only. New .kt files are standalone (no existing call sites), so any
-compile error is isolated to them.
+### App — guardian feature (Chunks 1-4)
+- **Chunk 1 (built OK):** `TrailSettingsActivity` sends `trail-grant`/`trail-revoke`;
+  server-error toasts.
+- **Chunk 2 (built OK):** `GuardianRegistry` maintains local ward lists from
+  `trail-guardian-changed`; `GuardianWardsActivity` (Requests: Accept/Decline; People-you-
+  guard: Stop). Prefs ward storage. "People I guard" card in Trail settings.
+- **Chunk 3 (needs build):** `GuardianTrailViewerActivity` — `trail-fetch` -> `trail-data`
+  -> `GuardianTrail.assemble` -> last-known card + Open in Maps + reverse-chron list +
+  GPX/JSON export via SAF (CreateDocument, no storage permission). Launched from accepted
+  wards "View trail".
+- **Chunk 4 (needs build):** `AccessLogStore` accumulates `trail-accessed` pushes (no
+  server change); `TrailAccessLogActivity` "Who viewed my trail" + card in settings.
+- Earlier: (b) SOS->engagePanic (guarded on isTrailEnabled), (c) panic labels+strings,
+  `EcdhHelper.decryptTrailBatch`, `trail/GuardianTrail.kt`, `trail/TrailExport.kt`.
 
-## Server drift rule — ACTION REQUIRED
+## Envelope (reference)
+Guardian decrypt reuses the DM conversation key: `deriveConversationKey(guardianPriv,
+trackedPub, guardianName, trackedName)` (X25519 + sorted-username salt, both symmetric) then
+AES-256-GCM. Batch plaintext = JSON array of TrailPointData. Admin is just another recipient.
 
-The (d)+(e) changes were applied to the **repo** `server.js` only. Per the additive-only
-drift rule they must be mirrored **identically** to the live `/opt/fshu5/server.js`. This
-Cowork session cannot reach the live box — **Claude Code on this machine deploys.**
-`server-t13-phase2.patch` is the earlier Phase-2 patch; these are further additive hunks
-on top (see `git diff server.js`).
+## Known constraints / notes
+- Guardian decrypt needs the tracked person's public key in local `peer_keys` (populated by
+  normal mutual-contact key exchange). Viewer shows "key isn't available yet" if missing.
+- Multi-device: `GuardianTrail` merges/dedupes by (device, seq) and sorts by ts. The PC
+  admin viewer still sorts purely by seq (fine for single-device; could interleave a multi-
+  device target — pre-existing, out of scope).
+- No sender-side SOS "stand down" yet — PANIC stays engaged until cleared (exact call
+  commented in ChatViewModel.sendSosMessage).
+- Server drift rule: additive only; mirror server.js changes to repo + live identically.
 
-## Guardian viewer — what's LEFT (build-bound, do interactively next)
-
-1. **WS glue:** send `{type:'trail-fetch', user, fromTs, toTs}`; handle incoming
-   `{type:'trail-data', user, batches:[...]}` -> map each into `GuardianTrail.Batch` ->
-   `GuardianTrail.assemble(...)`. Guardian's own priv = `Prefs.getEcPrivateKey`, username =
-   `Prefs.getUsername`; tracked person's pubHex = `peerKeyDao().get(tracked).publicKey`.
-2. **Viewer screen:** reuse the EXISTING map approach from `TrailViewerActivity`
-   (tracked-person's own local viewer) — same map lib, same row rendering / TrailLabels /
-   TrailPointDetailSheet. Show `lastKnownFix` as a "last known" card + map marker first,
-   draw `recentSegment` prominently, then the full merged path with event/gap/battery
-   annotations. `susp` points get the same styling the local viewer already uses.
-3. **Export button:** `TrailExport.toGpx(assembled.points, name)` /
-   `.toJson(assembled, tracked)` -> write to Downloads via MediaStore
-   (`MediaStore.Downloads`, `application/gpx+xml` and `application/json`),
-   filename `TrailExport.fileStem(tracked) + ".gpx"/".json"`.
-4. **Access-log screen (tracked side):** the server logs each fetch and pushes
-   `{type:'trail-accessed', by, fromTs, toTs, ts}` to the tracked user in real time
-   (no server fetch endpoint exists for the log — accumulate the pushes client-side, or
-   add an additive `trail-access-log` WS query if a full history screen is wanted).
-
-## Open decision — SOS PANIC dismiss
-
-Spec (b) says "engagePanic(...,true) on SOS trigger and (false) on dismiss." There is **no
-sender-side stand-down / "I'm safe" flow** in the app today, so only the `true` half is
-wired; PANIC stays engaged (25 s sampling + per-point upload) until cleared. Options:
-add an "I'm safe" affordance that calls `engagePanic(context, false)`, and/or an auto-clear
-timer. Left for a product decision — call site + exact line are commented in
-`ChatViewModel.sendSosMessage()`.
-
-## Acceptance still to run (unchanged)
-
-Block F/G/I: enable Trail -> collect -> airplane-mode -> reconnect -> backlog lands within
-seconds, seq contiguous; admin `/admin/trail` reconstructs the run incl. `susp` points.
-Then Block K: guardian G60 reconstructs the other G60's day and exports GPX+JSON.
+## Acceptance to run
+- Relationship: A adds B guardian -> B accepts -> server sets accepted_ts, A backfills.
+- Viewer: B opens A's trail -> last-known + path; export GPX/JSON.
+- Transparency: A sees B's fetch in "Who viewed my trail".
+- Admin: /admin/trail reconstructs run incl. susp points AND events.
 
 ## Pointers
-
-- `SPEC_T13.md` — Block F–L notes + checklists (Block K = the viewer).
-- `SPEC_T13_PHASE2_SERVER_PERSISTENCE.md` — design + envelope §9a.
-- `DEPLOY_T13_PHASE2.md` — deploy runbook.
-- `PROJECT_MEMORY.md` — changelog + board (update: T13 (b)(c)(d)(e) done, (a) logic layer
-  done, (a) UI deferred).
+SPEC_T13.md (Block K), SPEC_T13_PHASE2_SERVER_PERSISTENCE.md (envelope §9a),
+DEPLOY_T13_PHASE2.md, PROJECT_MEMORY.md.

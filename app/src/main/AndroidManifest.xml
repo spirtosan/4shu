@@ -155,6 +155,18 @@
             android:exported="false"/>
 
         <activity
+            android:name=".ui.trail.GuardianWardsActivity"
+            android:exported="false"/>
+
+        <activity
+            android:name=".ui.trail.GuardianTrailViewerActivity"
+            android:exported="false"/>
+
+        <activity
+            android:name=".ui.trail.TrailAccessLogActivity"
+            android:exported="false"/>
+
+        <activity
             android:name=".ui.MessagePopupActivity"
             android:showOnLockScreen="true"
             android:showWhenLocked="true"

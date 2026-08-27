@@ -257,6 +257,10 @@ class FshuService : Service() {
         }
         // T13 Block I — route trail upload acks / admin config / guardian-accept to the uploader.
         WebSocketClient.addHandler { json -> TrailUploader.onServerMessage(this@FshuService, json) }
+        // Chunk 2 — maintain guardian-side ward lists from trail-guardian-changed pushes.
+        WebSocketClient.addHandler { json -> com.fshu.next.trail.GuardianRegistry.onServerMessage(this@FshuService, json) }
+        // Chunk 4 — record who fetched my trail from trail-accessed pushes.
+        WebSocketClient.addHandler { json -> com.fshu.next.trail.AccessLogStore.onServerMessage(this@FshuService, json) }
         WebSocketClient.onHeartbeat = {
             scope.launch { checkStaleSending() }
             TrailUploader.tick(this@FshuService)   // T13 Block I — periodic backlog flush
