@@ -181,6 +181,23 @@ class TrailService : Service() {
         // null-intent svc_restart signal and from a genuine boot — restart telemetry
         // needs to say WHICH mechanism caught the gap. See SPEC_T13.md's Block B.1.4.
         const val TRIGGER_WATCHDOG = "watchdog"
+
+        // T13 Block J — SOS/PANIC: accelerated sampling + per-point upload. Engage from
+        // the app's SOS action with TrailService.engagePanic(context, true) (one line).
+        const val ACTION_PANIC_ON  = "com.fshu.next.trail.ACTION_PANIC_ON"
+        const val ACTION_PANIC_OFF = "com.fshu.next.trail.ACTION_PANIC_OFF"
+        private const val PANIC_INTERVAL_MS = 25_000L   // §3.3 PANIC band: 20–30 s
+        @Volatile var panic = false
+            private set
+
+        fun engagePanic(context: Context, on: Boolean) {
+            ContextCompat.startForegroundService(
+                context,
+                Intent(context, TrailService::class.java).apply {
+                    action = if (on) ACTION_PANIC_ON else ACTION_PANIC_OFF
+                }
+            )
+        }
     }
 
     override fun onCreate() {
@@ -192,6 +209,20 @@ class TrailService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         startForeground(NOTIF_ID, buildNotification())
+        when (intent?.action) {
+            ACTION_PANIC_ON -> {
+                panic = true; TrailUploader.setPanic(true)
+                recordEvent("panic_on"); if (started) enterMoving()   // re-register at PANIC interval
+                Log.w(TAG, "PANIC engaged -> ${PANIC_INTERVAL_MS}ms sampling + per-point upload")
+                return START_STICKY
+            }
+            ACTION_PANIC_OFF -> {
+                panic = false; TrailUploader.setPanic(false)
+                recordEvent("panic_off"); if (started) enterMoving()
+                Log.i(TAG, "PANIC cleared")
+                return START_STICKY
+            }
+        }
         if (!started) {
             started = true
             scope.launch {
@@ -268,7 +299,7 @@ class TrailService : Service() {
         stillCandidateCount = 0
         lastSignificantMotionTs = System.currentTimeMillis()
         lastCountedFixTs = 0L
-        registerActiveProviders(MOVING_INTERVAL_MS)
+        registerActiveProviders(if (panic) PANIC_INTERVAL_MS else MOVING_INTERVAL_MS)
         Log.i(TAG, "state -> MOVING")
     }
 
@@ -774,6 +805,7 @@ class TrailService : Service() {
             }
             Log.i(TAG, "system event: $ev")
             recordEvent(ev)
+            if (ev == "shutdown") TrailUploader.flushBlocking(applicationContext, 2500)   // T13 Block J — last-gasp
         }
     }
 }

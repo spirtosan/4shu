@@ -8,6 +8,7 @@ import android.util.Log
 import androidx.core.content.ContextCompat
 import androidx.work.Worker
 import androidx.work.WorkerParameters
+import com.fshu.next.data.local.AppDatabase
 import com.fshu.next.data.remote.WebSocketClient
 import com.fshu.next.util.Prefs
 
@@ -45,6 +46,22 @@ class ServiceWatchdogWorker(ctx: Context, params: WorkerParameters) : Worker(ctx
                     putExtra(TrailService.EXTRA_TRIGGER, TrailService.TRIGGER_WATCHDOG)
                 }
             )
+        }
+
+        // T13 Block H — local frozen-clock retention purge, at most once/day (SPEC_T13 §3.5/§4.4):
+        // window measured from this device's OWN newest point, so a trail that stopped survives.
+        if (Prefs.isTrailEnabled(applicationContext)) {
+            val now = System.currentTimeMillis()
+            if (now - Prefs.getTrailLastPurgeTs(applicationContext) >= 24L * 60 * 60 * 1000) {
+                try {
+                    kotlinx.coroutines.runBlocking {
+                        AppDatabase.getInstance(applicationContext).trailDao()
+                            .purgeOlderThanFrozenWindow(7L * 24 * 60 * 60 * 1000)
+                    }
+                    Prefs.setTrailLastPurgeTs(applicationContext, now)
+                    Log.d("Watchdog", "trail retention purge ran")
+                } catch (e: Exception) { Log.w("Watchdog", "trail purge failed: ${e.message}") }
+            }
         }
 
         return Result.success()

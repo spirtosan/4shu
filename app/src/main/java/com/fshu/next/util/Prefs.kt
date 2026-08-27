@@ -390,6 +390,13 @@ object Prefs {
     fun setTrailAdmins(ctx: Context, json: String) =
         ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE).edit().putString("trail_admins", json).apply()
 
+    /** T13 Block H — last local frozen-clock retention purge (epoch ms); throttles to once/day. */
+    fun getTrailLastPurgeTs(ctx: Context): Long =
+        ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE).getLong("trail_last_purge_ts", 0L)
+
+    fun setTrailLastPurgeTs(ctx: Context, value: Long) =
+        ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE).edit().putLong("trail_last_purge_ts", value).apply()
+
     private fun getSecurePrefs(ctx: Context): SharedPreferences {
         return try {
             val masterKeyAlias = MasterKeys.getOrCreate(MasterKeys.AES256_GCM_SPEC)

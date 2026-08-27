@@ -403,6 +403,8 @@ const trailStmt = {
                               WHERE user = ? AND guardian = ? AND ts_hi >= ? AND ts_lo <= ?
                               ORDER BY server_ts ASC`),
   wipeUser:       db.prepare('DELETE FROM trail_batches WHERE user = ?'),
+  purgeTrailFrozen: db.prepare(`DELETE FROM trail_batches
+                    WHERE ts_hi < (SELECT MAX(ts_hi) FROM trail_batches b2 WHERE b2.user = trail_batches.user) - ?`),
   logAccess:      db.prepare(`INSERT INTO trail_access_log (user, guardian, fetch_ts, from_ts, to_ts)
                               VALUES (?, ?, ?, ?, ?)`),
 };
@@ -1196,6 +1198,14 @@ function runMaintenance() {
     // Expire used/old password reset tokens
     db.prepare('DELETE FROM password_resets WHERE expires_at < ?').run(Date.now());
 
+    // T13 Block H — trail retention, frozen clock per user (SPEC_T13.md §4.4): keep points
+    // newer than that user's OWN newest ts_hi minus the window, so a trail that stopped
+    // uploading survives indefinitely (a missing person's last known positions).
+    try {
+        const trailRetentionMs = (config.locationRetentionDays ?? 7) * 24 * 60 * 60 * 1000;
+        trailStmt.purgeTrailFrozen.run(trailRetentionMs);
+    } catch (e) { console.log('trail purge skipped:', e.message); }
+
     // Orphan disk files not in DB and older than retention window
     try {
         const known = new Set(stmt.getAllFilePaths.all().map(r => r.file_path));
@@ -1366,6 +1376,62 @@ function sendRegError(res, msg) {
     res.writeHead(400, { 'Content-Type': 'text/html; charset=utf-8' });
     res.end(pageWrap('Error', `<p style="color:#f66;text-align:center">${escHtml(msg)}</p><p style="text-align:center;margin-top:16px"><a href="javascript:history.back()">&larr; Back</a></p>`));
 }
+
+
+// T13 Block K — server-side admin trail viewer (SPEC_T13_PHASE2_SERVER_PERSISTENCE.md §1.3).
+// Self-contained page: admin logs in + enters the passphrase, POSTs to /admin/trail,
+// renders fixes on a map, and can download the decrypted trail as a trail-viewer.html-
+// loadable JSON. Leaflet is loaded from CDN (admin browser is online).
+const ADMIN_TRAIL_PAGE = `<!doctype html><html><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>4shu — admin trail viewer</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>body{font-family:system-ui,sans-serif;margin:0;background:#111;color:#eee}
+.wrap{max-width:900px;margin:0 auto;padding:16px}
+h1{font-size:18px} input{display:block;width:100%;box-sizing:border-box;margin:6px 0;padding:9px;border-radius:6px;border:1px solid #444;background:#1c1c1c;color:#eee}
+.row{display:flex;gap:8px} .row input{width:50%}
+button{padding:10px 14px;border:0;border-radius:6px;background:#E8711A;color:#fff;font-weight:600;cursor:pointer;margin-right:8px}
+#status{margin:10px 0;color:#9ad} #map{height:420px;border-radius:8px;margin-top:10px;background:#222}
+small{color:#888}</style></head><body><div class="wrap">
+<h1>4shu — admin trail viewer</h1>
+<small>Admin login + trail passphrase. The passphrase never leaves the server unwrapped; access is logged.</small>
+<input id="u" placeholder="admin username" autocomplete="username">
+<input id="p" type="password" placeholder="admin password" autocomplete="current-password">
+<input id="pp" type="password" placeholder="trail passphrase">
+<input id="t" placeholder="target username (whose trail)">
+<div class="row"><input id="from" placeholder="from (YYYY-MM-DD, optional)"><input id="to" placeholder="to (YYYY-MM-DD, optional)"></div>
+<button onclick="run()">View trail</button><button onclick="dl()">Download JSON</button>
+<div id="status"></div><div id="map"></div></div>
+<script>
+function q(id){return document.getElementById(id);}
+function run(){
+  var body={username:q('u').value,password:q('p').value,passphrase:q('pp').value,user:q('t').value};
+  if(q('from').value){var a=Date.parse(q('from').value);if(a)body.fromTs=a;}
+  if(q('to').value){var b=Date.parse(q('to').value);if(b)body.toTs=b+86400000;}
+  q('status').textContent='Loading...';
+  fetch('/admin/trail',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
+   .then(function(r){return r.json();})
+   .then(function(d){
+     if(d.error){q('status').textContent='Error: '+d.error;return;}
+     var fixes=d.trail.filter(function(p){return p.kind==='fix'&&p.lat!=null;});
+     q('status').textContent=d.trail.length+' points ('+fixes.length+' fixes, '+d.batches+' batches, '+d.failed+' undecryptable) for '+d.username;
+     window._export=d; draw(fixes);
+   }).catch(function(e){q('status').textContent='Request failed';});
+}
+function draw(fixes){
+  if(window._map){window._map.remove();}
+  var m=L.map('map'); window._map=m;
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'OSM'}).addTo(m);
+  if(!fixes.length){m.setView([0,0],2);return;}
+  var pts=fixes.map(function(p){return [p.lat,p.lon];});
+  L.polyline(pts,{color:'#E8711A'}).addTo(m);
+  fixes.forEach(function(p){L.circleMarker([p.lat,p.lon],{radius:3,color:p.susp?'#d33':'#0a7'}).addTo(m).bindPopup('seq '+p.seq+(p.susp?(' susp:'+p.susp):''));});
+  m.fitBounds(pts);
+}
+function dl(){ if(!window._export)return; var blob=new Blob([JSON.stringify(window._export,null,2)],{type:'application/json'});
+  var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='trail_'+window._export.username+'.json';a.click(); }
+</script></body></html>`;
 
 function handleHttp(req, res) {
     console.log("HTTP", req.method, req.url);
@@ -1730,6 +1796,44 @@ function handleHttp(req, res) {
             + '</body></html>';
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
         res.end(joinHtml);
+        return;
+    }
+
+    else if (req.method === 'GET' && url === '/admin/trail') {
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        res.end(ADMIN_TRAIL_PAGE);
+        return;
+    }
+
+    else if (req.method === 'POST' && url === '/admin/trail') {
+        let body = '';
+        req.on('data', c => { body += c; if (body.length > 8192) req.destroy(); });
+        req.on('end', () => {
+            const fail = (code, msg) => { res.writeHead(code, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: msg })); };
+            try {
+                const f = JSON.parse(body || '{}');
+                const uname = (f.username || '').trim().toLowerCase();
+                const admin = stmt.getUser.get(uname);
+                if (!admin || admin.admin !== 1 || !bcrypt.compareSync(f.password || '', admin.password_hash)) return fail(403, 'admin auth failed');
+                let matched = null;
+                for (const entry of (config.trailAdmins || [])) { const priv = trailUnwrapAdmin(entry, (f.passphrase || '').toString()); if (priv) { matched = { adminId: entry.id, priv }; break; } }
+                if (!matched) return fail(403, 'bad passphrase');
+                const target = (f.user || '').trim().toLowerCase();
+                const tu = stmt.getUser.get(target);
+                if (!tu || !tu.public_key) return fail(404, 'target user has no key');
+                const fromTs = Number(f.fromTs) || 0, toTs = Number(f.toTs) || Number.MAX_SAFE_INTEGER;
+                let convKey;
+                try { convKey = trailConvKey(matched.priv, tu.public_key, target, matched.adminId); } catch (e) { return fail(500, 'derive failed'); }
+                const rows = trailStmt.fetchBatches.all(target, matched.adminId, fromTs, toTs);
+                const points = []; let failed = 0;
+                for (const b of rows) { try { const p = trailDecryptBatch(convKey, b.iv, b.ct); if (Array.isArray(p)) points.push(...p); } catch { failed++; } }
+                points.sort((x, y) => (x.seq ?? 0) - (y.seq ?? 0));
+                trailStmt.logAccess.run(target, matched.adminId, Date.now(), fromTs, toTs);
+                console.log(`  admin trail view: ${uname} -> ${target} (${points.length} pts, ${rows.length} batches, ${failed} failed)`);
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ exportedAt: new Date().toISOString(), username: target, adminId: matched.adminId, batches: rows.length, failed, trail: points }));
+            } catch (e) { fail(400, 'bad request'); }
+        });
         return;
     }
 

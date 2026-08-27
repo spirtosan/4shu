@@ -13,6 +13,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.UUID
@@ -49,6 +51,7 @@ object TrailUploader {
 
     data class Recipient(val id: String, val pubHex: String)
     @Volatile private var adminRecipients: List<Recipient> = emptyList()
+    @Volatile private var panic = false   // T13 Block J — SOS/PANIC: upload every point immediately
 
     /** Registered as a WebSocketClient handler — routes the messages the uploader cares about. */
     fun onServerMessage(context: Context, json: JsonObject) {
@@ -87,6 +90,15 @@ object TrailUploader {
 
     /** Periodic nudge (WS heartbeat, ~20s) and after each new fix — sends only when triggers are met. */
     fun tick(context: Context) { scope.launch { doFlush(context, force = false) } }
+
+    /** T13 Block J — PANIC (SOS): force per-point immediate upload until cleared. */
+    fun setPanic(on: Boolean) { panic = on }
+
+    /** T13 Block J — last-gasp best-effort flush on shutdown (bounded, synchronous). */
+    fun flushBlocking(context: Context, timeoutMs: Long) {
+        try { runBlocking { withTimeoutOrNull(timeoutMs) { doFlush(context, force = true) } } }
+        catch (e: Exception) { Log.w(TAG, "flushBlocking: ${e.message}") }
+    }
 
     private fun parseAdmins(context: Context, json: JsonObject) {
         val arr = json.get("trailAdmins")?.takeIf { it.isJsonArray }?.asJsonArray ?: return
@@ -141,7 +153,7 @@ object TrailUploader {
             if (pending.isEmpty()) return
 
             val oldestAgeMs = now - pending.first().ts
-            if (!force && pending.size < BATCH_TRIGGER && oldestAgeMs < MAX_LATENCY_MS) return
+            if (!force && !panic && pending.size < BATCH_TRIGGER && oldestAgeMs < MAX_LATENCY_MS) return
 
             val recipients = recipientsFor(context)
             if (recipients.isEmpty()) { Log.w(TAG, "no recipients yet — deferring flush"); return }

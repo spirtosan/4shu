@@ -1788,3 +1788,61 @@ enable Trail → drive/collect → confirm `trail_batches` fills for `__admin__`
 phone in airplane mode for a while, then reconnect → the backlog lands within seconds
 (priority resend), `seq` contiguous, no gaps; admin `trail-admin-view` reconstructs the
 run including any `susp` points.
+
+### Phase 2 Block H — retention purge (frozen clock), server + client — 2026-08-27
+
+Additive. **Server** (`server.js`): `runMaintenance()` (the existing 6-hourly job) now runs
+a per-user frozen-clock purge of `trail_batches` —
+`DELETE ... WHERE ts_hi < (MAX(ts_hi) for that user) - locationRetentionDays`. Measured
+from each user's OWN newest point, so a trail that stopped uploading (lost/dead phone)
+survives indefinitely — the core §4.4 safety property. New `trailStmt.purgeTrailFrozen`.
+`node --check` clean. **Client** (`ServiceWatchdogWorker`): once/day (guarded by
+`Prefs.get/setTrailLastPurgeTs`) it calls the already-present but previously-dead
+`TrailDao.purgeOlderThanFrozenWindow(7d)` via `runBlocking`, wiring local retention at
+last. Stale-alert (`trailStaleAlertHours`) left off by default (config 0) — not wired.
+
+### Phase 3 Block J — last-gasp flush + SOS/PANIC — 2026-08-27
+
+- **Last-gasp:** `TrailService`'s `ACTION_SHUTDOWN` handler now calls
+  `TrailUploader.flushBlocking(context, 2500)` — a bounded, synchronous best-effort drain
+  of the upload backlog as the phone powers off (network permitting). New
+  `TrailUploader.flushBlocking` (`runBlocking` + `withTimeoutOrNull`).
+- **PANIC (SOS):** `TrailService.engagePanic(context, on)` (static, one-line hook) sends an
+  `ACTION_PANIC_ON/OFF` intent; the service switches active sampling to `PANIC_INTERVAL_MS`
+  (25 s, §3.3) and calls `TrailUploader.setPanic(true)`, which makes every persisted point
+  flush immediately (per-point upload). `panic_on`/`panic_off` events are recorded.
+  **Wiring to the app's own SOS action is left as that one call** — the SOS *send* path is
+  app-UI-specific and wasn't safe to wire blind; drop `TrailService.engagePanic(this, true)`
+  into the SOS trigger (and `false` on dismiss) to activate. PANIC capability + plumbing are
+  in place and structurally checked.
+
+### Phase 3 Block K — admin trail viewer (server-side) — 2026-08-27
+
+Delivers the admin-visibility half of Block K without uncompilable Android UI, on the
+server where the admin key lives. Additive to `server.js`:
+- `GET /admin/trail` — a self-contained HTML page (Leaflet from CDN): admin enters
+  username + password + trail passphrase + target user (+ optional date range), sees the
+  fixes drawn on a map (suspect points in red), and can download the decrypted trail as a
+  JSON that the existing `tools/trail-viewer.html` loads directly (same `{exportedAt,
+  username, trail[]}` shape as the GDPR export).
+- `POST /admin/trail` — authenticates the admin (bcrypt, `admin=1`), unwraps the admin key
+  with the passphrase, derives the conversation key (`trailConvKey`), decrypts the target
+  user's `__admin__` batches, sorts by `seq`, **logs the access to `trail_access_log`**,
+  and returns the trail JSON. The passphrase is never stored; the admin key is unwrapped
+  per request in memory only. Reuses the Block G crypto helpers (already proven executably).
+
+`node --check` clean. **The in-app guardian-facing viewer (Block K Android UI — fetch,
+decrypt, merge multi-device, timeline+map, GPX/JSON export, access-log screen) remains the
+one genuinely build-environment-bound piece and is specced but not hand-written blind.**
+
+### Phase 3 Block L — polish / status — 2026-08-27
+
+Docs: this SPEC's Block F–K notes + acceptance checklists; `PROJECT_MEMORY.md` changelog +
+board; the design doc `SPEC_T13_PHASE2_SERVER_PERSISTENCE.md` (also a Project doc).
+Deferred/remaining, recorded honestly: (1) in-app guardian viewer UI (Block K Android);
+(2) SOS→PANIC one-line wiring in the app's SOS action; (3) `panic_on`/`panic_off` +
+`svc`/`sim` event labels in `TrailLabels`/strings (unknown events currently render raw);
+(4) server `trail-stale` alert (config-gated off); (5) backfill dedup-by-seq refinement;
+(6) the whole client side is **not compiled** here — Ivan builds in Android Studio. Server
+changes must land identically on live `/opt/fshu5/server.js` (drift rule) and the admin key
+must be minted once (`tools/trail-admin-keygen.js` → `config.trailAdmins`).
