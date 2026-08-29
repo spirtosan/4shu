@@ -119,6 +119,16 @@ class TrailService : Service() {
     @Volatile private var lastGoodLocation: Location? = null
     @Volatile private var lastGoodTs: Long = 0L
 
+    // SPEC_T13_GLITCH_FILTER.md §detour — one-fix look-behind for the non-causal "detour"
+    // rule. We persist every fix immediately (durability: a point is never held only in
+    // volatile memory), remember the just-persisted fix here, and once its successor lands
+    // we retroactively flag it via TrailDao.updateSusp if it was a there-and-back spike.
+    private class PendingFix(
+        val seq: Long, val lat: Double, val lon: Double, val acc: Double?, val mot: String?,
+        val onlineSusp: String?, val prevLat: Double?, val prevLon: Double?
+    )
+    @Volatile private var pendingDetourFix: PendingFix? = null
+
     // Dedupe PROVIDERS_CHANGED_ACTION (fires per-provider) down to real loc_on/loc_off
     // aggregate transitions only.
     private var lastLocationEnabled: Boolean? = null
@@ -535,6 +545,35 @@ class TrailService : Service() {
             lastGoodTs = ts
         }
         persist(point)
+
+        // §detour look-behind: now that THIS fix is the successor of the previously
+        // persisted one, decide whether that previous fix was a there-and-back spike.
+        // Only fixes the online path left clean are eligible, so "jump" always wins.
+        val prev = pendingDetourFix
+        if (prev != null && prev.onlineSusp == null) {
+            val detour = TrailFixQuality.classifyDetour(
+                prevLat = prev.prevLat, prevLon = prev.prevLon,
+                lat = prev.lat, lon = prev.lon, acc = prev.acc, mot = prev.mot,
+                nextLat = location.latitude, nextLon = location.longitude
+            )
+            if (detour != null) {
+                val flaggedSeq = prev.seq
+                scope.launch {
+                    try {
+                        db.trailDao().updateSusp(flaggedSeq, detour)
+                        Log.i(TAG, "detour flag applied retroactively: seq=$flaggedSeq")
+                    } catch (e: Exception) {
+                        Log.w(TAG, "detour update failed seq=$flaggedSeq: ${e.message}")
+                    }
+                }
+            }
+        }
+        // This fix becomes the pending one; its immediate predecessor is the fix that was
+        // pending (prev). First-ever fix has no predecessor and can never be a detour.
+        pendingDetourFix = PendingFix(
+            seq = seq, lat = location.latitude, lon = location.longitude, acc = acc,
+            mot = point.mot, onlineSusp = susp, prevLat = prev?.lat, prevLon = prev?.lon
+        )
     }
 
     // B.1: true if this attempt lands within DUP_RADIUS_M and DUP_WINDOW_S of the last

@@ -161,3 +161,58 @@ Note on the standalone `"acc"` flag: the STILL network heartbeat legitimately pr
 1. Land steps 1–7 (collector + schema + tests) behind no flag — it only adds a field.
 2. Verify on next export that clean fixes stay unflagged.
 3. Add the viewer treatment (step 8) once the flag is trusted.
+
+---
+
+## §detour — coarse there-and-back rule (added 2026-08-29)
+
+**Motivation.** A dot sitting on Asenovgradsko shose (real decrypted Aug-29 trail, seq 460)
+was a coarse network-blended fix that jumped ~3.3 km sideways and snapped back. The `"jump"`
+rule missed it: over a 3-minute sampling gap the implied speed was only 66–104 km/h, well
+under `SPEED_SUSPECT_KMH = 150`. Provider name can't catch it either — every fix on this
+device reports `prov = "fused"` (Android's blended provider); there is no literal `"gps"`.
+The one field that separates the bad dot (acc 98 m) from its neighbours (24 m, 30 m) is
+**accuracy**, and the one shape that separates a glitch from a merely-coarse fix is the
+**there-and-back geometry**. A pure accuracy gate over-flags badly (moving acc>60 m = 64/518
+points, most of them fine), so accuracy is paired with geometry — exactly as `"jump"` pairs
+speed with accuracy.
+
+**Rule (`TrailFixQuality.classifyDetour`).** Flag `"detour"` when a fix is `mot == "moving"`
+AND `acc ≥ DETOUR_ACC_MIN_M (60 m)` AND both legs to its immediate neighbours exceed
+`DETOUR_JUMP_M (250 m)` AND the two neighbours are closer to each other than either is to the
+fix (`dSpan < min(dIn, dOut)`). STILL fixes are excluded — a coarse stationary heartbeat
+legitimately jitters and must never be flagged (same reason `FLAG_POOR_ACC` is off).
+
+**Non-causal → one-fix look-behind, persist-first.** Unlike `"jump"` (causal, decided against
+the last good fix as the point streams in), `"detour"` needs the fix AFTER the suspect one.
+The collector keeps its safety-critical **persist-first durability** — every point is written
+to Room immediately, never held in volatile memory — and once a fix's successor arrives,
+`TrailService.recordFix` retroactively flags the previous point via `TrailDao.updateSusp`.
+Only points the online path left clean are eligible, so **`"jump"` always wins** over
+`"detour"` on a point that is both. Precedence and the retroactive path are additive: the
+well-tested `classify()` online path and the `lastGood` baseline are untouched.
+
+**Validation (decrypted Aug-29 trail, 518 fixes).** The integrated algorithm applies
+`"detour"` to exactly seq **460, 475, 504, 526** (the four coarse sideways spikes) and leaves
+the four `"jump"` flags (474, 478, 508, 512) intact — 8 suspect of 518, zero tight-fix
+(acc ≤ 30 m) false positives, and seq 462 (500 m but on the route line) correctly kept clean.
+seq 478 is both a geometric detour and already `"jump"`; the online-susp skip keeps it `"jump"`.
+Unit tests in `TrailFixQualityTest.kt` seed these real coordinate triples.
+
+**No schema change, no server change.** `susp` is already a nullable TEXT column (v27); the
+new reason is just another string value. The server stores only ciphertext and never reads
+`susp`; its `/admin/trail` map and `tools/trail-viewer.html` both colour any non-null `susp`
+red and show the reason text, so `"detour"` renders with only a human-label addition
+(`TrailLabels.susp`). Retroactive-flag caveat: if a point is uploaded in the brief window
+before its successor lands, the admin/guardian copy carries no `detour` flag on that point
+(positions are intact regardless); acceptable for flag-and-keep, and a display-time geometry
+pass in the viewers could close it later if wanted.
+
+### Files changed (§detour, all under C:\Users\spirt\fshu-next)
+- `app/src/main/java/com/fshu/next/trail/TrailFixQuality.kt` — `classifyDetour` + `DETOUR_ACC_MIN_M`/`DETOUR_JUMP_M`.
+- `app/src/main/java/com/fshu/next/data/local/dao/TrailDao.kt` — `updateSusp(seq, susp)`.
+- `app/src/main/java/com/fshu/next/service/TrailService.kt` — `PendingFix` look-behind in `recordFix`.
+- `app/src/test/java/com/fshu/next/trail/TrailFixQualityTest.kt` — 9 detour cases on real coords.
+- `tools/trail-viewer.html` — `"detour"` human label.
+
+No Room migration (no schema change), no `server.js` change.

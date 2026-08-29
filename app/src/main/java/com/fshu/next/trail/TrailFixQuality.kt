@@ -40,6 +40,20 @@ object TrailFixQuality {
      *  it would also flag legitimate coarse STILL network-heartbeat fixes. */
     const val FLAG_POOR_ACC = false
 
+    /** "detour" rule (SPEC_T13_GLITCH_FILTER.md §detour) — a coarse MOVING fix that sticks
+     *  out from the track and snaps back on the next fix. Unlike "jump" this is NON-causal
+     *  (it needs the fix AFTER the suspect one), so it is evaluated with a one-fix
+     *  look-behind in the collector, never in the streaming online path. A fix qualifies
+     *  when its accuracy is at least [DETOUR_ACC_MIN_M] AND both legs to its immediate
+     *  neighbours exceed [DETOUR_JUMP_M] AND those two neighbours are closer to each other
+     *  than either is to the fix (the there-and-back signature). Validated 2026-08-29
+     *  against the decrypted Aug-29 trail: flags exactly the 4 coarse sideways spikes the
+     *  speed rule could not see (seq 460/475/504/526), zero tight-fix false positives. */
+    const val DETOUR_ACC_MIN_M = 60.0
+
+    /** Each leg (previous->fix and fix->next) must exceed this for a there-and-back. */
+    const val DETOUR_JUMP_M = 250.0
+
     private const val EARTH_RADIUS_M = 6_371_000.0
 
     /**
@@ -63,6 +77,34 @@ object TrailFixQuality {
         }
 
         if (FLAG_POOR_ACC && poorAcc) return "acc"
+        return null
+    }
+
+    /**
+     * "detour" classifier — pure and non-causal. The caller supplies the fix together with
+     * its IMMEDIATE previous and next persisted fixes (any provider/state). Returns
+     * "detour" or null. Kept separate from [classify] so the well-tested online "jump" path
+     * is untouched; the caller applies this ONLY to fixes [classify] left clean, so "jump"
+     * always wins over "detour" on a point that is both.
+     *
+     * @param prevLat/prevLon the fix immediately before this one, or null if none.
+     * @param nextLat/nextLon the fix immediately after this one, or null if not yet known.
+     * @param acc this fix's accuracy in metres, or null if unavailable.
+     * @param mot this fix's motion state ("moving"/"still"); detour applies to moving only,
+     *            because a coarse STILL heartbeat legitimately jitters and must not be flagged.
+     */
+    fun classifyDetour(
+        prevLat: Double?, prevLon: Double?,
+        lat: Double, lon: Double, acc: Double?, mot: String?,
+        nextLat: Double?, nextLon: Double?
+    ): String? {
+        if (mot != "moving") return null
+        if (acc == null || acc < DETOUR_ACC_MIN_M) return null
+        if (prevLat == null || prevLon == null || nextLat == null || nextLon == null) return null
+        val dIn   = haversineMeters(prevLat, prevLon, lat, lon)
+        val dOut  = haversineMeters(lat, lon, nextLat, nextLon)
+        val dSpan = haversineMeters(prevLat, prevLon, nextLat, nextLon)
+        if (dIn > DETOUR_JUMP_M && dOut > DETOUR_JUMP_M && dSpan < minOf(dIn, dOut)) return "detour"
         return null
     }
 

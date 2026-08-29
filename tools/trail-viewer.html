@@ -251,6 +251,7 @@
   <div class="ctl-group">
     <label class="file-btn" for="fileInput">Load export / trail JSON…</label>
     <input id="fileInput" type="file" accept=".json,application/json" style="display:none">
+    <span style="color:var(--text-dim)">or an admin bundle — you'll be asked for the passphrase</span>
   </div>
 
   <div class="ctl-group">
@@ -324,10 +325,30 @@
   </div>
 </div>
 
+<div id="passphraseOverlay" class="overlay hidden">
+  <div class="panel">
+    <div class="panel-head">
+      <h2>Admin passphrase</h2>
+      <button class="close-x" data-close="passphraseOverlay">&times;</button>
+    </div>
+    <div class="panel-body">
+      <div style="font-size:12px;color:var(--text-dim);margin-bottom:10px">
+        Encrypted bundle for <strong id="ppBundleUser"></strong>. Decryption (scrypt unwrap + X25519 +
+        HKDF + AES-GCM) runs entirely in this browser tab — the passphrase is never sent anywhere.
+      </div>
+      <input id="ppInput" type="password" placeholder="trail passphrase" autocomplete="off"
+        style="width:100%;padding:8px;font-size:13px;border-radius:6px;border:1px solid var(--border);box-sizing:border-box">
+      <div id="ppStatus" style="font-size:12px;margin-top:8px;min-height:16px"></div>
+      <button id="ppSubmit" class="primary" style="margin-top:8px">Decrypt &amp; view</button>
+    </div>
+  </div>
+</div>
+
 <div id="dropOverlay" class="hidden">Drop trail JSON to load</div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet-polylinedecorator@1.6.0/dist/leaflet.polylineDecorator.js"></script>
+<script src="https://unpkg.com/scrypt-js@3.0.1/scrypt.js"></script>
 <script>
 'use strict';
 
@@ -382,6 +403,7 @@ const TrailLabels = {
     switch (s) {
       case 'jump': return 'Suspect \u2014 impossible speed (likely GPS glitch)';
       case 'acc': return 'Suspect \u2014 poor accuracy';
+      case 'detour': return 'Suspect \u2014 coarse there-and-back spike (off-path)';
       default: return s ? 'Suspect \u2014 ' + s : s;
     }
   }
@@ -404,10 +426,24 @@ function hasPos(p) { return p && typeof p.lat === 'number' && typeof p.lon === '
 function isSuspect(p) { return p && p.susp != null; }  // SPEC_T13_GLITCH_FILTER.md glitch flag
 
 /* ---------- Loading & parsing (§2.1) ---------- */
+function looksLikeRawCiphertextBatch(item) {
+  return item && typeof item === 'object' && typeof item.ct === 'string' && typeof item.iv === 'string' && item.kind === undefined && item.lat === undefined;
+}
+
 function extractTrailArray(json) {
-  if (Array.isArray(json)) return json;
+  if (Array.isArray(json)) {
+    if (json.length && looksLikeRawCiphertextBatch(json[0])) {
+      throw new Error('This is a raw ciphertext batch export (iv/ct only, e.g. a straight DB dump) — it can\'t be ' +
+        'rendered directly. Build a decryptable bundle with tools/trail-admin-bundle.js on the server (it packages ' +
+        'the batches with the wrapped admin key and target public key), then load that bundle file here instead.');
+    }
+    return json;
+  }
+  if (json && json.kind === 'fshu-trail-encrypted-bundle-v1') {
+    throw new Error('This is an encrypted bundle — reload this page (Ctrl+R) and load the file again; the passphrase prompt should appear.');
+  }
   if (json && Array.isArray(json.trail)) return json.trail;
-  throw new Error('Unrecognized file: expected a GDPR export object with a "trail" array, or a bare array of trail points.');
+  throw new Error('Unrecognized file: expected a GDPR export object with a "trail" array, a bare array of trail points, or an admin bundle (tools/trail-admin-bundle.js output).');
 }
 
 /* ---------- App state ---------- */
@@ -891,6 +927,110 @@ document.getElementById('btnGpx').addEventListener('click', () => {
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 });
 
+/* ---------- Admin bundle decrypt (T13 Phase 2) ----------
+ * Reproduces server.js's trailUnwrapAdmin / trailConvKey / trailDecryptBatch EXACTLY
+ * (see SPEC_T13_PHASE2_SERVER_PERSISTENCE.md §1.3), but entirely client-side: the
+ * passphrase and the unwrapped private key never leave this tab. Bundle format is
+ * produced by tools/trail-admin-bundle.js (kind: "fshu-trail-encrypted-bundle-v1").
+ */
+function hexToBytes(hex) {
+  const out = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < out.length; i++) out[i] = parseInt(hex.substr(i * 2, 2), 16);
+  return out;
+}
+function b64ToBytes(b64) {
+  const bin = atob(b64);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+const X25519_ALG = { name: 'X25519' };
+
+// Try each wrap (daily / recovery) against the passphrase; first AES-GCM auth success wins.
+async function unwrapAdminPriv(wraps, passphrase) {
+  if (!window.scrypt) throw new Error('scrypt-js failed to load (needs network access to unpkg.com).');
+  const passBytes = new TextEncoder().encode(passphrase);
+  for (const w of (wraps || [])) {
+    try {
+      const salt = b64ToBytes(w.salt_b64);
+      const keyBytes = await window.scrypt.scrypt(passBytes, salt, w.N, w.r, w.p, 32);
+      const aesKey = await crypto.subtle.importKey('raw', keyBytes, 'AES-GCM', false, ['decrypt']);
+      const nonce = b64ToBytes(w.nonce_b64);
+      const ctWithTag = b64ToBytes(w.ct_b64);
+      const pkcs8 = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: nonce }, aesKey, ctWithTag);
+      const privKey = await crypto.subtle.importKey('pkcs8', pkcs8, X25519_ALG, false, ['deriveBits']);
+      return { privKey, label: w.label };
+    } catch (e) { /* wrong passphrase for this wrap, or corrupt — try the next one */ }
+  }
+  return null;
+}
+
+// Reproduce EcdhHelper.deriveConversationKey EXACTLY:
+//   shared=X25519(adminPriv,userPub); salt=SHA256("lo:hi"); HKDF-SHA256(shared,salt,"fshu-next-1-1-v1",32)
+async function deriveConvKey(adminPrivKey, userPubHex, a, b) {
+  const pubKey = await crypto.subtle.importKey('raw', hexToBytes(userPubHex), X25519_ALG, false, []);
+  const shared = await crypto.subtle.deriveBits({ name: 'X25519', public: pubKey }, adminPrivKey, 256);
+  const lo = a < b ? a : b, hi = a < b ? b : a;
+  const salt = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`${lo}:${hi}`));
+  const ikm = await crypto.subtle.importKey('raw', shared, 'HKDF', false, ['deriveBits']);
+  const bits = await crypto.subtle.deriveBits(
+    { name: 'HKDF', hash: 'SHA-256', salt, info: new TextEncoder().encode('fshu-next-1-1-v1') },
+    ikm, 256);
+  return crypto.subtle.importKey('raw', bits, 'AES-GCM', false, ['decrypt']);
+}
+
+// iv/ct are base64; ct = ciphertext with the 16-byte GCM tag appended (WebCrypto expects this as-is).
+async function decryptBatch(convKey, ivB64, ctB64) {
+  const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: b64ToBytes(ivB64) }, convKey, b64ToBytes(ctB64));
+  return JSON.parse(new TextDecoder().decode(pt));
+}
+
+async function loadEncryptedBundle(bundle, passphrase, fileName) {
+  const unwrapped = await unwrapAdminPriv(bundle.adminWraps, passphrase);
+  if (!unwrapped) throw new Error('Passphrase did not unlock this admin key (tried all wraps).');
+  const convKey = await deriveConvKey(unwrapped.privKey, bundle.userPublicKeyHex, bundle.username, bundle.adminId);
+  let points = [], failed = 0;
+  for (const b of (bundle.batches || [])) {
+    try { const pts = await decryptBatch(convKey, b.iv, b.ct); if (Array.isArray(pts)) points.push(...pts); }
+    catch (e) { failed++; }
+  }
+  loadFromJson({ trail: points }, fileName || `${bundle.username} (decrypted)`);
+  const note = failed ? ` — ${failed}/${bundle.batches.length} batch(es) failed to decrypt` : '';
+  showStatus(`Unlocked with the "${unwrapped.label}" passphrase. ${points.length} points from ${bundle.username}.${note}`, failed > 0 && points.length === 0);
+}
+
+let pendingBundle = null, pendingBundleFileName = '';
+function promptPassphraseAndDecrypt(bundle, fileName) {
+  pendingBundle = bundle;
+  pendingBundleFileName = fileName;
+  document.getElementById('ppBundleUser').textContent = bundle.username || '(unknown)';
+  document.getElementById('ppInput').value = '';
+  document.getElementById('ppStatus').textContent = '';
+  openOverlay('passphraseOverlay');
+  document.getElementById('ppInput').focus();
+}
+async function submitPassphrase() {
+  const pass = document.getElementById('ppInput').value;
+  if (!pass || !pendingBundle) return;
+  const statusEl = document.getElementById('ppStatus');
+  const btn = document.getElementById('ppSubmit');
+  statusEl.style.color = 'var(--text-dim)';
+  statusEl.textContent = 'Deriving key (scrypt)… this can take a few seconds.';
+  btn.disabled = true;
+  try {
+    await loadEncryptedBundle(pendingBundle, pass, pendingBundleFileName);
+    closeOverlay('passphraseOverlay');
+    pendingBundle = null;
+  } catch (e) {
+    statusEl.style.color = 'var(--red)';
+    statusEl.textContent = e.message || 'Decryption failed.';
+  } finally {
+    btn.disabled = false;
+  }
+}
+document.getElementById('ppSubmit').addEventListener('click', submitPassphrase);
+document.getElementById('ppInput').addEventListener('keydown', e => { if (e.key === 'Enter') submitPassphrase(); });
+
 /* ---------- File loading (picker + drag & drop) ---------- */
 function showStatus(msg, isError) {
   const el = document.getElementById('status');
@@ -918,7 +1058,11 @@ function handleFile(file) {
   reader.onload = () => {
     try {
       const json = JSON.parse(reader.result);
-      loadFromJson(json, file.name);
+      if (json && json.kind === 'fshu-trail-encrypted-bundle-v1') {
+        promptPassphraseAndDecrypt(json, file.name);
+      } else {
+        loadFromJson(json, file.name);
+      }
     } catch (e) {
       showStatus('Failed to load: ' + e.message, true);
     }

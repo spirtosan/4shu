@@ -56,7 +56,15 @@ interface TrailDao {
     @Query("SELECT MAX(ts) FROM trail_points WHERE kind = 'fix'")
     suspend fun getNewestFixTs(): Long?
 
-    /** One-tap disable (§6.5): local wipe. Server-side trail-wipe rides Phase 2/3. */
+    /** SPEC_T13_GLITCH_FILTER.md §detour — retroactively set the glitch flag on an
+     *  already-stored point. The "detour" rule is non-causal (decided only once the NEXT
+     *  fix arrives), and the collector persists first for durability, so it flags the
+     *  previous point in place afterwards. Additive: only ever writes a reason onto a
+     *  point the online path left clean. */
+    @Query("UPDATE trail_points SET susp = :susp WHERE seq = :seq")
+    suspend fun updateSusp(seq: Long, susp: String?)
+
+        /** One-tap disable (§6.5): local wipe. Server-side trail-wipe rides Phase 2/3. */
     @Query("DELETE FROM trail_points")
     suspend fun deleteAll()
 }
