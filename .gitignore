@@ -28,6 +28,16 @@ secret.key
 # location/message data, never a source file.
 fshu_export_*.json
 
+# Admin trail pulls from the live server (raw ciphertext, wrapped admin key, or
+# decrypted points) — real user data, never a source file.
+ivantrack*.json
+tools/*_trail_bundle.json
+
+# Trail viewer / admin exports — GPX is PLAINTEXT coordinates, JSON too; real
+# location data, never a source file.
+trail_export_*.gpx
+trail_export_*.json
+
 # Internal planning docs (Claude Code session files)
 BRIEFING.md
 4shu_master_plan.md
