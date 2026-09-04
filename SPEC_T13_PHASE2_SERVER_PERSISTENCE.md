@@ -1,7 +1,22 @@
 # SPEC — Trail server-side persistence (Phase 2/3): admin-readable, encrypted, always-lands
 
-**Status:** DESIGN LOCKED with Ivan (2026-08-27). Ready to build block-by-block. No code
-written this session.
+**Status: SHIPPED & DEPLOYED — no build work outstanding.** Blocks **F–L are implemented,
+committed, and live.** Commits: `36c30d7` (F+G+I: schema+config+keygen, handlers +
+passphrase-unlock admin decrypt, client upload engine w/ priority resend), `55869c3`
+(H+J+K+L: frozen-clock purge, last-gasp/PANIC, admin viewer), `f89408b` (live deploy to
+`/opt/fshu5`); glitch filter jump+detour in `56c5a80`/`0651917`. HEAD `5c8b804`.
+The admin passphrase-unlock decrypt path is **field-proven — Ivan decoded a live trail with
+it (2026-09-04)**; guardian grant/accept/fetch/export path complete. **Only remaining item:
+two-device end-to-end acceptance testing** (runbook in `NEXT_SESSION_T13.md`), which Ivan
+runs when both devices are available.
+*(Design was locked 2026-08-27; the original "No code written this session" header referred
+ONLY to that design session and is SUPERSEDED — implementation shipped in the sessions that
+followed. Always check `git log` before assuming build state.)*
+**§5 `susp` carry-through VERIFIED 2026-09-04** (see §5).
+**Policy decisions LOCKED 2026-09-04 (Ivan):** admin reads are **silent to the user — no
+push, ever** (§6); admin passphrase = **single, held offline** (§3). The already-minted,
+deployed admin key carries the keygen's default daily+recovery wraps — harmless; Ivan keeps
+one passphrase offline and no re-mint is done.
 **Parent / authority:** `SPEC_T13.md`. **This document AMENDS SPEC_T13 §1(1) and §5** —
 see §7. **Priors:** `claude/next-session-trail-server-upload.md` (kickoff),
 `claude/gps-trail-findings-2026-08-23.md`, `claude/spec-t13-glitch-filter-2026-08-23.md`.
@@ -140,13 +155,22 @@ loop the fanout over it, so the second admin is a config append.
   `admin_pub` to devices, devices re-encrypt their current 7-day window to it (§5 reuse);
   old ciphertext stays readable only with the old private key and ages out within the
   7-day retention window. Keep the old key just long enough to read pre-rotation data.
-- **Passphrase loss = data loss for the admin path.** If the only admin passphrase is lost,
-  `admin_priv` is unrecoverable and all existing admin-encrypted trail ciphertext becomes
-  unreadable **by the admin** (guardians are unaffected). Mitigations, pick per policy:
-  (a) wrap the same `admin_priv` under **two** passphrases — a daily one and a recovery one
-  kept offline in a safe; (b) Shamir-split the recovery passphrase across trusted holders.
-  This is the one irreducible operational risk of "encrypted at rest" — surface it plainly
-  to whoever operates the server.
+- **Passphrase — LOCKED 2026-09-04: single passphrase, held offline.** Ivan's decision:
+  operate with **one** admin passphrase, kept outside the server (offline). NOTE the
+  deployed reality: the admin key was already minted by `tools/trail-admin-keygen.js`, whose
+  default writes **two** wraps (daily + recovery) over the *same* `admin_priv`. That key is
+  in live config and has been used to decrypt (2026-09-04). **We leave it as-is** — the
+  extra wrap is harmless (either passphrase unlocks the same key), and Ivan simply keeps one
+  passphrase offline and doesn't maintain a separate recovery secret. No re-mint, no keygen
+  change. If a *future* mint should be single-wrap, the keygen can be trimmed then — not a
+  requirement now.
+  Recovery story if the passphrase is ever lost: passphrase *rotation* re-wraps the
+  **existing** `admin_priv` and needs a working passphrase, so it does **not** recover a
+  *lost* one. A genuinely lost passphrase means minting a **new admin keypair**, pushing the
+  new `admin_pub` to devices (keypair-rotation above); new batches encrypt to it
+  immediately and the old (now-unreadable) ciphertext **ages out inside the 7-day retention
+  window** — blast radius ≤7 days of admin-side history, guardians unaffected. Acceptable by
+  design; no offline recovery machinery to build.
 - **Never** log the passphrase, the derived `kek`, or a decrypted `admin_priv`. Zero the
   key material in memory on session end.
 
@@ -201,17 +225,31 @@ these let Ivan *see* that (e.g.) the Greece trip's points reached the server.
 
 ---
 
-## 5. Suspect (`susp`) fixes carry through to the server — and a verification gap to close
+## 5. Suspect (`susp`) fixes carry through to the server — VERIFIED 2026-09-04
 
 Locked decision #6: suspect fixes are **kept and uploaded with the `susp` flag intact**;
 server/guardian/admin UI annotates or hides them, never drops them.
 
-**Verify before Block I relies on it:** the fresh `fshu_export_ivan_20260827_154114.json`
-(454 points, seq 1–454, no gaps, Aug 25–27) contains **zero `susp` fields**, though the
-glitch filter shipped Aug 23 (56c5a80). Likely nothing tripped the 150 km/h rule this
-window — but confirm the field round-trips `trail_points.susp` → `TrailPointMapper` →
-point JSON → **both** the GDPR export and the new upload batch. A single synthetic
-`susp:"jump"` row proves it. If the export omits it today, the upload will too.
+**VERIFIED (2026-09-04)** against a fresh field export `fshu_export_ivan_20260904_185459.json`
+(2498 points, seq 1–2498, no gaps, ~Aug 29 → Sep 4). The `susp` field now round-trips
+`trail_points.susp` → `TrailPointMapper` → point JSON → GDPR export in real data:
+
+- **95 suspect points carry a `susp` reason: 70 `jump`, 25 `detour`.** All 95 sit on
+  located fixes (none stranded on event-only rows).
+- **Every flag is internally valid — 0 violate its own rule** (checked against decrypted
+  coordinates this session): all 70 `jump` have implied speed ≥150 km/h AND acc >250 m
+  (min 152; extremes 5,035 / 23,878 km/h at ~700 m are obvious teleports); all 25 `detour`
+  satisfy `acc≥60` + both legs >250 m + span < min-leg, all `moving`, `STILL` excluded.
+- Some suspects come in **consecutive runs** (e.g. seq 852–855 a 19–23 km there-and-back
+  at acc 73 m; runs of 7 and 9 around seq 1919–1925 / 2016–2024) — sustained bad-GPS
+  stretches, correctly flag-and-kept, not false positives.
+
+Because the export carries `susp`, the Block I **upload batch will carry it too** (same
+`TrailPointMapper` output). **This closes the verification gap that blocked Block I.**
+The viewer already renders it: `tools/trail-viewer.html` draws suspects as red dots,
+**excludes them from the connecting path line**, labels each by reason, and counts them —
+so "handle the 95 in the viewer" is already done on the export/viewer side; the server/
+admin/guardian view must apply the same non-null-`susp` treatment.
 
 ---
 
@@ -221,10 +259,14 @@ point JSON → **both** the GDPR export and the new upload batch. A single synth
   to the user (SPEC_T13 §6.4) — unchanged.
 - Every **admin** decrypt session also writes `trail_access_log` rows (audit trail — an
   unlogged admin read would undercut the whole trust model of a safety app).
-- Whether an admin read also pushes `trail-accessed` to the user is a **policy toggle**
-  (`adminAccessNotifiesUser`, default: log-always, notify-configurable). Emergency/abuse
-  investigations involving the account holder are the reason it's a toggle rather than
-  hard-wired on. Ivan's call before Block G ships.
+- **Admin reads do NOT notify the user — LOCKED 2026-09-04 (Ivan): `adminAccessNotifiesUser
+  = false`, and no phone notification is raised for an admin read at all.** Rationale: this
+  is a **safety** feature and the phone should stay silent — the user opted into the trail
+  when they enabled it, and does not need a ping each time the admin looks. The **server-
+  side `trail_access_log` audit row is still written** (silent, never reaches the phone) so
+  operator accountability is preserved without surfacing anything to the user. Guardian
+  fetches keep their existing SPEC_T13 §6.4 behavior — this decision scopes admin reads
+  only.
 
 ---
 
@@ -265,19 +307,22 @@ stop-and-report.
    admin-readable decision.
 4. **Block I — upload queue.** Batching + **priority resend on reconnect** (§4.3) +
    per-recipient watermarks (incl. admin) + offline durability + re-encrypt-on-grant.
-   **This is the block that makes the trip data land.** Verify `susp` carry-through (§5).
+   **This is the block that makes the trip data land.** `susp` carry-through **CONFIRMED
+   2026-09-04 (§5)** — Block I inherits it free via `TrailPointMapper`; no extra work.
 5. **Blocks J–L** — last-gasp/panic, guardian+admin viewer, polish — per SPEC_T13 §7.
 
 ---
 
-## 9. Open policy items (not blockers — decide before the relevant block)
+## 9. Open policy items
 
-- **`adminAccessNotifiesUser`** default (§6) — before Block G.
-- **Passphrase-loss mitigation** (§3: dual passphrase vs Shamir) — before Block F stores
-  the first wrap.
+- ~~**`adminAccessNotifiesUser`** default (§6)~~ — **RESOLVED 2026-09-04:** notify OFF, no
+  phone notification for admin reads; silent audit log only (§6).
+- ~~**Passphrase-loss mitigation** (§3: dual passphrase vs Shamir)~~ — **RESOLVED
+  2026-09-04:** operate with a single offline passphrase; deployed key keeps its default
+  daily+recovery wraps (harmless, left as-is); loss → new keypair (§3).
 - **`svc_restart` / `sim_changed` events** seen Aug-21 and in the Aug-27 file — confirm
   these were manual test restarts vs a real OEM kill worth chasing before relying on
-  background upload reliability.
+  background upload reliability. *(Still open — a reliability check, not a blocker for F/G.)*
 
 ---
 
